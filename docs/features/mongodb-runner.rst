@@ -1,7 +1,7 @@
 MongoDB Runner Integration
 ==========================
 
-dbx-python-cli integrates with `mongodb-runner <https://www.npmjs.com/package/mongodb-runner>`_ to automatically start MongoDB when needed. This makes it easy to get started with Django + MongoDB projects without manually installing or configuring MongoDB.
+dbx-python-cli integrates with `mongodb-runner <https://www.npmjs.com/package/mongodb-runner>`_ to automatically start MongoDB when needed. This makes it easy to get started with MongoDB projects without manually installing or configuring MongoDB.
 
 How It Works
 ------------
