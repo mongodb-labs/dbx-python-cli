@@ -409,7 +409,7 @@ base_dir = "{base_dir_str}"
 
 
 def test_project_list(tmp_path):
-    """Test listing projects."""
+    """Test listing projects with 'project list' subcommand."""
     config_dir = tmp_path / ".config" / "dbx-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
@@ -426,7 +426,7 @@ base_dir = "{base_dir_str}"
         mock_get_path.return_value = config_path
 
         # Test with no projects directory
-        result = runner.invoke(app, ["project", "-l"])
+        result = runner.invoke(app, ["project", "list"])
         assert result.exit_code == 0
         assert (
             "No projects" in result.stdout
@@ -443,42 +443,12 @@ base_dir = "{base_dir_str}"
         assert result.exit_code == 0
 
         # List projects
-        result = runner.invoke(app, ["project", "-l"])
+        result = runner.invoke(app, ["project", "list"])
         assert result.exit_code == 0
         assert "Found 2 project(s)" in result.stdout
         assert "project1" in result.stdout
         assert "project2" in result.stdout
         assert "🎨" in result.stdout  # Frontend marker should appear
-
-
-def test_project_list_long_form(tmp_path):
-    """Test listing projects with --list flag."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
-    config_dir.mkdir(parents=True)
-    config_path = config_dir / "config.toml"
-
-    base_dir = tmp_path / "repos"
-    base_dir_str = str(base_dir).replace("\\", "/")
-
-    config_content = f"""[repo]
-base_dir = "{base_dir_str}"
-"""
-    config_path.write_text(config_content)
-
-    with patch("dbx_python_cli.commands.repo_utils.get_config_path") as mock_get_path:
-        mock_get_path.return_value = config_path
-
-        # Create a project
-        result = runner.invoke(app, ["project", "add", "--no-install", "listproject"])
-        assert result.exit_code == 0, (
-            f"Exit code was {result.exit_code}, output: {result.output}"
-        )
-
-        # List with --list flag
-        result = runner.invoke(app, ["project", "--list"])
-        assert result.exit_code == 0
-        assert "Found 1 project(s)" in result.stdout
-        assert "listproject" in result.stdout
 
 
 def test_project_run_settings_module(tmp_path):
