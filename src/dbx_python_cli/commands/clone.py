@@ -150,7 +150,7 @@ def ensure_group_venv(group_dir: Path, group_name: str, verbose: bool = False) -
 
 
 app = typer.Typer(
-    help="📚 Clone repositories",
+    help="🛠️ Clone repositories",
     no_args_is_help=True,
     invoke_without_command=True,
     context_settings={

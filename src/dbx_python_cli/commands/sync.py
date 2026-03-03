@@ -8,7 +8,7 @@ import typer
 from dbx_python_cli.commands import repo_utils as repo
 
 app = typer.Typer(
-    help="📚 Sync repositories with upstream",
+    help="🛠️ Sync repositories with upstream",
     no_args_is_help=True,
     invoke_without_command=True,
     context_settings={
