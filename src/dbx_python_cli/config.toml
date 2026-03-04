@@ -28,6 +28,10 @@ repos = [
 [repo.groups.global.test_env]
 mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/pymongo/drivers-evergreen-tools", USE_ACTIVE_VENV = "1" }
 
+# Default extras to install automatically
+[repo.groups.global.install_extras]
+mongo-python-driver = ["test"]
+
 [repo.groups.pymongo]
 repos = [
     "git@github.com:mongodb/specifications.git",

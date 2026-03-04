@@ -13,6 +13,7 @@ from dbx_python_cli.commands.repo_utils import (
     get_base_dir,
     get_build_commands,
     get_config,
+    get_global_groups,
     get_install_dirs,
     get_install_extras,
     get_install_groups,
@@ -21,9 +22,22 @@ from dbx_python_cli.commands.venv_utils import get_venv_info
 
 
 def _effective_install_args(config, group_name, repo_name, extras_str, groups_str):
-    """Merge per-repo config default extras/groups with CLI-supplied values."""
+    """Merge per-repo config default extras/groups with CLI-supplied values.
+
+    Falls back to global groups if no config found in the repo's own group.
+    """
     config_extras = get_install_extras(config, group_name, repo_name)
     config_groups = get_install_groups(config, group_name, repo_name)
+
+    # If no config found in the repo's group, check global groups as fallback
+    if not config_extras and not config_groups:
+        for global_group in get_global_groups(config):
+            fallback_extras = get_install_extras(config, global_group, repo_name)
+            fallback_groups = get_install_groups(config, global_group, repo_name)
+            if fallback_extras or fallback_groups:
+                config_extras = fallback_extras
+                config_groups = fallback_groups
+                break
 
     user_extras = [e for e in extras_str.split(",") if e] if extras_str else []
     all_extras = config_extras + [e for e in user_extras if e not in config_extras]
@@ -802,19 +816,22 @@ def install_callback(
             typer.echo("\nRun 'dbx install --list' to see available repositories")
             raise typer.Exit(1)
 
-        # Check if repo exists in multiple groups
+        # Check if repo exists in multiple groups (suppress warning if one is a global group)
         all_repos = find_all_repos(base_dir)
         matching_repos = [r for r in all_repos if r["name"] == repo_name]
         if len(matching_repos) > 1:
             groups = [r["group"] for r in matching_repos]
-            typer.echo(
-                f"⚠️  Warning: Repository '{repo_name}' found in multiple groups: {', '.join(groups)}",
-                err=True,
-            )
-            typer.echo(
-                f"⚠️  Using '{repo['group']}' group. Use -g to specify a different group.\n",
-                err=True,
-            )
+            global_group_names = set(get_global_groups(config))
+            # Only warn if none of the groups are global groups
+            if not any(g in global_group_names for g in groups):
+                typer.echo(
+                    f"⚠️  Warning: Repository '{repo_name}' found in multiple groups: {', '.join(groups)}",
+                    err=True,
+                )
+                typer.echo(
+                    f"⚠️  Using '{repo['group']}' group. Use -g to specify a different group.\n",
+                    err=True,
+                )
 
         repo_path = Path(repo["path"])
         # Default to repo's own group

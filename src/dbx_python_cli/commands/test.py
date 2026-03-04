@@ -17,7 +17,7 @@ from dbx_python_cli.commands.repo_utils import (
     get_test_runner_args,
 )
 from dbx_python_cli.commands.venv_utils import get_venv_info
-from dbx_python_cli.commands.project import add_project
+from dbx_python_cli.commands.project import add_project, ensure_mongodb
 
 app = typer.Typer(
     help="💚 Test commands",
@@ -100,17 +100,7 @@ def test_callback(
         typer.echo(f"❌ Error: {e}", err=True)
         raise typer.Exit(1)
 
-    if not os.getenv("MONGODB_URI"):
-        default_uri = (
-            config.get("project", {}).get("default_env", {}).get("MONGODB_URI")
-        )
-        if default_uri:
-            typer.echo(
-                f"⚠️  Warning: MONGODB_URI is not set. Using default: {default_uri}",
-                err=True,
-            )
-        else:
-            typer.echo("⚠️  Warning: MONGODB_URI is not set.", err=True)
+    # MongoDB URI handling is done later via ensure_mongodb
 
     # Handle --list flag
     if list_repos:
@@ -283,16 +273,8 @@ def test_callback(
         # Check for default environment variables from project config
         default_env = config.get("project", {}).get("default_env", {})
 
-        # Set MONGODB_URI if not in environment
-        if "MONGODB_URI" in test_env:
-            typer.echo(
-                f"🔗 Using MONGODB_URI from environment: {test_env['MONGODB_URI']}"
-            )
-        else:
-            default_uri = default_env.get("MONGODB_URI")
-            if default_uri:
-                typer.echo(f"🔗 Using default MongoDB URI from config: {default_uri}")
-                test_env["MONGODB_URI"] = default_uri
+        # Ensure MongoDB is available (uses env, config, or starts mongodb-runner)
+        test_env = ensure_mongodb(test_env)
 
         # For pymongo tests: parse MONGODB_URI and set DB_IP and DB_PORT
         # The pymongo test suite uses DB_IP and DB_PORT instead of MONGODB_URI
