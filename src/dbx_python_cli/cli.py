@@ -99,10 +99,24 @@ def main(
         "-v",
         help="Show more detailed output.",
     ),
+    backend: str = typer.Option(
+        None,
+        "--backend",
+        help="MongoDB backend to use: mongodb-runner, docker, or atlas-local (overrides config)",
+    ),
+    edition: str = typer.Option(
+        None,
+        "--edition",
+        help="MongoDB edition to use: community or enterprise (overrides config)",
+    ),
 ):
     """A command line tool for DBX Python development tasks."""
-    # Store verbose flag in context for subcommands to access
-    ctx.obj = {"verbose": verbose}
+    # Store flags in context for subcommands to access
+    ctx.obj = {
+        "verbose": verbose,
+        "mongodb_backend": backend,
+        "mongodb_edition": edition,
+    }
 
 
 if __name__ == "__main__":

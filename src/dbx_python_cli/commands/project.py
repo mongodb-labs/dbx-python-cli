@@ -20,45 +20,516 @@ from dbx_python_cli.commands.repo_utils import get_base_dir, get_config
 from dbx_python_cli.commands.venv_utils import get_venv_info
 from dbx_python_cli.commands.install import install_package, install_frontend_if_exists
 
-# Global variable to track if we started mongodb-runner
+# Global variable to track if we started mongodb-runner, docker, or atlas-local
 _mongodb_runner_started = False
+_docker_started = False
+_atlas_local_started = False
 
 
-def ensure_mongodb(env: dict) -> dict:
+def ensure_mongodb_docker(env: dict, config: dict) -> dict:
     """
-    Ensure MongoDB is available.
-
-    Checks for MONGODB_URI in the environment. If not set:
-    1. Try to start MongoDB using mongodb-runner
-    2. If mongodb-runner fails, exit with "no db running"
+    Start MongoDB using standard Docker images (community or enterprise).
 
     Args:
         env: Environment dictionary to update with MONGODB_URI
+        config: Configuration dictionary
 
     Returns:
         Updated environment dictionary with MONGODB_URI set
 
     Raises:
-        typer.Exit: If no MongoDB is available and mongodb-runner fails
+        typer.Exit: If Docker is not available or MongoDB fails to start
+    """
+    global _docker_started
+
+    # Get configuration
+    mongodb_config = config.get("project", {}).get("mongodb", {})
+    edition = mongodb_config.get("edition", "community")
+    docker_config = mongodb_config.get("docker", {})
+
+    # Determine image based on edition if not explicitly set
+    if "image" in docker_config:
+        image = docker_config["image"]
+    else:
+        if edition == "enterprise":
+            image = "mongodb/mongodb-enterprise-server"
+        else:
+            image = "mongodb/mongodb-community-server"
+
+    tag = docker_config.get("tag", "latest")
+    container_name = docker_config.get("container_name", "dbx-mongodb")
+    port = docker_config.get("port", 27017)
+    replset = docker_config.get("replset")
+    docker_options = docker_config.get("docker_options", [])
+
+    full_image = f"{image}:{tag}"
+    edition_label = "Enterprise" if edition == "enterprise" else "Community"
+    topology_label = "Replica Set" if replset else "Standalone"
+
+    typer.echo(
+        f"⚠️  MONGODB_URI is not set. Checking for Docker MongoDB ({edition_label}, {topology_label})..."
+    )
+
+    try:
+        # Check if docker is available
+        docker_check = subprocess.run(
+            ["which", "docker"],
+            capture_output=True,
+            text=True,
+        )
+        if docker_check.returncode != 0:
+            typer.echo(
+                "❌ docker is not available. Cannot use Docker MongoDB.", err=True
+            )
+            typer.echo(
+                "💡 Install Docker: https://docs.docker.com/get-docker/", err=True
+            )
+            typer.echo("no db running", err=True)
+            raise typer.Exit(code=1)
+
+        # Check if container is already running
+        ps_result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name={container_name}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if ps_result.returncode == 0 and container_name in ps_result.stdout:
+            # Container is running, check if it's healthy
+            mongodb_uri = f"mongodb://localhost:{port}"
+            if replset:
+                mongodb_uri += f"/?replicaSet={replset}"
+            env["MONGODB_URI"] = mongodb_uri
+            typer.echo(f"✅ Found running Docker MongoDB container: {container_name}")
+            typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
+            return env
+
+        # Check if container exists but is stopped
+        ps_all_result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"name={container_name}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if ps_all_result.returncode == 0 and container_name in ps_all_result.stdout:
+            # Container exists but is stopped, start it
+            typer.echo(
+                f"🚀 Starting existing Docker MongoDB container: {container_name}..."
+            )
+            start_result = subprocess.run(
+                ["docker", "start", container_name],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if start_result.returncode != 0:
+                typer.echo(
+                    f"❌ Failed to start Docker MongoDB container: {start_result.stderr}",
+                    err=True,
+                )
+                typer.echo("no db running", err=True)
+                raise typer.Exit(code=1)
+        else:
+            # No container exists, create and start a new one
+            typer.echo(
+                f"🚀 Starting new Docker MongoDB container with image: {full_image}..."
+            )
+
+            # Build docker run command
+            docker_cmd = [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                container_name,
+                "-p",
+                f"{port}:27017",
+            ]
+
+            # Add any additional docker options
+            docker_cmd.extend(docker_options)
+
+            # Add the image
+            docker_cmd.append(full_image)
+
+            # Add replica set configuration if specified
+            if replset:
+                docker_cmd.extend(["--replSet", replset])
+
+            run_result = subprocess.run(
+                docker_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            if run_result.returncode != 0:
+                typer.echo(
+                    f"❌ Failed to start Docker MongoDB: {run_result.stderr}", err=True
+                )
+                typer.echo("no db running", err=True)
+                raise typer.Exit(code=1)
+
+        # Wait a moment for MongoDB to start
+        import time
+
+        typer.echo("⏳ Waiting for MongoDB to start...")
+        time.sleep(5)
+
+        # If replica set is configured, initialize it
+        if replset:
+            typer.echo(f"⏳ Initializing replica set '{replset}'...")
+            init_result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "mongosh",
+                    "--quiet",
+                    "--eval",
+                    f"rs.initiate({{_id: '{replset}', members: [{{_id: 0, host: 'localhost:27017'}}]}})",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if init_result.returncode != 0:
+                typer.echo(
+                    f"⚠️  Warning: Failed to initialize replica set: {init_result.stderr}",
+                    err=True,
+                )
+            else:
+                typer.echo(f"✅ Replica set '{replset}' initialized successfully")
+                # Wait a bit more for replica set to stabilize
+                time.sleep(3)
+
+        mongodb_uri = f"mongodb://localhost:{port}"
+        if replset:
+            mongodb_uri += f"/?replicaSet={replset}"
+
+        env["MONGODB_URI"] = mongodb_uri
+        _docker_started = True
+        typer.echo(
+            f"✅ Docker MongoDB {edition_label} ({topology_label}) started successfully"
+        )
+        typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
+        return env
+
+    except subprocess.TimeoutExpired:
+        typer.echo("❌ Docker command timed out", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+    except FileNotFoundError:
+        typer.echo("❌ docker command not found. Cannot use Docker MongoDB.", err=True)
+        typer.echo("💡 Install Docker: https://docs.docker.com/get-docker/", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start Docker MongoDB: {e}", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+
+
+def ensure_mongodb_atlas_local(env: dict, config: dict) -> dict:
+    """
+    Start MongoDB using Atlas Local Docker image.
+
+    Args:
+        env: Environment dictionary to update with MONGODB_URI
+        config: Configuration dictionary
+
+    Returns:
+        Updated environment dictionary with MONGODB_URI set
+
+    Raises:
+        typer.Exit: If Docker is not available or Atlas Local fails to start
+    """
+    global _atlas_local_started
+
+    # Get Atlas Local configuration
+    atlas_config = config.get("project", {}).get("mongodb", {}).get("atlas_local", {})
+    image = atlas_config.get("image", "mongodb/mongodb-atlas-local")
+    tag = atlas_config.get("tag", "latest")
+    container_name = atlas_config.get("container_name", "dbx-atlas-local")
+    port = atlas_config.get("port", 27017)
+    docker_options = atlas_config.get("docker_options", [])
+
+    full_image = f"{image}:{tag}"
+
+    typer.echo("⚠️  MONGODB_URI is not set. Checking for Atlas Local...")
+
+    try:
+        # Check if docker is available
+        docker_check = subprocess.run(
+            ["which", "docker"],
+            capture_output=True,
+            text=True,
+        )
+        if docker_check.returncode != 0:
+            typer.echo("❌ docker is not available. Cannot use Atlas Local.", err=True)
+            typer.echo(
+                "💡 Install Docker: https://docs.docker.com/get-docker/", err=True
+            )
+            typer.echo("no db running", err=True)
+            raise typer.Exit(code=1)
+
+        # Check if container is already running
+        ps_result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name={container_name}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if ps_result.returncode == 0 and container_name in ps_result.stdout:
+            # Container is running, check if it's healthy
+            health_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Health.Status}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            health_status = (
+                health_result.stdout.strip()
+                if health_result.returncode == 0
+                else "unknown"
+            )
+
+            if health_status == "healthy":
+                # Atlas Local runs as a replica set with internal hostname
+                # Use directConnection=true to bypass replica set discovery
+                mongodb_uri = f"mongodb://localhost:{port}/?directConnection=true"
+                env["MONGODB_URI"] = mongodb_uri
+                typer.echo(f"✅ Found running Atlas Local container: {container_name}")
+                typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
+                return env
+            elif health_status == "starting":
+                typer.echo(
+                    "⏳ Atlas Local container is starting, waiting for healthy status..."
+                )
+                # Wait for container to become healthy (max 60 seconds)
+                for _ in range(30):
+                    import time
+
+                    time.sleep(2)
+                    health_result = subprocess.run(
+                        [
+                            "docker",
+                            "inspect",
+                            "--format",
+                            "{{.State.Health.Status}}",
+                            container_name,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if (
+                        health_result.returncode == 0
+                        and health_result.stdout.strip() == "healthy"
+                    ):
+                        # Atlas Local runs as a replica set with internal hostname
+                        # Use directConnection=true to bypass replica set discovery
+                        mongodb_uri = (
+                            f"mongodb://localhost:{port}/?directConnection=true"
+                        )
+                        env["MONGODB_URI"] = mongodb_uri
+                        typer.echo("✅ Atlas Local container is now healthy")
+                        typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
+                        return env
+
+                typer.echo(
+                    "❌ Atlas Local container did not become healthy in time", err=True
+                )
+                typer.echo("no db running", err=True)
+                raise typer.Exit(code=1)
+
+        # Check if container exists but is stopped
+        ps_all_result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"name={container_name}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if ps_all_result.returncode == 0 and container_name in ps_all_result.stdout:
+            # Container exists but is stopped, start it
+            typer.echo(
+                f"🚀 Starting existing Atlas Local container: {container_name}..."
+            )
+            start_result = subprocess.run(
+                ["docker", "start", container_name],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if start_result.returncode != 0:
+                typer.echo(
+                    f"❌ Failed to start Atlas Local container: {start_result.stderr}",
+                    err=True,
+                )
+                typer.echo("no db running", err=True)
+                raise typer.Exit(code=1)
+        else:
+            # No container exists, create and start a new one
+            typer.echo(
+                f"🚀 Starting new Atlas Local container with image: {full_image}..."
+            )
+
+            # Build docker run command
+            docker_cmd = [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                container_name,
+                "-p",
+                f"{port}:27017",
+            ]
+
+            # Add any additional docker options
+            docker_cmd.extend(docker_options)
+
+            # Add the image
+            docker_cmd.append(full_image)
+
+            run_result = subprocess.run(
+                docker_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            if run_result.returncode != 0:
+                typer.echo(
+                    f"❌ Failed to start Atlas Local: {run_result.stderr}", err=True
+                )
+                typer.echo("no db running", err=True)
+                raise typer.Exit(code=1)
+
+        # Wait for container to become healthy
+        typer.echo("⏳ Waiting for Atlas Local to become healthy...")
+        for _ in range(60):  # Wait up to 2 minutes
+            import time
+
+            time.sleep(2)
+            health_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Health.Status}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if (
+                health_result.returncode == 0
+                and health_result.stdout.strip() == "healthy"
+            ):
+                # Atlas Local runs as a replica set with internal hostname
+                # Use directConnection=true to bypass replica set discovery
+                mongodb_uri = f"mongodb://localhost:{port}/?directConnection=true"
+                env["MONGODB_URI"] = mongodb_uri
+                _atlas_local_started = True
+                typer.echo("✅ Atlas Local started successfully")
+                typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
+                return env
+
+        typer.echo("❌ Atlas Local did not become healthy in time", err=True)
+        typer.echo("💡 Check container logs: docker logs " + container_name, err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+
+    except subprocess.TimeoutExpired:
+        typer.echo("❌ Docker command timed out", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+    except FileNotFoundError:
+        typer.echo("❌ docker command not found. Cannot use Atlas Local.", err=True)
+        typer.echo("💡 Install Docker: https://docs.docker.com/get-docker/", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start Atlas Local: {e}", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
+
+
+def ensure_mongodb_runner(env: dict, config: dict) -> dict:
+    """
+    Start MongoDB using mongodb-runner.
+
+    Args:
+        env: Environment dictionary to update with MONGODB_URI
+        config: Configuration dictionary
+
+    Returns:
+        Updated environment dictionary with MONGODB_URI set
+
+    Raises:
+        typer.Exit: If npx is not available or mongodb-runner fails to start
     """
     global _mongodb_runner_started
 
-    if "MONGODB_URI" in env and env["MONGODB_URI"]:
-        typer.echo(f"🔗 Using MONGODB_URI from environment: {env['MONGODB_URI']}")
-        return env
+    # Get configuration
+    mongodb_config = config.get("project", {}).get("mongodb", {})
+    edition = mongodb_config.get("edition", "community")
+    runner_config = mongodb_config.get("mongodb_runner", {})
+    topology = runner_config.get("topology", "standalone")
+    shards = runner_config.get("shards")
+    secondaries = runner_config.get("secondaries")
+    arbiters = runner_config.get("arbiters")
+    additional_options = runner_config.get("options", [])
 
-    # Check for default MONGODB_URI in config
-    config = get_config()
-    default_env = config.get("project", {}).get("default_env", {})
-    default_uri = default_env.get("MONGODB_URI")
-
-    if default_uri:
-        typer.echo(f"🔗 Using default MongoDB URI from config: {default_uri}")
-        env["MONGODB_URI"] = default_uri
-        return env
-
-    # No MONGODB_URI set, try to use mongodb-runner
-    typer.echo("⚠️  MONGODB_URI is not set. Checking for mongodb-runner...")
+    edition_label = "Enterprise" if edition == "enterprise" else "Community"
+    topology_label = topology.capitalize()
+    typer.echo(
+        f"⚠️  MONGODB_URI is not set. Checking for mongodb-runner ({edition_label}, {topology_label})..."
+    )
 
     try:
         # Check if npx is available
@@ -91,9 +562,36 @@ def ensure_mongodb(env: dict) -> dict:
                 return env
 
         # No running instance, start a new one
-        typer.echo("🚀 Starting MongoDB with mongodb-runner...")
+        typer.echo(
+            f"🚀 Starting MongoDB {edition_label} ({topology_label}) with mongodb-runner..."
+        )
+
+        # Build command with options
+        cmd = ["npx", "mongodb-runner", "start"]
+
+        # Add topology
+        if topology and topology != "standalone":
+            cmd.extend(["-t", topology])
+
+        # Add enterprise flag if needed
+        if edition == "enterprise":
+            cmd.append("--enterprise")
+
+        # Add topology-specific options
+        if shards is not None and topology == "sharded":
+            cmd.extend(["--shards", str(shards)])
+
+        if secondaries is not None and topology in ["replset", "sharded"]:
+            cmd.extend(["--secondaries", str(secondaries)])
+
+        if arbiters is not None and topology in ["replset", "sharded"]:
+            cmd.extend(["--arbiters", str(arbiters)])
+
+        # Add any additional options from config
+        cmd.extend(additional_options)
+
         result = subprocess.run(
-            ["npx", "mongodb-runner", "start"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=120,  # 2 minute timeout for download/start
@@ -138,6 +636,72 @@ def ensure_mongodb(env: dict) -> dict:
         typer.echo(f"❌ Failed to start mongodb-runner: {e}", err=True)
         typer.echo("no db running", err=True)
         raise typer.Exit(code=1)
+
+
+def ensure_mongodb(
+    env: dict, backend_override: str = None, edition_override: str = None
+) -> dict:
+    """
+    Ensure MongoDB is available.
+
+    Checks for MONGODB_URI in the environment. If not set:
+    1. Check config for backend preference (mongodb-runner, docker, or atlas-local)
+    2. Try to start MongoDB using the configured backend
+    3. If backend fails, exit with "no db running"
+
+    Args:
+        env: Environment dictionary to update with MONGODB_URI
+        backend_override: Optional backend override from CLI flag
+        edition_override: Optional edition override from CLI flag
+
+    Returns:
+        Updated environment dictionary with MONGODB_URI set
+
+    Raises:
+        typer.Exit: If no MongoDB is available and configured backend fails
+    """
+    if "MONGODB_URI" in env and env["MONGODB_URI"]:
+        typer.echo(f"🔗 Using MONGODB_URI from environment: {env['MONGODB_URI']}")
+        return env
+
+    # Check for default MONGODB_URI in config
+    config = get_config()
+    default_env = config.get("project", {}).get("default_env", {})
+    default_uri = default_env.get("MONGODB_URI")
+
+    if default_uri:
+        typer.echo(f"🔗 Using default MongoDB URI from config: {default_uri}")
+        env["MONGODB_URI"] = default_uri
+        return env
+
+    # Apply CLI overrides to config
+    mongodb_config = config.get("project", {}).get("mongodb", {}).copy()
+
+    # Override backend if provided via CLI
+    if backend_override:
+        mongodb_config["backend"] = backend_override
+        typer.echo(f"🔧 Using backend from CLI: {backend_override}")
+
+    # Override edition if provided via CLI
+    if edition_override:
+        mongodb_config["edition"] = edition_override
+        typer.echo(f"🔧 Using edition from CLI: {edition_override}")
+
+    # Update config with overrides
+    config_with_overrides = config.copy()
+    if "project" not in config_with_overrides:
+        config_with_overrides["project"] = {}
+    config_with_overrides["project"]["mongodb"] = mongodb_config
+
+    # Check which backend to use
+    backend = mongodb_config.get("backend", "mongodb-runner")
+
+    if backend == "atlas-local":
+        return ensure_mongodb_atlas_local(env, config_with_overrides)
+    elif backend == "docker":
+        return ensure_mongodb_docker(env, config_with_overrides)
+    else:
+        return ensure_mongodb_runner(env, config_with_overrides)
 
 
 app = typer.Typer(
@@ -751,6 +1315,7 @@ def remove_project(
 
 @app.command("run")
 def run_project(
+    ctx: typer.Context,
     name: str = typer.Argument(None, help="Project name (defaults to newest project)"),
     directory: Path = typer.Option(
         None,
@@ -903,8 +1468,12 @@ def run_project(
     # Set up environment
     env = os.environ.copy()
 
+    # Get CLI overrides from context
+    backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+    edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
     # Ensure MongoDB is available (starts mongodb-runner if needed)
-    env = ensure_mongodb(env)
+    env = ensure_mongodb(env, backend_override, edition_override)
 
     # Check for default environment variables from config
     config = get_config()
@@ -1023,6 +1592,7 @@ def open_browser(
 
 @app.command("manage")
 def manage(
+    ctx: typer.Context,
     name: str = typer.Argument(None, help="Project name (defaults to newest project)"),
     command: str = typer.Argument(None, help="Django management command to run"),
     args: list[str] = typer.Argument(None, help="Additional arguments for the command"),
@@ -1137,8 +1707,12 @@ def manage(
         typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
         env["MONGODB_URI"] = mongodb_uri
     else:
+        # Get CLI overrides from context
+        backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+        edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
         # Ensure MongoDB is available (starts mongodb-runner if needed)
-        env = ensure_mongodb(env)
+        env = ensure_mongodb(env, backend_override, edition_override)
 
     # Check for default environment variables from config
     config = get_config()
@@ -1201,6 +1775,7 @@ def manage(
 
 @app.command("su")
 def create_superuser(
+    ctx: typer.Context,
     name: str = typer.Argument(None, help="Project name (defaults to newest project)"),
     directory: Path = typer.Option(
         None,
@@ -1323,8 +1898,12 @@ def create_superuser(
         typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
         env["MONGODB_URI"] = mongodb_uri
     else:
+        # Get CLI overrides from context
+        backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+        edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
         # Ensure MongoDB is available (starts mongodb-runner if needed)
-        env = ensure_mongodb(env)
+        env = ensure_mongodb(env, backend_override, edition_override)
 
     # Check for default environment variables from config
     config = get_config()
@@ -1388,6 +1967,7 @@ def create_superuser(
 
 @app.command("migrate")
 def migrate_project(
+    ctx: typer.Context,
     name: str = typer.Argument(None, help="Project name (defaults to newest project)"),
     directory: Path = typer.Option(
         None,
@@ -1497,8 +2077,12 @@ def migrate_project(
         typer.echo(f"🔗 Using MongoDB URI: {mongodb_uri}")
         env["MONGODB_URI"] = mongodb_uri
     else:
+        # Get CLI overrides from context
+        backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+        edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
         # Ensure MongoDB is available (starts mongodb-runner if needed)
-        env = ensure_mongodb(env)
+        env = ensure_mongodb(env, backend_override, edition_override)
 
     # Check for default environment variables from config
     config = get_config()

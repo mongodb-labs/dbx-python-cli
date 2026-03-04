@@ -4,13 +4,73 @@
 
 # Default environment variables for Django projects
 [project.default_env]
-# MONGODB_URI: If not set, mongodb-runner will automatically start MongoDB
+# MONGODB_URI: If not set, will automatically start MongoDB based on mongodb_backend setting
 # Uncomment and set this if you have MongoDB running elsewhere:
 # MONGODB_URI = "mongodb://localhost:27017"
 
 # Set the path to your libmongocrypt build for Queryable Encryption support
 # PYMONGOCRYPT_LIB = "~/Developer/mongodb/django/libmongocrypt/cmake-build/libmongocrypt.dylib"
 # CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.2.5/lib/mongo_crypt_v1.dylib"
+
+# MongoDB backend configuration
+[project.mongodb]
+# Choose which MongoDB backend to use when MONGODB_URI is not set:
+# - "mongodb-runner": Uses npx mongodb-runner (default, standard MongoDB)
+# - "docker": Uses Docker with official MongoDB images
+# - "atlas-local": Uses Docker with mongodb/mongodb-atlas-local image (includes Atlas Search & Vector Search)
+backend = "mongodb-runner"
+
+# MongoDB edition (applies to both mongodb-runner and docker backends)
+# - "community": MongoDB Community Server (default, free)
+# - "enterprise": MongoDB Enterprise Server (requires license)
+edition = "community"
+
+# mongodb-runner configuration (only used when backend = "mongodb-runner")
+[project.mongodb.mongodb_runner]
+# Topology type: "standalone", "replset", or "sharded"
+topology = "standalone"
+# Number of shards (only for sharded topology)
+# shards = 2
+# Number of secondaries per replica set (for replset and sharded topologies)
+# secondaries = 2
+# Number of arbiters per replica set (for replset and sharded topologies)
+# arbiters = 0
+# Additional options to pass to mongodb-runner start
+# options = []
+
+# Docker configuration (only used when backend = "docker")
+[project.mongodb.docker]
+# Docker image to use (edition setting above determines community vs enterprise)
+# When edition = "community":
+#   - Default: "mongodb/mongodb-community-server"
+#   - Alternative: "mongo" (Docker Official Image)
+# When edition = "enterprise":
+#   - Default: "mongodb/mongodb-enterprise-server"
+# You can override by setting image explicitly:
+# image = "mongo"
+# Image tag (e.g., "latest", "8.0", "7.0", or specific version)
+tag = "latest"
+# Container name
+container_name = "dbx-mongodb"
+# Port to expose MongoDB on
+port = 27017
+# Replica set name (set this to run as a replica set instead of standalone)
+# replset = "rs0"
+# Additional docker run options (optional)
+# docker_options = ["--rm"]  # Uncomment to auto-remove container on stop
+
+# Atlas Local configuration (only used when backend = "atlas-local")
+[project.mongodb.atlas_local]
+# Docker image to use
+image = "mongodb/mongodb-atlas-local"
+# Image tag (e.g., "latest", "8.0", "7.0", "preview", or specific version like "8.0.17-20260218T161908Z")
+tag = "latest"
+# Container name
+container_name = "dbx-atlas-local"
+# Port to expose MongoDB on
+port = 27017
+# Additional docker run options (optional)
+# docker_options = ["--rm"]  # Uncomment to auto-remove container on stop
 
 [repo]
 base_dir = "~/Developer/mongodb"

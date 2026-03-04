@@ -273,8 +273,12 @@ def test_callback(
         # Check for default environment variables from project config
         default_env = config.get("project", {}).get("default_env", {})
 
+        # Get CLI overrides from context
+        backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+        edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
         # Ensure MongoDB is available (uses env, config, or starts mongodb-runner)
-        test_env = ensure_mongodb(test_env)
+        test_env = ensure_mongodb(test_env, backend_override, edition_override)
 
         # For pymongo tests: parse MONGODB_URI and set DB_IP and DB_PORT
         # The pymongo test suite uses DB_IP and DB_PORT instead of MONGODB_URI
