@@ -17,7 +17,8 @@ from dbx_python_cli.commands.repo_utils import (
     get_test_runner_args,
 )
 from dbx_python_cli.commands.venv_utils import get_venv_info
-from dbx_python_cli.commands.project import add_project, ensure_mongodb
+from dbx_python_cli.commands.project import add_project
+from dbx_python_cli.commands.mongodb import ensure_mongodb
 
 app = typer.Typer(
     help="💚 Test commands",
