@@ -182,6 +182,21 @@ def add_project(
         dbx project add myproject -d ~/custom/path  # Create in custom directory
         dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at ~/path/to/myproject
     """
+    # Normalize parameters when called programmatically (not via CLI).
+    # When called directly, typer.Option/Argument defaults are OptionInfo/ArgumentInfo objects.
+    if not isinstance(name, (str, type(None))):
+        name = None
+    if not isinstance(directory, (Path, type(None))):
+        directory = None
+    if not isinstance(base_dir, (Path, type(None))):
+        base_dir = None
+    if not isinstance(add_frontend, bool):
+        add_frontend = True
+    if not isinstance(auto_install, bool):
+        auto_install = True
+    if not isinstance(python_path_override, (str, type(None))):
+        python_path_override = None
+
     # Determine project directory and name
     use_base_dir_override = False
     if directory is None:

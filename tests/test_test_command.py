@@ -431,13 +431,14 @@ django = "tests/runtests.py"
                         assert result.exit_code == 0
 
                         # Verify add_project was called to create the missing project
+                        # Uses auto_install=False so add_project falls back to sys.executable
+                        # (which has Django installed) instead of the test repo's venv.
                         mock_add_project.assert_called_once_with(
                             "django_test",
                             directory=None,
                             base_dir=None,
-                            add_frontend=True,
-                            auto_install=True,
-                            python_path_override="python",
+                            add_frontend=False,
+                            auto_install=False,
                         )
                     assert "django_test project not found" in result.stdout
 

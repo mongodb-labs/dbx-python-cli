@@ -190,6 +190,27 @@ def get_test_runner_args(config, group_name, repo_name):
     return test_runner_args_config.get(repo_name, [])
 
 
+def get_python_version(config, group_name):
+    """
+    Get the Python version to use for a group's virtual environment.
+
+    When configured, ``dbx clone`` and ``dbx env init`` will use this Python
+    version when creating the group's venv.
+
+    Args:
+        config: Configuration dictionary
+        group_name: Name of the group (e.g., 'django')
+
+    Returns:
+        str: Python version string (e.g., '3.12'), or None to use system default
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return None
+
+    return groups[group_name].get("python_version")
+
+
 def get_preferred_branch(config, group_name, repo_name):
     """
     Get the preferred branch to switch to after cloning a repository.

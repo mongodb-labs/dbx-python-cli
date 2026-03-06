@@ -102,7 +102,12 @@ def auto_install_repo(
         return False
 
 
-def ensure_group_venv(group_dir: Path, group_name: str, verbose: bool = False) -> bool:
+def ensure_group_venv(
+    group_dir: Path,
+    group_name: str,
+    verbose: bool = False,
+    python_version: str = "3.13",
+) -> bool:
     """
     Ensure a group-level virtual environment exists, creating one if needed.
 
@@ -110,6 +115,7 @@ def ensure_group_venv(group_dir: Path, group_name: str, verbose: bool = False) -
         group_dir: Path to the group directory
         group_name: Name of the group
         verbose: Whether to show verbose output
+        python_version: Python version to use (default: '3.13')
 
     Returns:
         True if venv exists or was created successfully, False otherwise
@@ -120,9 +126,12 @@ def ensure_group_venv(group_dir: Path, group_name: str, verbose: bool = False) -
         typer.echo(f"  🐍 Using existing venv: {venv_path}")
         return True
 
-    typer.echo(f"  🐍 Creating virtual environment for group '{group_name}'...")
+    typer.echo(
+        f"  🐍 Creating virtual environment for group '{group_name}' (Python {python_version})..."
+    )
 
     venv_cmd = ["uv", "venv", str(venv_path), "--no-python-downloads"]
+    venv_cmd.extend(["--python", python_version])
 
     if verbose:
         typer.echo(f"  [verbose] Running command: {' '.join(venv_cmd)}")
@@ -623,7 +632,10 @@ def clone_callback(
                     unique_groups[gname] = base_dir / gname
 
             for gname, gdir in unique_groups.items():
-                ensure_group_venv(gdir, gname, verbose=verbose)
+                python_version = repo.get_python_version(config, gname)
+                ensure_group_venv(
+                    gdir, gname, verbose=verbose, python_version=python_version
+                )
 
             installed_count = 0
             skipped_count = 0

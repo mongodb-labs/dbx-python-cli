@@ -8,6 +8,7 @@ from dbx_python_cli.commands.repo_utils import (
     get_base_dir,
     get_config,
     get_global_groups,
+    get_python_version,
     get_repo_groups,
 )
 
@@ -150,14 +151,24 @@ def init(
                 typer.echo(f"[verbose] Creating directory: {working_dir}\n")
             working_dir.mkdir(parents=True, exist_ok=True)
 
+        # Determine Python version: CLI flag > config > default
+        effective_python = python
+        if not effective_python and group:
+            effective_python = get_python_version(config, group)
+
         # Create venv using uv
-        typer.echo(
-            f"Creating virtual environment for {location_desc} at {venv_path}...\n"
-        )
+        if effective_python:
+            typer.echo(
+                f"Creating virtual environment for {location_desc} at {venv_path} (Python {effective_python})...\n"
+            )
+        else:
+            typer.echo(
+                f"Creating virtual environment for {location_desc} at {venv_path}...\n"
+            )
 
         venv_cmd = ["uv", "venv", str(venv_path), "--no-python-downloads"]
-        if python:
-            venv_cmd.extend(["--python", python])
+        if effective_python:
+            venv_cmd.extend(["--python", effective_python])
 
         if verbose:
             typer.echo(f"[verbose] Running command: {' '.join(venv_cmd)}")

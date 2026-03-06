@@ -17,6 +17,7 @@ description = "A command line tool for DBX Python development tasks. AI first. D
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "django",  # Required for dbx project add (django-admin startproject)
     "tomli-w>=1.2.0",
     "typer",
 ]
@@ -29,7 +30,6 @@ docs = [
 test = [
     "pytest",
     "pytest-cov",
-    "django",  # Required for project integration tests
 ]
 dev = [
     "dbx-python-cli[docs,test]",

@@ -331,13 +331,15 @@ def test_callback(
             if not (django_test_path / "manage.py").exists():
                 typer.echo("📦 django_test project not found, creating it...")
                 try:
+                    # Use auto_install=False so add_project can fall back to sys.executable
+                    # (the dbx CLI's Python) for scaffolding. The test repo's venv doesn't
+                    # have Django installed as a module - it IS the Django source.
                     add_project(
                         "django_test",
                         directory=None,
                         base_dir=None,
-                        add_frontend=True,
-                        auto_install=True,
-                        python_path_override=python_path,
+                        add_frontend=False,
+                        auto_install=False,
                     )
                 except typer.Exit as e:
                     if getattr(e, "exit_code", getattr(e, "code", 1)) != 0:
