@@ -10,4 +10,5 @@ Features
    installation
    testing
    just-commands
+   documentation
    status
