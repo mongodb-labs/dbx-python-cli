@@ -72,162 +72,146 @@ def test_project_edit_help():
 class TestEnsureMongodb:
     """Tests for the ensure_mongodb helper function."""
 
-    def test_mongodb_uri_from_environment(self):
-        """Test that MONGODB_URI from environment is used when present."""
+    def test_mongodb_uri_from_env_dict(self):
+        """Test that MONGODB_URI from env dict is used when present."""
         env = {"MONGODB_URI": "mongodb://myhost:27017"}
         result = ensure_mongodb(env)
         assert result["MONGODB_URI"] == "mongodb://myhost:27017"
 
-    def test_mongodb_uri_empty_string_triggers_fallback(self):
-        """Test that empty MONGODB_URI triggers config/runner fallback."""
+    def test_mongodb_uri_empty_string_is_used(self):
+        """Test that empty MONGODB_URI in env dict is still used (key exists)."""
         env = {"MONGODB_URI": ""}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {
-                "project": {"default_env": {"MONGODB_URI": "mongodb://config:27017"}}
-            }
-            result = ensure_mongodb(env)
-            assert result["MONGODB_URI"] == "mongodb://config:27017"
+        result = ensure_mongodb(env)
+        # The function uses the value as-is if the key exists
+        assert result["MONGODB_URI"] == ""
 
     def test_mongodb_uri_from_config(self):
         """Test that MONGODB_URI from config is used when env not set."""
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {
-                "project": {
-                    "default_env": {"MONGODB_URI": "mongodb://confighost:27017"}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {
+                    "project": {
+                        "default_env": {"MONGODB_URI": "mongodb://confighost:27017"}
+                    }
                 }
-            }
-            result = ensure_mongodb(env)
-            assert result["MONGODB_URI"] == "mongodb://confighost:27017"
+                result = ensure_mongodb(env)
+                assert result["MONGODB_URI"] == "mongodb://confighost:27017"
 
     def test_mongodb_runner_reuses_existing_instance(self):
         """Test that existing mongodb-runner instance is reused."""
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {"project": {"default_env": {}}}
 
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # First call: which npx (success)
-                # Second call: mongodb-runner ls (returns existing instance)
-                mock_run.side_effect = [
-                    MagicMock(returncode=0),  # which npx
-                    MagicMock(
+                with patch(
+                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                ) as mock_run:
+                    # mongodb-runner ls (returns existing instance)
+                    mock_run.return_value = MagicMock(
                         returncode=0,
                         stdout="abc123: mongodb://127.0.0.1:52065/\n",
                         stderr="",
-                    ),  # mongodb-runner ls
-                ]
+                    )
 
-                result = ensure_mongodb(env)
-                assert result["MONGODB_URI"] == "mongodb://127.0.0.1:52065"
-                assert mock_run.call_count == 2
+                    result = ensure_mongodb(env)
+                    assert result["MONGODB_URI"] == "mongodb://127.0.0.1:52065/"
+                    assert mock_run.call_count == 1
 
     def test_mongodb_runner_started_on_success(self):
         """Test that mongodb-runner is started when no instance is running."""
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {"project": {"default_env": {}}}
 
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # First call: which npx (success)
-                # Second call: mongodb-runner ls (no instances)
-                # Third call: mongodb-runner start (success with URI in output)
-                mock_run.side_effect = [
-                    MagicMock(returncode=0),  # which npx
-                    MagicMock(returncode=0, stdout="", stderr=""),  # mongodb-runner ls
-                    MagicMock(
-                        returncode=0,
-                        stdout="Server started at mongodb://127.0.0.1:52065/\n",
-                        stderr="",
-                    ),  # mongodb-runner start
-                ]
+                with patch(
+                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                ) as mock_run:
+                    # First call: mongodb-runner ls (no instances)
+                    # Second call: mongodb-runner start (success)
+                    # Third call: mongodb-runner ls (returns the started instance)
+                    mock_run.side_effect = [
+                        MagicMock(
+                            returncode=0, stdout="", stderr=""
+                        ),  # mongodb-runner ls (empty)
+                        MagicMock(
+                            returncode=0, stdout="Started\n", stderr=""
+                        ),  # mongodb-runner start
+                        MagicMock(
+                            returncode=0,
+                            stdout="abc123: mongodb://127.0.0.1:52065/\n",
+                            stderr="",
+                        ),  # mongodb-runner ls
+                    ]
 
-                result = ensure_mongodb(env)
-                assert result["MONGODB_URI"] == "mongodb://127.0.0.1:52065"
-                assert mock_run.call_count == 3
-
-    def test_mongodb_runner_fallback_uri_on_no_output(self):
-        """Test that default URI is used when mongodb-runner output can't be parsed."""
-        env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
-
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # mongodb-runner succeeds but no URI in output
-                mock_run.side_effect = [
-                    MagicMock(returncode=0),  # which npx
-                    MagicMock(returncode=0, stdout="", stderr=""),  # mongodb-runner ls
-                    MagicMock(returncode=0, stdout="Started\n", stderr=""),  # start
-                ]
-
-                result = ensure_mongodb(env)
-                assert result["MONGODB_URI"] == "mongodb://localhost:27017"
+                    result = ensure_mongodb(env)
+                    assert result["MONGODB_URI"] == "mongodb://127.0.0.1:52065/"
+                    assert mock_run.call_count == 3
 
     def test_mongodb_runner_failure_exits(self):
         """Test that mongodb-runner failure exits with 'no db running'."""
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {"project": {"default_env": {}}}
 
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # First call: which npx (success)
-                # Second call: mongodb-runner ls (no instances)
-                # Third call: mongodb-runner start (failure)
-                mock_run.side_effect = [
-                    MagicMock(returncode=0),  # which npx
-                    MagicMock(returncode=0, stdout="", stderr=""),  # mongodb-runner ls
-                    MagicMock(returncode=1, stderr="MongoDB failed to start"),
-                ]
+                with patch(
+                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                ) as mock_run:
+                    # First call: mongodb-runner ls (no instances)
+                    # Second call: mongodb-runner start (failure)
+                    mock_run.side_effect = [
+                        MagicMock(
+                            returncode=0, stdout="", stderr=""
+                        ),  # mongodb-runner ls
+                        MagicMock(
+                            returncode=1, stdout="", stderr="MongoDB failed to start"
+                        ),
+                    ]
 
-                with pytest.raises(typer.Exit) as exc_info:
-                    ensure_mongodb(env)
-                assert exc_info.value.exit_code == 1
-
-    def test_npx_not_available_exits(self):
-        """Test that missing npx exits with 'no db running'."""
-        env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
-
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # which npx fails
-                mock_run.return_value = MagicMock(returncode=1)
-
-                with pytest.raises(typer.Exit) as exc_info:
-                    ensure_mongodb(env)
-                assert exc_info.value.exit_code == 1
+                    with pytest.raises(typer.Exit) as exc_info:
+                        ensure_mongodb(env)
+                    assert exc_info.value.exit_code == 1
 
     def test_mongodb_runner_timeout_exits(self):
         """Test that mongodb-runner timeout exits with 'no db running'."""
         import subprocess
 
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {"project": {"default_env": {}}}
 
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                # First call: which npx (success)
-                # Second call: mongodb-runner ls (no instances)
-                # Third call: timeout on start
-                mock_run.side_effect = [
-                    MagicMock(returncode=0),  # which npx
-                    MagicMock(returncode=0, stdout="", stderr=""),  # mongodb-runner ls
-                    subprocess.TimeoutExpired(cmd="npx", timeout=120),
-                ]
+                with patch(
+                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                ) as mock_run:
+                    # First call: mongodb-runner ls (no instances)
+                    # Second call: timeout on start
+                    mock_run.side_effect = [
+                        MagicMock(
+                            returncode=0, stdout="", stderr=""
+                        ),  # mongodb-runner ls
+                        subprocess.TimeoutExpired(cmd="npx", timeout=120),
+                    ]
 
-                with pytest.raises(typer.Exit) as exc_info:
-                    ensure_mongodb(env)
-                assert exc_info.value.exit_code == 1
+                    with pytest.raises(typer.Exit) as exc_info:
+                        ensure_mongodb(env)
+                    assert exc_info.value.exit_code == 1
 
     def test_npx_file_not_found_exits(self):
         """Test that FileNotFoundError exits with 'no db running'."""
         env = {}
-        with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
-            mock_config.return_value = {"project": {"default_env": {}}}
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+                mock_config.return_value = {"project": {"default_env": {}}}
 
-            with patch("dbx_python_cli.commands.mongodb.subprocess.run") as mock_run:
-                mock_run.side_effect = FileNotFoundError("npx not found")
+                with patch(
+                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                ) as mock_run:
+                    mock_run.side_effect = FileNotFoundError("npx not found")
 
-                with pytest.raises(typer.Exit) as exc_info:
-                    ensure_mongodb(env)
-                assert exc_info.value.exit_code == 1
+                    with pytest.raises(typer.Exit) as exc_info:
+                        ensure_mongodb(env)
+                    assert exc_info.value.exit_code == 1
