@@ -8,8 +8,8 @@ Run `just <https://github.com/casey/just>`_ commands in any cloned repository:
 
 .. code-block:: bash
 
-   # List all available repositories
-   dbx just --list
+   # List repositories that have justfiles
+   dbx just list
 
    # Show available just commands in a repository
    dbx just mongo-python-driver
@@ -19,9 +19,6 @@ Run `just <https://github.com/casey/just>`_ commands in any cloned repository:
 
    # Run a just command with arguments
    dbx just mongo-python-driver test -v
-
-   # Short forms
-   dbx just -l  # list repositories
 
 The ``just`` command will:
 
@@ -35,11 +32,15 @@ Example Output
 
 .. code-block:: bash
 
-   $ dbx just --list
-   Available repositories in ~/Developer/dbx-repos:
+   $ dbx just list
+   Repositories with justfiles:
 
-     [pymongo] mongo-python-driver
-     [pymongo] specifications
+     pymongo:
+       • mongo-python-driver
+
+   1 repository with justfiles
+
+   Run 'dbx just <repo_name>' to see available just commands
 
    $ dbx just mongo-python-driver
    Running 'just' in ~/Developer/dbx-repos/pymongo/mongo-python-driver...
