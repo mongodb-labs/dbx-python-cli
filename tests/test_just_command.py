@@ -177,3 +177,74 @@ def test_verbose_flag_with_just_command(tmp_path, temp_repos_dir, mock_config):
                 output = strip_ansi(result.stdout)
                 assert "[verbose]" in output
                 assert "Running command:" in output
+
+
+def test_just_list_shows_repos_with_justfiles(tmp_path, temp_repos_dir, mock_config):
+    """Test that 'just list' shows repositories with justfiles."""
+    with patch(
+        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+            result = runner.invoke(app, ["just", "list"])
+            assert result.exit_code == 0
+            output = strip_ansi(result.stdout)
+            # Should show mongo-python-driver (has justfile)
+            assert "mongo-python-driver" in output
+            # Should NOT show specifications (no justfile)
+            assert "specifications" not in output
+            # Should show count
+            assert "1 repository with justfiles" in output
+
+
+def test_just_list_no_repos_with_justfiles(tmp_path):
+    """Test that 'just list' shows message when no repos have justfiles."""
+    # Create a repos dir with no justfiles
+    repos_dir = tmp_path / "repos"
+    repos_dir.mkdir(parents=True)
+
+    # Create a repo without justfile
+    pymongo_dir = repos_dir / "pymongo"
+    pymongo_dir.mkdir()
+    repo1 = pymongo_dir / "some-repo"
+    repo1.mkdir()
+    (repo1 / ".git").mkdir()
+    # No justfile
+
+    with patch("dbx_python_cli.commands.just.get_base_dir", return_value=repos_dir):
+        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+            result = runner.invoke(app, ["just", "list"])
+            assert result.exit_code == 0
+            output = strip_ansi(result.stdout)
+            assert "No repositories with justfiles found" in output
+
+
+def test_just_list_multiple_repos(tmp_path):
+    """Test that 'just list' shows multiple repos across groups."""
+    repos_dir = tmp_path / "repos"
+    repos_dir.mkdir(parents=True)
+
+    # Create multiple repos with justfiles in different groups
+    group1_dir = repos_dir / "group1"
+    group1_dir.mkdir()
+    repo1 = group1_dir / "repo-a"
+    repo1.mkdir()
+    (repo1 / ".git").mkdir()
+    (repo1 / "justfile").write_text("test:\n\techo test\n")
+
+    group2_dir = repos_dir / "group2"
+    group2_dir.mkdir()
+    repo2 = group2_dir / "repo-b"
+    repo2.mkdir()
+    (repo2 / ".git").mkdir()
+    (repo2 / "Justfile").write_text("lint:\n\techo lint\n")  # Capital J
+
+    with patch("dbx_python_cli.commands.just.get_base_dir", return_value=repos_dir):
+        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+            result = runner.invoke(app, ["just", "list"])
+            assert result.exit_code == 0
+            output = strip_ansi(result.stdout)
+            assert "repo-a" in output
+            assert "repo-b" in output
+            assert "group1" in output
+            assert "group2" in output
+            assert "2 repositories with justfiles" in output
