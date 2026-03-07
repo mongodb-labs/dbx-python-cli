@@ -59,7 +59,7 @@ To install with extras:
 
 .. tip::
 
-   Extras can also be configured in your ``~/.dbx.toml`` config file so you don't need to specify them on the command line each time.
+   Extras and dependency groups can be configured in your ``config.toml`` file so you don't need to specify them on the command line each time.
 
 Step 4: Run Tests
 -----------------
