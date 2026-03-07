@@ -87,9 +87,6 @@ Create and manage Django projects with MongoDB backend:
    # Create a new project
    dbx project add myproject
 
-   # Create a virtual environment for projects
-   dbx env init -g projects
-
    # Install the project
    dbx install myproject
 
