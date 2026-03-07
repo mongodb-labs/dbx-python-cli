@@ -113,6 +113,10 @@ def resolve_project_path(
 
     if require_exists and not project_path.exists():
         typer.echo(f"❌ Project '{name}' not found at {project_path}", err=True)
+        typer.echo(
+            f"\n💡 Maybe you meant: dbx project manage <project_name> {name}",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     return ProjectContext(name, project_path, base_dir, projects_dir)
