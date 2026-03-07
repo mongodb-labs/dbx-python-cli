@@ -158,8 +158,8 @@ View branches across repositories:
    # View branches in a single repository
    dbx branch django-mongodb-backend
 
-   # View all branches (including remote)
-   dbx branch django-mongodb-backend -a
+   # View all branches (including remote) with verbose output
+   dbx -v branch django-mongodb-backend
 
    # View branches in all repositories in a group
    dbx branch -g django
