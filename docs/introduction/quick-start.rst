@@ -57,6 +57,10 @@ To install with extras:
    # Install libmongocrypt (includes cmake build step for Queryable Encryption)
    dbx install libmongocrypt
 
+.. tip::
+
+   Extras can also be configured in your ``~/.dbx.toml`` config file so you don't need to specify them on the command line each time.
+
 Step 4: Run Tests
 -----------------
 
