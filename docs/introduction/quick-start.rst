@@ -36,6 +36,10 @@ This will clone all repositories in the django group to ``~/Developer/mongodb/dj
 Step 3: Install Dependencies
 -----------------------------
 
+.. tip::
+
+   The ``dbx clone`` command automatically runs ``dbx install`` after cloning, so you may not need to run this step manually.
+
 Install dependencies for a repository:
 
 .. code-block:: bash
