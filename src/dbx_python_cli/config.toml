@@ -164,6 +164,8 @@ django = ["-v", "2"]
 django = "mongodb-6.0.x"
 
 [repo.groups.django-3p]
+# Python version for the group's virtual environment
+python_version = "3.13"
 repos = [
     "git@github.com:django/django.git",
     "git@github.com:mongodb-labs/django-mongodb-backend.git",

@@ -170,6 +170,26 @@ def get_install_groups(config, group_name, repo_name):
     return install_groups_config.get(repo_name, [])
 
 
+def should_skip_install(config, group_name, repo_name):
+    """
+    Check if a repository should skip automatic installation.
+
+    Args:
+        config: Configuration dictionary
+        group_name: Name of the group (e.g., 'django-3p')
+        repo_name: Name of the repository (e.g., 'django')
+
+    Returns:
+        bool: True if installation should be skipped, False otherwise
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return False
+
+    skip_install_config = groups[group_name].get("skip_install", [])
+    return repo_name in skip_install_config
+
+
 def get_test_runner_args(config, group_name, repo_name):
     """
     Get default arguments for a custom test runner.

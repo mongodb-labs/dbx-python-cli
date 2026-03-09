@@ -17,6 +17,7 @@ from dbx_python_cli.commands.repo_utils import (
     get_install_dirs,
     get_install_extras,
     get_install_groups,
+    should_skip_install,
 )
 from dbx_python_cli.commands.venv_utils import get_venv_info
 
@@ -654,6 +655,15 @@ def install_callback(
                 typer.echo(f"Installing: {repo['name']}")
                 typer.echo(f"{'=' * 60}\n")
 
+                # Check if this repo should skip installation
+                if should_skip_install(config, grp, repo["name"]):
+                    typer.echo(
+                        f"⏭️  Skipping {repo['name']} (configured in skip_install)\n"
+                    )
+                    total_items += 1
+                    skipped_items.append(repo["name"])
+                    continue
+
                 # Detect venv
                 python_path, venv_type = get_venv_info(
                     repo_path, group_path, base_path=base_dir
@@ -850,6 +860,16 @@ def install_callback(
                 python_path = str(django_venv_python)
                 venv_type = "group"
                 group_path = django_group_path
+
+    # Check if this repo should skip installation
+    if should_skip_install(config, repo["group"], repo["name"]):
+        typer.echo(
+            f"⏭️  Repository '{repo['name']}' is configured to skip installation."
+        )
+        typer.echo(
+            f"To install it anyway, remove it from skip_install in config.toml for group '{repo['group']}'."
+        )
+        raise typer.Exit(0)
 
     if verbose:
         typer.echo(f"[verbose] Venv type: {venv_type}")

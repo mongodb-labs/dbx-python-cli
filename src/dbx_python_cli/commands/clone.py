@@ -31,11 +31,23 @@ def auto_install_repo(
         install_package,
         run_build_commands,
     )
-    from dbx_python_cli.commands.repo_utils import get_build_commands, get_install_dirs
+    from dbx_python_cli.commands.repo_utils import (
+        get_build_commands,
+        get_install_dirs,
+        should_skip_install,
+    )
     from dbx_python_cli.commands.venv_utils import get_venv_info
 
     try:
         config = repo.get_config()
+
+        # Check if this repo should skip installation
+        if should_skip_install(config, group_name, repo_name):
+            if verbose:
+                typer.echo(
+                    f"  [verbose] Skipping install for {repo_name} (configured in skip_install)"
+                )
+            return "skipped"
 
         # Get venv info - will use base venv if exists, then repo venv, then group venv, otherwise any active venv
         python_path, venv_type = get_venv_info(
@@ -650,7 +662,7 @@ def clone_callback(
                 else:
                     typer.echo(f"  📦 Installing {repo_info['name']}...")
 
-                success = auto_install_repo(
+                result = auto_install_repo(
                     repo_info["path"],
                     repo_info["name"],
                     repo_info["group"],
@@ -658,7 +670,12 @@ def clone_callback(
                     verbose=verbose,
                 )
 
-                if success:
+                if result == "skipped":
+                    typer.echo(
+                        f"  ⏭️  {repo_info['name']} skipped (configured in skip_install)"
+                    )
+                    skipped_count += 1
+                elif result:
                     typer.echo(f"  ✅ {repo_info['name']} installed successfully")
                     installed_count += 1
                 else:
