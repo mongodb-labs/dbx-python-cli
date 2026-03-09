@@ -215,3 +215,65 @@ class TestEnsureMongodb:
                     with pytest.raises(typer.Exit) as exc_info:
                         ensure_mongodb(env)
                     assert exc_info.value.exit_code == 1
+
+
+def test_project_run_uses_django_group_venv(tmp_path):
+    """Test that project run uses django group venv when no other venv is found."""
+    import platform
+
+    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "config.toml"
+
+    base_dir = tmp_path / "repos"
+    base_dir.mkdir()
+
+    # Create projects directory with a project
+    projects_dir = base_dir / "projects"
+    projects_dir.mkdir()
+    project_dir = projects_dir / "testproject"
+    project_dir.mkdir()
+    (project_dir / "manage.py").write_text("# manage.py")
+
+    # Create django group with venv
+    django_dir = base_dir / "django"
+    django_dir.mkdir()
+    if platform.system() == "Windows":
+        django_venv = django_dir / ".venv" / "Scripts"
+        django_venv.mkdir(parents=True)
+        (django_venv / "python.exe").write_text("#!/usr/bin/env python3\n")
+    else:
+        django_venv = django_dir / ".venv" / "bin"
+        django_venv.mkdir(parents=True)
+        (django_venv / "python").write_text("#!/usr/bin/env python3\n")
+
+    base_dir_str = str(base_dir).replace("\\", "/")
+    config_content = f"""[repo]
+base_dir = "{base_dir_str}"
+"""
+    config_path.write_text(config_content)
+
+    with patch("dbx_python_cli.commands.repo_utils.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+            with patch(
+                "dbx_python_cli.commands.venv_utils._is_venv", return_value=False
+            ):
+                with patch(
+                    "dbx_python_cli.commands.venv_utils._get_python_path",
+                    return_value="/usr/bin/python",
+                ):
+                    mock_get_path.return_value = config_path
+                    mock_run.return_value = MagicMock(returncode=0)
+
+                    result = runner.invoke(app, ["project", "run", "testproject"])
+
+                    # Should use django group venv
+                    assert "Using Django group venv" in result.stdout
+
+                    # Verify the python path used in subprocess.run
+                    # Find the call that runs manage.py runserver
+                    for call in mock_run.call_args_list:
+                        call_args = call[0][0]
+                        if len(call_args) > 1 and "manage.py" in str(call_args):
+                            assert "django/.venv" in call_args[0]
+                            break

@@ -146,6 +146,8 @@ def get_django_python_path(
     Raises:
         typer.Exit: If no suitable venv is found
     """
+    import platform
+
     try:
         if directory is None:
             # First try the standard venv detection (project, projects group, base)
@@ -158,7 +160,12 @@ def get_django_python_path(
             if venv_type == "venv" and ctx.base_dir is not None:
                 django_group_path = ctx.base_dir / "django"
                 if django_group_path.exists():
-                    django_venv_python = django_group_path / ".venv" / "bin" / "python"
+                    python_subpath = (
+                        "Scripts/python.exe"
+                        if platform.system() == "Windows"
+                        else "bin/python"
+                    )
+                    django_venv_python = django_group_path / ".venv" / python_subpath
                     if django_venv_python.exists():
                         python_path = str(django_venv_python)
                         venv_type = "group"
@@ -170,6 +177,21 @@ def get_django_python_path(
                 ctx.project_path, ctx.project_path.parent, base_path=None
             )
     except typer.Exit:
+        # Before re-raising, check if django group venv exists as a fallback
+        # This handles the case where no venv was found but django group venv is available
+        if directory is None and ctx.base_dir is not None:
+            django_group_path = ctx.base_dir / "django"
+            if django_group_path.exists():
+                python_subpath = (
+                    "Scripts/python.exe"
+                    if platform.system() == "Windows"
+                    else "bin/python"
+                )
+                django_venv_python = django_group_path / ".venv" / python_subpath
+                if django_venv_python.exists():
+                    typer.echo(f"✅ Using Django group venv: {django_group_path}/.venv")
+                    return str(django_venv_python), "group"
+        # No django group venv found, re-raise the original error
         raise
 
     return python_path, venv_type

@@ -614,3 +614,44 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
                     assert result.exit_code == 0
                     assert "Environment variables:" in result.stdout
                     assert "DRIVERS_TOOLS=" in result.stdout
+
+
+def test_test_with_group_flag(mock_config, temp_repos_dir):
+    """Test that test with -g flag runs in the specified group's repo."""
+    with patch("dbx_python_cli.commands.repo_utils.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+            with patch("subprocess.run") as mock_run:
+                with patch.dict(
+                    "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
+                ):
+                    mock_get_path.return_value = mock_config
+                    mock_venv.return_value = ("python", "group")
+
+                    # Mock successful pytest run
+                    mock_result = MagicMock()
+                    mock_result.returncode = 0
+                    mock_run.return_value = mock_result
+
+                    result = runner.invoke(app, ["test", "-g", "django", "django"])
+                    assert result.exit_code == 0
+                    assert "Running pytest" in result.stdout
+
+                    # Verify the working directory is the django repo in the django group
+                    call_kwargs = mock_run.call_args[1]
+                    cwd = call_kwargs["cwd"]
+                    assert "django/django" in cwd
+                    assert cwd.endswith("django/django") or cwd.endswith(
+                        "django\\django"
+                    )
+
+
+def test_test_with_group_flag_repo_not_in_group(mock_config, temp_repos_dir):
+    """Test that test with -g flag fails if repo not in specified group."""
+    with patch("dbx_python_cli.commands.repo_utils.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        # Try to find mongo-python-driver in django group (it's in pymongo group)
+        result = runner.invoke(app, ["test", "-g", "django", "mongo-python-driver"])
+        assert result.exit_code == 1
+        output = result.stdout + result.stderr
+        assert "Repository 'mongo-python-driver' not found in group 'django'" in output

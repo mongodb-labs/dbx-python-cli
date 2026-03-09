@@ -50,7 +50,7 @@ def test_callback(
         None,
         "--group",
         "-g",
-        help="Group name to use for venv (e.g., 'pymongo')",
+        help="Group name - tests will run in the repo within this group using its venv (e.g., 'pymongo')",
     ),
     list_repos: bool = typer.Option(
         False,
@@ -129,30 +129,45 @@ def test_callback(
             raise typer.Exit(1)
 
         # Find the repository
-        repo = find_repo_by_name(repo_name, base_dir)
-        if not repo:
-            typer.echo(f"Error: Repository '{repo_name}' not found.", err=True)
-            typer.echo("Run 'dbx list' to see available repositories.", err=True)
-            raise typer.Exit(1)
-
-        repo_path = repo["path"]
-
-        # Determine which group's venv to use
         if group:
-            # Use specified group's venv
+            # When group is specified, find the repo in that specific group
             group_path = Path(base_dir) / group
             if not group_path.exists():
                 typer.echo(
                     f"❌ Error: Group '{group}' not found in {base_dir}", err=True
                 )
                 raise typer.Exit(1)
+
+            # Look for the repo in the specified group
+            repo_path = group_path / repo_name
+            if not repo_path.exists() or not (repo_path / ".git").exists():
+                typer.echo(
+                    f"❌ Error: Repository '{repo_name}' not found in group '{group}'",
+                    err=True,
+                )
+                typer.echo(f"Expected path: {repo_path}", err=True)
+                raise typer.Exit(1)
+
+            repo = {
+                "name": repo_name,
+                "path": repo_path,
+                "group": group,
+            }
         else:
-            # Default to repo's own group
+            # Default behavior: find repo by name across all groups
+            repo = find_repo_by_name(repo_name, base_dir)
+            if not repo:
+                typer.echo(f"Error: Repository '{repo_name}' not found.", err=True)
+                typer.echo("Run 'dbx list' to see available repositories.", err=True)
+                raise typer.Exit(1)
+
+            repo_path = repo["path"]
+            # Use repo's own group
             group_path = repo_path.parent
 
         # Detect venv
         python_path, venv_type = get_venv_info(
-            repo_path, group_path, base_path=base_dir
+            repo["path"], group_path, base_path=base_dir
         )
 
         if verbose:
@@ -210,7 +225,7 @@ def test_callback(
         # Build test command
         if test_runner:
             # Use custom test runner (relative path from repo root)
-            test_script = repo_path / test_runner
+            test_script = repo["path"] / test_runner
             if not test_script.exists():
                 typer.echo(f"❌ Error: Test runner not found: {test_script}", err=True)
                 raise typer.Exit(1)
@@ -222,10 +237,10 @@ def test_callback(
             if all_runner_args:
                 test_cmd.extend(all_runner_args)
                 typer.echo(
-                    f"Running {test_runner} {' '.join(all_runner_args)} in {repo_path}..."
+                    f"Running {test_runner} {' '.join(all_runner_args)} in {repo['path']}..."
                 )
             else:
-                typer.echo(f"Running {test_runner} in {repo_path}...")
+                typer.echo(f"Running {test_runner} in {repo['path']}...")
 
             # Warn if -k/--keyword option is used with custom test runner
             if keyword:
@@ -248,11 +263,11 @@ def test_callback(
             # Add keyword filter if set
             if keyword:
                 test_cmd.extend(["-k", keyword])
-                typer.echo(f"Running pytest -k '{keyword}' in {repo_path}...")
+                typer.echo(f"Running pytest -k '{keyword}' in {repo['path']}...")
             elif test_args:
-                typer.echo(f"Running pytest {' '.join(test_args)} in {repo_path}...")
+                typer.echo(f"Running pytest {' '.join(test_args)} in {repo['path']}...")
             else:
-                typer.echo(f"Running pytest in {repo_path}...")
+                typer.echo(f"Running pytest in {repo['path']}...")
 
         if venv_type == "group":
             typer.echo(f"Using group venv: {group_path}/.venv\n")
@@ -323,7 +338,7 @@ def test_callback(
 
         if verbose:
             typer.echo(f"[verbose] Running command: {' '.join(test_cmd)}")
-            typer.echo(f"[verbose] Working directory: {repo_path}\n")
+            typer.echo(f"[verbose] Working directory: {repo['path']}\n")
 
         # For the django repo: ensure django_test project exists and is importable
         if test_runner and repo_name == "django":
@@ -356,7 +371,7 @@ def test_callback(
         # Run test command in the repository
         result = subprocess.run(
             test_cmd,
-            cwd=str(repo_path),
+            cwd=str(repo["path"]),
             env=test_env,
             check=False,
         )
