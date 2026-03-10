@@ -11,6 +11,7 @@ import typer
 
 from dbx_python_cli.utils.repo import (
     find_repo_by_name,
+    find_all_repos_by_name,
     get_base_dir,
     get_config,
     get_test_env_vars,
@@ -161,6 +162,17 @@ def test_callback(
                 typer.echo(f"Error: Repository '{repo_name}' not found.", err=True)
                 typer.echo("Run 'dbx list' to see available repositories.", err=True)
                 raise typer.Exit(1)
+
+            # Check if repo exists in multiple groups
+            all_matches = find_all_repos_by_name(repo_name, base_dir)
+            if len(all_matches) > 1:
+                groups = [r["group"] for r in all_matches]
+                typer.echo(
+                    f"ℹ️  Note: '{repo_name}' exists in multiple groups: {', '.join(groups)}"
+                )
+                typer.echo(
+                    f"   Using: {repo['group']} group (specify with -g to use a different one)\n"
+                )
 
             repo_path = repo["path"]
             # Use repo's own group

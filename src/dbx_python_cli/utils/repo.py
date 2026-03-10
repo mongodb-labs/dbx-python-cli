@@ -468,6 +468,21 @@ def find_repo_by_name(repo_name, base_dir):
     return None
 
 
+def find_all_repos_by_name(repo_name, base_dir):
+    """
+    Find all repositories with a given name in the base directory.
+
+    Args:
+        repo_name: Name of the repository to find
+        base_dir: Path to the base directory containing group subdirectories
+
+    Returns:
+        list: List of dictionaries with 'name', 'path', and 'group' keys
+    """
+    all_repos = find_all_repos(base_dir)
+    return [repo for repo in all_repos if repo["name"] == repo_name]
+
+
 def list_repos(base_dir, format_style="default", config=None):
     """
     List all repositories in a formatted way.
