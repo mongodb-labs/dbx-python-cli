@@ -306,22 +306,89 @@ just docs-clean
 
 ## Project Structure
 
+### Repository Structure
+
 ```
 dbx-python-cli/
-├── src/dbx_python_cli/  # Source code
-│   ├── __init__.py      # Package initialization
-│   └── cli.py           # CLI implementation
-├── tests/               # Test suite
-│   ├── conftest.py      # Pytest configuration
-│   ├── test_cli.py      # CLI tests
-│   └── test_version.py  # Version tests
-├── docs/                # Sphinx documentation
-│   ├── conf.py          # Sphinx configuration
-│   └── index.rst        # Documentation index
-├── pyproject.toml       # Project configuration
-├── justfile             # Task runner commands
-└── README.md            # This file
+├── src/dbx_python_cli/       # Source code
+│   ├── __init__.py           # Package initialization
+│   ├── cli.py                # Main CLI entry point
+│   ├── config.toml           # Default configuration template
+│   ├── commands/             # Command implementations
+│   │   ├── branch.py         # Git branch commands
+│   │   ├── clone.py          # Repository cloning
+│   │   ├── config.py         # Configuration management
+│   │   ├── docs.py           # Documentation commands
+│   │   ├── edit.py           # Editor integration
+│   │   ├── env.py            # Virtual environment management
+│   │   ├── install.py        # Dependency installation
+│   │   ├── just.py           # Just command runner
+│   │   ├── list.py           # Repository listing
+│   │   ├── log.py            # Git log commands
+│   │   ├── mongodb.py        # MongoDB runner integration
+│   │   ├── open.py           # Browser integration
+│   │   ├── project.py        # Django project management
+│   │   ├── project_utils.py  # Project utilities
+│   │   ├── remove.py         # Repository removal
+│   │   ├── repo_utils.py     # Repository utilities
+│   │   ├── status.py         # Git status commands
+│   │   ├── switch.py         # Git branch switching
+│   │   ├── sync.py           # Fork synchronization
+│   │   ├── test.py           # Test runner
+│   │   └── venv_utils.py     # Virtual environment utilities
+│   └── templates/            # Django project templates
+│       ├── app_template/     # Django app template
+│       ├── frontend_template/ # Frontend template
+│       └── project_template/ # Django project template
+├── tests/                    # Test suite
+│   ├── conftest.py           # Pytest configuration
+│   ├── test_*.py             # Command tests
+│   └── integration/          # Integration tests
+├── docs/                     # Sphinx documentation
+│   ├── conf.py               # Sphinx configuration
+│   ├── index.rst             # Documentation index
+│   ├── introduction/         # Introduction docs
+│   ├── features/             # Feature documentation
+│   ├── design/               # Design documentation
+│   ├── api/                  # API documentation
+│   └── development/          # Development docs
+├── pyproject.toml            # Project configuration
+├── justfile                  # Task runner commands
+├── uv.lock                   # Dependency lock file
+└── README.md                 # This file
 ```
+
+### User Directory Structure
+
+After running `dbx config init` and `dbx clone -g django`, your directory structure will look like:
+
+```
+~/Developer/mongodb/              # base_dir (configurable)
+├── django/                       # Group directory
+│   ├── .venv/                    # Group-level virtual environment
+│   ├── mongo-python-driver/     # Cloned from global group
+│   ├── django/                   # Django fork
+│   ├── django-mongodb-backend/  # MongoDB backend for Django
+│   ├── django-mongodb-extensions/ # MongoDB extensions
+│   ├── libmongocrypt/           # Queryable Encryption library
+│   └── medical-records/         # Example project
+├── pymongo/                      # Another group
+│   ├── .venv/                    # Separate venv for this group
+│   ├── mongo-python-driver/     # Cloned from global group
+│   ├── specifications/          # MongoDB specifications
+│   └── drivers-evergreen-tools/ # Testing tools
+└── langchain/                    # Another group
+    ├── .venv/                    # Separate venv for this group
+    ├── mongo-python-driver/     # Cloned from global group
+    └── langchain-mongodb/       # LangChain MongoDB integration
+```
+
+**Key Points:**
+
+- **Group-Level Virtual Environments:** Each group has its own `.venv` directory for isolated dependencies
+- **Global Repositories:** Repositories in `global_groups` (like `mongo-python-driver`) are automatically cloned into every group
+- **Configurable Base Directory:** The base directory can be customized in `~/.config/dbx-python-cli/config.toml`
+- **Organized by Purpose:** Groups organize related repositories (e.g., django, pymongo, langchain)
 
 ## Contributing
 
