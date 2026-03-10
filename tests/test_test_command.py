@@ -639,7 +639,6 @@ def test_test_with_group_flag(mock_config, temp_repos_dir):
                     # Verify the working directory is the django repo in the django group
                     call_kwargs = mock_run.call_args[1]
                     cwd = call_kwargs["cwd"]
-                    assert "django/django" in cwd
                     assert cwd.endswith("django/django") or cwd.endswith(
                         "django\\django"
                     )
