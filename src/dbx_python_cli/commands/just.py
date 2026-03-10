@@ -167,10 +167,23 @@ def _run_just_in_repo(
 
     if env_vars:
         just_env.update(env_vars)
+
+    # Always set USE_ACTIVE_VENV=1 for just commands (unless already set)
+    if "USE_ACTIVE_VENV" not in just_env:
+        just_env["USE_ACTIVE_VENV"] = "1"
+
+    if env_vars or "USE_ACTIVE_VENV" in just_env:
         if verbose:
             typer.echo("[verbose] Environment variables:")
-            for key, value in env_vars.items():
-                typer.echo(f"[verbose]   {key}={value}")
+            # Show env_vars from config
+            if env_vars:
+                for key, value in env_vars.items():
+                    typer.echo(f"[verbose]   {key}={value}")
+            # Show USE_ACTIVE_VENV if it was set
+            if "USE_ACTIVE_VENV" in just_env and (
+                not env_vars or "USE_ACTIVE_VENV" not in env_vars
+            ):
+                typer.echo(f"[verbose]   USE_ACTIVE_VENV={just_env['USE_ACTIVE_VENV']}")
             typer.echo()
 
     if verbose:
