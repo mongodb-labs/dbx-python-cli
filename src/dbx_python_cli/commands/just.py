@@ -9,6 +9,7 @@ import typer
 
 from dbx_python_cli.utils.repo import (
     find_all_repos,
+    find_all_repos_by_name,
     find_repo_by_name,
     get_base_dir,
     get_config,
@@ -82,7 +83,12 @@ def _list_repos_with_justfiles(ctx: typer.Context):
     typer.echo("\nRun 'dbx just <repo_name>' to see available just commands")
 
 
-def _run_just_in_repo(ctx: typer.Context, repo_name: str, just_args: list[str] | None):
+def _run_just_in_repo(
+    ctx: typer.Context,
+    repo_name: str,
+    just_args: list[str] | None,
+    group: str | None = None,
+):
     """Run just commands in a repository - shared logic."""
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -102,11 +108,42 @@ def _run_just_in_repo(ctx: typer.Context, repo_name: str, just_args: list[str] |
         raise typer.Exit(1)
 
     # Find the repository
-    repo = find_repo_by_name(repo_name, base_dir)
-    if not repo:
-        typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
-        typer.echo("\nRun 'dbx list' to see available repositories")
-        raise typer.Exit(1)
+    if group:
+        # Look for repo in specific group
+        repo_path = base_dir / group / repo_name
+        if not repo_path.exists():
+            typer.echo(
+                f"❌ Error: Repository '{repo_name}' not found in group '{group}'",
+                err=True,
+            )
+            typer.echo(f"Expected path: {repo_path}", err=True)
+            raise typer.Exit(1)
+
+        repo = {
+            "name": repo_name,
+            "path": repo_path,
+            "group": group,
+        }
+    else:
+        # Find repo by name across all groups
+        repo = find_repo_by_name(repo_name, base_dir)
+        if not repo:
+            typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+            typer.echo("\nRun 'dbx list' to see available repositories")
+            raise typer.Exit(1)
+
+        # Check if repo exists in multiple groups
+        all_matches = find_all_repos_by_name(repo_name, base_dir)
+        if len(all_matches) > 1:
+            groups = [r["group"] for r in all_matches]
+            typer.echo(
+                f"⚠️  Warning: '{repo_name}' exists in multiple groups: {', '.join(groups)}",
+                err=True,
+            )
+            typer.echo(
+                f"⚠️  Using '{repo['group']}' group. Specify -g <group> to use a different one.\n",
+                err=True,
+            )
 
     repo_path = Path(repo["path"])
 
@@ -174,12 +211,19 @@ def just_callback(
         None,
         help="Just command and arguments to run (e.g., 'lint', 'test -v'). If not provided, runs 'just' without arguments to show available commands.",
     ),
+    group: str = typer.Option(
+        None,
+        "--group",
+        "-g",
+        help="Group name - run just in the repo within this group (e.g., 'pymongo')",
+    ),
 ):
     """Run just commands in a cloned repository.
 
     Usage::
 
         dbx just <repo_name> [just_command] [args...]
+        dbx just -g <group> <repo_name> [just_command] [args...]
         dbx just list                         # List repos with justfiles
 
     If a just command is provided after the repo name, it will be executed.
@@ -190,6 +234,7 @@ def just_callback(
         dbx just mongo-python-driver          # Show available just commands
         dbx just mongo-python-driver lint     # Run 'just lint'
         dbx just mongo-python-driver test -v  # Run 'just test -v'
+        dbx just -g pymongo mongo-python-driver lint  # Run in pymongo group
         dbx just list                         # List repos with justfiles
     """
     # If a subcommand was invoked (like 'list'), skip the callback logic
@@ -205,8 +250,9 @@ def just_callback(
     if not repo_name:
         typer.echo("❌ Error: Repository name is required", err=True)
         typer.echo("\nUsage: dbx just <repo_name> [just_command]")
+        typer.echo("   or: dbx just -g <group> <repo_name> [just_command]")
         typer.echo("   or: dbx just list")
         raise typer.Exit(1)
 
     # Run just in the repository
-    _run_just_in_repo(ctx, repo_name, just_args)
+    _run_just_in_repo(ctx, repo_name, just_args, group)
