@@ -245,6 +245,17 @@ def show():
     try:
         config = get_config()
 
+        # Project default environment variables
+        project_config = config.get("project", {})
+        default_env = project_config.get("default_env", {})
+        if default_env:
+            buf.append(h("Default Environment Variables"))
+            for var_name, var_value in sorted(default_env.items()):
+                buf.append(
+                    f"  {typer.style(var_name, fg=typer.colors.MAGENTA)}={val(var_value)}"
+                )
+            buf.append("")
+
         # Repository settings
         repo_config = config.get("repo", {})
         if repo_config:
