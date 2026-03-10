@@ -240,3 +240,56 @@ def test_status_git_error(tmp_path, temp_repos_dir, mock_config):
             assert result.exit_code == 0  # Command doesn't fail, just shows error
             output = strip_ansi(result.stdout + result.stderr)
             assert "git status failed" in output or "fatal" in output
+
+
+def test_status_with_group_and_repo_name(tmp_path, temp_repos_dir, mock_config):
+    """Test status command with both group and repo name filters to specific repo."""
+    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+        mock_get_config.return_value = {
+            "repo": {
+                "base_dir": str(temp_repos_dir),
+                "groups": {
+                    "pymongo": {
+                        "repos": [
+                            "https://github.com/mongodb/mongo-python-driver.git",
+                            "https://github.com/mongodb/specifications.git",
+                        ]
+                    }
+                },
+            }
+        }
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="On branch main\nnothing to commit", stderr=""
+            )
+            result = runner.invoke(
+                app, ["status", "-g", "pymongo", "mongo-python-driver"]
+            )
+            assert result.exit_code == 0
+            output = strip_ansi(result.stdout)
+            assert "Showing status for 1 repository(ies)" in output
+            assert "mongo-python-driver:" in output
+            assert "specifications:" not in output
+            # Should be called only once (for the specified repo)
+            assert mock_run.call_count == 1
+
+
+def test_status_with_group_and_nonexistent_repo(tmp_path, temp_repos_dir, mock_config):
+    """Test status with group and non-existent repo name shows error."""
+    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+        mock_get_config.return_value = {
+            "repo": {
+                "base_dir": str(temp_repos_dir),
+                "groups": {
+                    "pymongo": {
+                        "repos": [
+                            "https://github.com/mongodb/mongo-python-driver.git",
+                        ]
+                    }
+                },
+            }
+        }
+        result = runner.invoke(app, ["status", "-g", "pymongo", "nonexistent"])
+        assert result.exit_code == 1
+        output = strip_ansi(result.stdout + result.stderr)
+        assert "not found in group" in output

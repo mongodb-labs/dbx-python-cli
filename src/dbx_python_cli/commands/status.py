@@ -49,11 +49,13 @@ def status_callback(
 
         dbx status <repo_name>           # Show status of a single repository
         dbx status -g <group_name>       # Show status of all repos in a group
+        dbx status -g <group_name> <repo_name>  # Show status of specific repo in group
 
     Examples::
 
         dbx status django-mongodb-backend        # Show status of single repo
         dbx status -g django                     # Show status of all repos in django group
+        dbx status -g django django              # Show status of django repo in django group
         dbx status --short django-mongodb-backend # Show short-format status
     """
     # Get verbose flag from parent context
@@ -89,6 +91,16 @@ def status_callback(
             )
             typer.echo(f"\nClone repositories using: dbx clone -g {group}")
             raise typer.Exit(1)
+
+        # If repo_name is provided, filter to only that repo within the group
+        if repo_name:
+            group_repos = [r for r in group_repos if r["name"] == repo_name]
+            if not group_repos:
+                typer.echo(
+                    f"❌ Error: Repository '{repo_name}' not found in group '{group}'.",
+                    err=True,
+                )
+                raise typer.Exit(1)
 
         typer.echo(
             f"Showing status for {len(group_repos)} repository(ies) in group '{group}':\n"
