@@ -30,7 +30,7 @@ def init(
         None,
         "--group",
         "-g",
-        help="Repository group to create venv for (creates venv in group directory)",
+        help="Repository group (creates venv in group directory, or specifies which group to find repo in)",
     ),
     python: str = typer.Option(
         None,
@@ -50,6 +50,7 @@ def init(
     By default, creates a venv in the base directory (shared across all repos).
     Use --group to create a venv in a specific group directory.
     Use a positional repo argument to create a venv in an individual repo directory.
+    Use both --group and repo to create a venv for a repo within a specific group.
     """
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -85,13 +86,46 @@ def init(
 
         # Determine what type of venv to create
         if repo and group:
-            typer.echo("❌ Error: Cannot specify both repo and --group", err=True)
-            typer.echo("\nUsage: dbx env init              (base dir venv)")
-            typer.echo("   or: dbx env init --group <group>  (group venv)")
-            typer.echo("   or: dbx env init <repo>           (repo venv)")
-            raise typer.Exit(1)
+            # Create venv in individual repo directory within a specific group
+            from dbx_python_cli.utils.repo import find_all_repos_by_name
 
-        if repo:
+            # Validate group exists
+            if group in global_group_names:
+                typer.echo(
+                    f"❌ Error: '{group}' is a global group used only for config — it has no group directory.",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            if group not in groups:
+                typer.echo(
+                    f"❌ Error: Group '{group}' not found in configuration.", err=True
+                )
+                typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
+                raise typer.Exit(1)
+
+            # Find repo within the specified group
+            matching_repos = find_all_repos_by_name(repo, base_dir)
+            repo_info = None
+            for r in matching_repos:
+                if r["group"] == group:
+                    repo_info = r
+                    break
+
+            if not repo_info:
+                typer.echo(
+                    f"❌ Error: Repository '{repo}' not found in group '{group}'",
+                    err=True,
+                )
+                typer.echo(
+                    f"\nClone the repository first with: dbx clone -g {group}", err=True
+                )
+                raise typer.Exit(1)
+
+            venv_path = repo_info["path"] / ".venv"
+            location_desc = f"repository '{repo}' in group '{group}'"
+            working_dir = repo_info["path"]
+
+        elif repo:
             # Create venv in individual repo directory
             from dbx_python_cli.utils.repo import find_repo_by_name
 
@@ -321,7 +355,7 @@ def remove(
         None,
         "--group",
         "-g",
-        help="Repository group to remove venv for (removes venv from group directory)",
+        help="Repository group (removes venv from group directory, or specifies which group to find repo in)",
     ),
     list_groups: bool = typer.Option(
         False,
@@ -341,6 +375,7 @@ def remove(
     By default, removes the venv from the base directory.
     Use --group to remove a venv from a specific group directory.
     Use a positional repo argument to remove a venv from an individual repo directory.
+    Use both --group and repo to remove a venv for a repo within a specific group.
     """
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -376,13 +411,43 @@ def remove(
 
         # Determine what type of venv to remove
         if repo and group:
-            typer.echo("❌ Error: Cannot specify both repo and --group", err=True)
-            typer.echo("\nUsage: dbx env remove              (base dir venv)")
-            typer.echo("   or: dbx env remove --group <group>  (group venv)")
-            typer.echo("   or: dbx env remove <repo>           (repo venv)")
-            raise typer.Exit(1)
+            # Remove venv from individual repo directory within a specific group
+            from dbx_python_cli.utils.repo import find_all_repos_by_name
 
-        if repo:
+            # Validate group exists
+            if group in global_group_names:
+                typer.echo(
+                    f"❌ Error: '{group}' is a global group used only for config — it has no group directory.",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            if group not in groups:
+                typer.echo(
+                    f"❌ Error: Group '{group}' not found in configuration.", err=True
+                )
+                typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
+                raise typer.Exit(1)
+
+            # Find repo within the specified group
+            matching_repos = find_all_repos_by_name(repo, base_dir)
+            repo_info = None
+            for r in matching_repos:
+                if r["group"] == group:
+                    repo_info = r
+                    break
+
+            if not repo_info:
+                typer.echo(
+                    f"❌ Error: Repository '{repo}' not found in group '{group}'",
+                    err=True,
+                )
+                raise typer.Exit(1)
+
+            venv_path = repo_info["path"] / ".venv"
+            location_desc = f"repository '{repo}' in group '{group}'"
+            recreate_cmd = f"dbx env init -g {group} {repo}"
+
+        elif repo:
             # Remove venv from individual repo directory
             from dbx_python_cli.utils.repo import find_repo_by_name
 

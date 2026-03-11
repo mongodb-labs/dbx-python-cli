@@ -431,3 +431,93 @@ def test_env_remove_with_force_flag(mock_config, temp_repos_dir):
         assert result.exit_code == 0
         assert "Virtual environment removed" in result.stdout
         assert not venv_dir.exists()
+
+
+def test_env_init_repo_with_group(temp_repos_dir, mock_config):
+    """Test env init with both repo and group specified."""
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        # Create group directory and repo
+        pymongo_dir = temp_repos_dir / "pymongo"
+        pymongo_dir.mkdir(parents=True)
+        repo_dir = pymongo_dir / "mongo-python-driver"
+        repo_dir.mkdir()
+        (repo_dir / ".git").mkdir()
+
+        # Mock subprocess.run to simulate successful venv creation
+        with patch("subprocess.run") as mock_run:
+            # Create the .venv directory to simulate successful creation
+            def create_venv(*args, **kwargs):
+                venv_path = repo_dir / ".venv"
+                venv_path.mkdir(exist_ok=True)
+                return type("obj", (object,), {"returncode": 0})()
+
+            mock_run.side_effect = create_venv
+
+            result = runner.invoke(
+                app, ["env", "init", "-g", "pymongo", "mongo-python-driver"]
+            )
+            assert result.exit_code == 0
+            assert "Creating virtual environment" in result.stdout
+            assert (
+                "repository 'mongo-python-driver' in group 'pymongo'" in result.stdout
+            )
+            # Verify venv was created in the repo directory
+            assert (repo_dir / ".venv").exists()
+
+
+def test_env_remove_repo_with_group(temp_repos_dir, mock_config):
+    """Test env remove with both repo and group specified."""
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        # Create group directory, repo, and venv
+        pymongo_dir = temp_repos_dir / "pymongo"
+        pymongo_dir.mkdir(parents=True)
+        repo_dir = pymongo_dir / "mongo-python-driver"
+        repo_dir.mkdir()
+        (repo_dir / ".git").mkdir()
+        venv_dir = repo_dir / ".venv"
+        venv_dir.mkdir()
+
+        result = runner.invoke(
+            app, ["env", "remove", "-g", "pymongo", "mongo-python-driver", "--force"]
+        )
+        assert result.exit_code == 0
+        assert "Virtual environment removed" in result.stdout
+        assert not venv_dir.exists()
+
+
+def test_env_init_repo_with_group_not_found(temp_repos_dir, mock_config):
+    """Test env init with repo not found in specified group."""
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        # Create group directory but not the repo
+        pymongo_dir = temp_repos_dir / "pymongo"
+        pymongo_dir.mkdir(parents=True)
+
+        result = runner.invoke(
+            app, ["env", "init", "-g", "pymongo", "nonexistent-repo"]
+        )
+        assert result.exit_code == 1
+        output = result.stdout + (result.stderr or "")
+        assert "Repository 'nonexistent-repo' not found in group 'pymongo'" in output
+
+
+def test_env_remove_repo_with_group_not_found(temp_repos_dir, mock_config):
+    """Test env remove with repo not found in specified group."""
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        # Create group directory but not the repo
+        pymongo_dir = temp_repos_dir / "pymongo"
+        pymongo_dir.mkdir(parents=True)
+
+        result = runner.invoke(
+            app, ["env", "remove", "-g", "pymongo", "nonexistent-repo", "--force"]
+        )
+        assert result.exit_code == 1
+        output = result.stdout + (result.stderr or "")
+        assert "Repository 'nonexistent-repo' not found in group 'pymongo'" in output
