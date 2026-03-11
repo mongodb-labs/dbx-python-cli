@@ -557,7 +557,7 @@ def install_callback(
             selected_group = repo_group
         else:
             # Find the repository across all groups
-            repo = find_repo_by_name(repo_name, base_dir)
+            repo = find_repo_by_name(repo_name, base_dir, config)
             if not repo:
                 typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
                 typer.echo("\nUse 'dbx install --list' to see available repositories")
@@ -820,8 +820,8 @@ def install_callback(
             "group": venv_group,
         }
     else:
-        # Find the repository (will return first match if multiple exist)
-        repo = find_repo_by_name(repo_name, base_dir)
+        # Find the repository (will return highest priority match if multiple exist)
+        repo = find_repo_by_name(repo_name, base_dir, config)
         if not repo:
             typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
             typer.echo("\nRun 'dbx install --list' to see available repositories")

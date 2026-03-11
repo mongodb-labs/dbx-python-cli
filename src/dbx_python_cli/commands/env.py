@@ -129,7 +129,7 @@ def init(
             # Create venv in individual repo directory
             from dbx_python_cli.utils.repo import find_repo_by_name
 
-            repo_info = find_repo_by_name(repo, base_dir)
+            repo_info = find_repo_by_name(repo, base_dir, config)
             if not repo_info:
                 typer.echo(f"❌ Error: Repository '{repo}' not found", err=True)
                 typer.echo(
@@ -451,7 +451,7 @@ def remove(
             # Remove venv from individual repo directory
             from dbx_python_cli.utils.repo import find_repo_by_name
 
-            repo_info = find_repo_by_name(repo, base_dir)
+            repo_info = find_repo_by_name(repo, base_dir, config)
             if not repo_info:
                 typer.echo(f"❌ Error: Repository '{repo}' not found", err=True)
                 raise typer.Exit(1)

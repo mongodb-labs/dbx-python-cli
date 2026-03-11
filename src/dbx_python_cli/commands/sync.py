@@ -170,7 +170,7 @@ def sync_callback(
             raise typer.Exit(1)
 
         # Find the repository
-        repo_info = find_repo_by_name(repo_name, base_dir)
+        repo_info = find_repo_by_name(repo_name, base_dir, config)
         if not repo_info:
             typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
             typer.echo("\nUse 'dbx list' to see available repositories")

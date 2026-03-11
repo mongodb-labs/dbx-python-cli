@@ -84,7 +84,7 @@ def open_callback(
 
                 # Try to find the cloned repo and get its origin URL
                 # This allows us to open fork URLs if the repo was cloned with --fork
-                repo = find_repo_by_name(repo_name, base_dir)
+                repo = find_repo_by_name(repo_name, base_dir, config)
                 if repo:
                     repo_path = Path(repo["path"])
                     origin_url = _get_git_remote_url(repo_path, "origin", verbose)
@@ -125,7 +125,7 @@ def open_callback(
             raise typer.Exit(1)
 
         # Find the repository
-        repo = find_repo_by_name(repo_name, base_dir)
+        repo = find_repo_by_name(repo_name, base_dir, config)
         if not repo:
             typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
             typer.echo("\nRun 'dbx list' to see available repositories")

@@ -8,6 +8,7 @@ from dbx_python_cli.utils.repo import (
     _expand_env_var_value,
     find_all_repos,
     find_repo_by_name,
+    get_group_priority,
     get_preferred_branch,
     get_global_groups,
     get_test_env_vars,
@@ -423,3 +424,115 @@ def test_get_preferred_branch_returns_none_for_unknown_group():
     """get_preferred_branch returns None when the group is not in config."""
     config = {"repo": {"groups": {}}}
     assert get_preferred_branch(config, "nonexistent", "django") is None
+
+
+# ---------------------------------------------------------------------------
+# get_group_priority tests
+# ---------------------------------------------------------------------------
+
+
+def test_get_group_priority():
+    """Test get_group_priority returns the priority list."""
+    config = {
+        "repo": {
+            "group_priority": ["pymongo", "django", "langchain"],
+            "groups": {},
+        }
+    }
+    assert get_group_priority(config) == ["pymongo", "django", "langchain"]
+
+
+def test_get_group_priority_not_configured():
+    """Test get_group_priority returns empty list when not configured."""
+    config = {"repo": {"groups": {}}}
+    assert get_group_priority(config) == []
+
+
+def test_get_group_priority_empty_config():
+    """Test get_group_priority with an empty config."""
+    assert get_group_priority({}) == []
+
+
+# ---------------------------------------------------------------------------
+# find_repo_by_name with priority tests
+# ---------------------------------------------------------------------------
+
+
+def test_find_repo_by_name_with_priority(tmp_path):
+    """Test find_repo_by_name uses priority when multiple repos exist."""
+    # Create two groups with the same repo
+    pymongo_dir = tmp_path / "pymongo"
+    pymongo_dir.mkdir()
+    pymongo_repo = pymongo_dir / "mongo-python-driver"
+    pymongo_repo.mkdir()
+    (pymongo_repo / ".git").mkdir()
+
+    django_dir = tmp_path / "django"
+    django_dir.mkdir()
+    django_repo = django_dir / "mongo-python-driver"
+    django_repo.mkdir()
+    (django_repo / ".git").mkdir()
+
+    config = {
+        "repo": {
+            "group_priority": ["pymongo", "django"],
+            "groups": {},
+        }
+    }
+
+    # Should return pymongo version (higher priority)
+    repo = find_repo_by_name("mongo-python-driver", tmp_path, config)
+    assert repo is not None
+    assert repo["group"] == "pymongo"
+    assert repo["path"] == pymongo_repo
+
+
+def test_find_repo_by_name_with_priority_reverse(tmp_path):
+    """Test find_repo_by_name respects priority order."""
+    # Create two groups with the same repo
+    pymongo_dir = tmp_path / "pymongo"
+    pymongo_dir.mkdir()
+    pymongo_repo = pymongo_dir / "mongo-python-driver"
+    pymongo_repo.mkdir()
+    (pymongo_repo / ".git").mkdir()
+
+    django_dir = tmp_path / "django"
+    django_dir.mkdir()
+    django_repo = django_dir / "mongo-python-driver"
+    django_repo.mkdir()
+    (django_repo / ".git").mkdir()
+
+    config = {
+        "repo": {
+            "group_priority": ["django", "pymongo"],  # Django has higher priority
+            "groups": {},
+        }
+    }
+
+    # Should return django version (higher priority)
+    repo = find_repo_by_name("mongo-python-driver", tmp_path, config)
+    assert repo is not None
+    assert repo["group"] == "django"
+    assert repo["path"] == django_repo
+
+
+def test_find_repo_by_name_no_priority_config(tmp_path):
+    """Test find_repo_by_name without priority config returns first match."""
+    # Create two groups with the same repo
+    pymongo_dir = tmp_path / "pymongo"
+    pymongo_dir.mkdir()
+    pymongo_repo = pymongo_dir / "mongo-python-driver"
+    pymongo_repo.mkdir()
+    (pymongo_repo / ".git").mkdir()
+
+    django_dir = tmp_path / "django"
+    django_dir.mkdir()
+    django_repo = django_dir / "mongo-python-driver"
+    django_repo.mkdir()
+    (django_repo / ".git").mkdir()
+
+    # No config provided
+    repo = find_repo_by_name("mongo-python-driver", tmp_path, None)
+    assert repo is not None
+    # Should return one of them (order not guaranteed without priority)
+    assert repo["name"] == "mongo-python-driver"

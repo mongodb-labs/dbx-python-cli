@@ -126,7 +126,7 @@ def _run_just_in_repo(
         }
     else:
         # Find repo by name across all groups
-        repo = find_repo_by_name(repo_name, base_dir)
+        repo = find_repo_by_name(repo_name, base_dir, config)
         if not repo:
             typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
             typer.echo("\nRun 'dbx list' to see available repositories")

@@ -73,6 +73,10 @@ base_dir = "~/Developer/mongodb"
 fork_user = "aclark4life"  # Change to your GitHub username for fork operations
 # Repos in these groups are installed into every other group's venv automatically
 global_groups = ["global"]
+# Priority ordering for groups when a repo exists in multiple groups
+# Higher priority groups are preferred when running commands without -g flag
+# Groups not listed have equal lower priority
+group_priority = ["pymongo", "django", "langchain"]
 
 [repo.groups.global]
 repos = [

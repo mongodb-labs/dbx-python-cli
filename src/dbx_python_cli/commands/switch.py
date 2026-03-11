@@ -171,7 +171,7 @@ def switch_callback(
         raise typer.Exit(1)
 
     # Find the repository
-    repo = find_repo_by_name(repo_name, base_dir)
+    repo = find_repo_by_name(repo_name, base_dir, config)
     if not repo:
         typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
         typer.echo("\nRun 'dbx switch --list' to see available repositories")

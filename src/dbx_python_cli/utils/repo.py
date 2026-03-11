@@ -450,22 +450,55 @@ def find_all_repos(base_dir):
     return repos
 
 
-def find_repo_by_name(repo_name, base_dir):
+def get_group_priority(config):
+    """
+    Get the group priority list from configuration.
+
+    Args:
+        config: Configuration dictionary
+
+    Returns:
+        list: List of group names in priority order (highest priority first)
+    """
+    if not config:
+        return []
+    return config.get("repo", {}).get("group_priority", [])
+
+
+def find_repo_by_name(repo_name, base_dir, config=None):
     """
     Find a repository by name in the base directory.
+    If multiple repos with the same name exist in different groups,
+    returns the one in the highest priority group.
 
     Args:
         repo_name: Name of the repository to find
         base_dir: Path to the base directory containing group subdirectories
+        config: Optional configuration dictionary for group priority
 
     Returns:
         dict: Dictionary with 'name', 'path', and 'group' keys, or None if not found
     """
     all_repos = find_all_repos(base_dir)
-    for repo in all_repos:
-        if repo["name"] == repo_name:
-            return repo
-    return None
+    matching_repos = [repo for repo in all_repos if repo["name"] == repo_name]
+
+    if not matching_repos:
+        return None
+
+    if len(matching_repos) == 1:
+        return matching_repos[0]
+
+    # Multiple repos found - use priority ordering
+    priority = get_group_priority(config)
+
+    # First, try to find a repo in a prioritized group
+    for group_name in priority:
+        for repo in matching_repos:
+            if repo["group"] == group_name:
+                return repo
+
+    # If no prioritized group found, return the first match
+    return matching_repos[0]
 
 
 def find_all_repos_by_name(repo_name, base_dir):
