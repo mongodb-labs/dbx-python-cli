@@ -118,8 +118,8 @@ You can clone all groups defined in your configuration at once using the ``-a`` 
 
 This will:
 
-1. Clone all repositories from every group defined in your configuration
-2. Create separate directories for each group under your ``base_dir``
+1. Clone all repositories from every non-global group defined in your configuration
+2. Create separate directories for each non-global group under your ``base_dir``
 3. Automatically include global group repositories in each non-global group
 4. Optionally install dependencies if ``--no-install`` is not specified
 
@@ -127,10 +127,11 @@ This will:
 
 If your configuration has groups ``global``, ``pymongo``, ``django``, and ``langchain``, running ``dbx clone -a`` will:
 
-- Clone ``global`` group repos into ``~/Developer/mongodb/global/``
 - Clone ``pymongo`` group repos (plus global repos) into ``~/Developer/mongodb/pymongo/``
 - Clone ``django`` group repos (plus global repos) into ``~/Developer/mongodb/django/``
 - Clone ``langchain`` group repos (plus global repos) into ``~/Developer/mongodb/langchain/``
+
+Note that the ``global`` group itself does not get its own directory - its repositories are only cloned into the other group directories.
 
 This is useful when setting up a new development environment or when you want to work with all configured repositories.
 

@@ -268,8 +268,14 @@ def clone_callback(
         elif all_groups:
             repos_to_clone = {}
 
-            # Clone all groups from configuration
+            # Get global group names first to exclude them from cloning
+            global_group_names = repo.get_global_groups(config)
+
+            # Clone all groups from configuration, excluding global groups
             for group_name in groups.keys():
+                # Skip global groups - they should not get their own directory
+                if group_name in global_group_names:
+                    continue
                 group_repos = groups[group_name].get("repos", [])
                 if group_repos:
                     repos_to_clone[group_name] = group_repos
@@ -279,7 +285,6 @@ def clone_callback(
                 raise typer.Exit(1)
 
             # Append global-group repos to every non-global group being cloned.
-            global_group_names = repo.get_global_groups(config)
             if global_group_names:
                 global_urls = []
                 for gname in global_group_names:

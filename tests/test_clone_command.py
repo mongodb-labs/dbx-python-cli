@@ -321,8 +321,8 @@ def test_clone_all_groups(tmp_path):
             assert any("langchain-mongodb" in url for url in cloned_urls)
             assert any("mongo-python-driver" in url for url in cloned_urls)
 
-            # Verify all group directories were created
-            assert (tmp_path / "global").exists()
+            # Verify non-global group directories were created (global should NOT be created)
+            assert not (tmp_path / "global").exists()
             assert (tmp_path / "pymongo").exists()
             assert (tmp_path / "django").exists()
             assert (tmp_path / "langchain").exists()
@@ -352,16 +352,16 @@ def test_clone_all_groups_with_global_repos(tmp_path):
                 if c.args and c.args[0][:2] == ["git", "clone"]
             ]
 
-            # mongo-python-driver should be cloned into global, pymongo, and django
+            # mongo-python-driver should be cloned into pymongo and django, but NOT global
             mpd_calls = [
                 c for c in clone_calls if "mongo-python-driver" in c.args[0][2]
             ]
-            # Should be cloned once for global, once for pymongo, once for django
-            assert len(mpd_calls) == 3
+            # Should be cloned once for pymongo, once for django (not into global/)
+            assert len(mpd_calls) == 2
 
-            # Check destination paths
+            # Check destination paths - should NOT include global/
             dest_paths = [c.args[0][3] for c in mpd_calls]
-            assert any(str(tmp_path / "global") in p for p in dest_paths)
+            assert not any(str(tmp_path / "global") in p for p in dest_paths)
             assert any(str(tmp_path / "pymongo") in p for p in dest_paths)
             assert any(str(tmp_path / "django") in p for p in dest_paths)
 
