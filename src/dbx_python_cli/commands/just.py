@@ -180,8 +180,12 @@ def _run_just_in_repo(
 
     if venv_path:
         just_env["VIRTUAL_ENV"] = str(venv_path)
+        # Set UV_PROJECT_ENVIRONMENT to tell uv where the venv is
+        # This makes uv use the existing venv instead of creating a new one
+        just_env["UV_PROJECT_ENVIRONMENT"] = str(venv_path)
         if verbose:
             typer.echo(f"[verbose] Setting VIRTUAL_ENV={venv_path}")
+            typer.echo(f"[verbose] Setting UV_PROJECT_ENVIRONMENT={venv_path}")
 
     # Always set USE_ACTIVE_VENV=1 for just commands (unless already set)
     if "USE_ACTIVE_VENV" not in just_env:
