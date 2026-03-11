@@ -1,7 +1,9 @@
 """Branch command for running git branch in repositories."""
 
 import json
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import typer
@@ -111,13 +113,21 @@ def branch_callback(
             typer.echo("\nClone repositories using: dbx clone -a")
             raise typer.Exit(1)
 
-        typer.echo(
+        # Collect output in a buffer for pagination
+        output_buffer = []
+        output_buffer.append(
             f"Running git branch in {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
         )
 
         for repo_info in target_repos:
-            _run_git_branch(repo_info["path"], repo_info["name"], git_args, verbose)
+            output = _run_git_branch_to_string(
+                repo_info["path"], repo_info["name"], git_args, verbose
+            )
+            if output:
+                output_buffer.append(output)
 
+        # Paginate the output
+        _paginate_output("\n".join(output_buffer))
         return
 
     # Handle group option
@@ -141,13 +151,21 @@ def branch_callback(
             typer.echo(f"\nClone repositories using: dbx clone -g {group}")
             raise typer.Exit(1)
 
-        typer.echo(
+        # Collect output in a buffer for pagination
+        output_buffer = []
+        output_buffer.append(
             f"Running git branch in {len(group_repos)} repository(ies) in group '{group}':\n"
         )
 
         for repo_info in group_repos:
-            _run_git_branch(repo_info["path"], repo_info["name"], git_args, verbose)
+            output = _run_git_branch_to_string(
+                repo_info["path"], repo_info["name"], git_args, verbose
+            )
+            if output:
+                output_buffer.append(output)
 
+        # Paginate the output
+        _paginate_output("\n".join(output_buffer))
         return
 
     # Require repo_name if not using group or all_groups
@@ -204,3 +222,59 @@ def _run_git_branch(
         typer.echo(
             f"❌ {name}: git branch failed with exit code {result.returncode}", err=True
         )
+
+
+def _run_git_branch_to_string(
+    repo_path: Path, name: str, git_args: list[str], verbose: bool = False
+) -> str:
+    """Run git branch in a repository and return output as a string."""
+    # Check if it's a git repository
+    if not (repo_path / ".git").exists():
+        return f"⚠️  {name}: Not a git repository (skipping)\n"
+
+    # Build git branch command with --no-pager to avoid pager issues
+    git_cmd = ["git", "--no-pager", "branch"]
+    separator = "─" * 60
+
+    output_lines = []
+    output_lines.append(separator)
+    if git_args:
+        git_cmd.extend(git_args)
+        output_lines.append(f"🌿 {name}: git branch {' '.join(git_args)}")
+    else:
+        output_lines.append(f"🌿 {name}:")
+    output_lines.append(separator)
+
+    if verbose:
+        output_lines.append(f"[verbose] Running command: {' '.join(git_cmd)}")
+        output_lines.append(f"[verbose] Working directory: {repo_path}\n")
+
+    # Run git branch in the repository and capture output
+    result = subprocess.run(
+        git_cmd,
+        cwd=str(repo_path),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        output_lines.append(result.stdout.rstrip())
+    else:
+        output_lines.append(
+            f"❌ {name}: git branch failed with exit code {result.returncode}"
+        )
+        if result.stderr:
+            output_lines.append(result.stderr.rstrip())
+
+    return "\n".join(output_lines)
+
+
+def _paginate_output(output: str):
+    """Display output using a pager if available and stdout is a terminal."""
+    # Paginate with colors when writing to a terminal; plain-print otherwise
+    # (piped output, CI, tests, etc.) so ANSI codes are never double-escaped.
+    if sys.stdout.isatty() and shutil.which("less"):
+        subprocess.run(["less", "-R"], input=output, text=True)
+    else:
+        typer.echo(output)

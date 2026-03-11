@@ -159,7 +159,7 @@ def test_branch_with_group(tmp_path, temp_repos_dir, mock_config):
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
-                    mock_run.return_value = MagicMock(returncode=0)
+                    mock_run.return_value = MagicMock(returncode=0, stdout="  main\n* feature\n", stderr="")
                     result = runner.invoke(app, ["branch", "-g", "pymongo"])
                     assert result.exit_code == 0
                     assert "Running git branch in 2 repository(ies)" in result.stdout
@@ -228,7 +228,7 @@ def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
             ):
                 with patch("dbx_python_cli.commands.branch.get_global_groups", return_value=[]):
                     with patch("subprocess.run") as mock_run:
-                        mock_run.return_value = MagicMock(returncode=0)
+                        mock_run.return_value = MagicMock(returncode=0, stdout="  main\n* feature\n", stderr="")
                         result = runner.invoke(app, ["branch", "-a"])
                         assert result.exit_code == 0
                         # Should show branches for all groups
@@ -276,7 +276,7 @@ def test_branch_with_group_and_verbose(tmp_path, temp_repos_dir, mock_config):
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
-                    mock_run.return_value = MagicMock(returncode=0)
+                    mock_run.return_value = MagicMock(returncode=0, stdout="  main\n* feature\n", stderr="")
                     result = runner.invoke(app, ["-v", "branch", "-g", "pymongo"])
                     assert result.exit_code == 0
                     assert "Running git branch in 2 repository(ies)" in result.stdout
@@ -326,7 +326,7 @@ def test_branch_all_groups(tmp_path, temp_repos_dir, mock_config):
             ):
                 with patch("dbx_python_cli.commands.branch.get_global_groups", return_value=[]):
                     with patch("subprocess.run") as mock_run:
-                        mock_run.return_value = MagicMock(returncode=0)
+                        mock_run.return_value = MagicMock(returncode=0, stdout="  main\n* feature\n", stderr="")
                         result = runner.invoke(app, ["branch", "-a"])
                         assert result.exit_code == 0
                         # Should run on all repos across all groups (2 pymongo + 1 django = 3)
@@ -361,7 +361,7 @@ def test_branch_all_groups_excludes_global(tmp_path, temp_repos_dir, mock_config
             ):
                 with patch("dbx_python_cli.commands.branch.get_global_groups", return_value=["global"]):
                     with patch("subprocess.run") as mock_run:
-                        mock_run.return_value = MagicMock(returncode=0)
+                        mock_run.return_value = MagicMock(returncode=0, stdout="  main\n* feature\n", stderr="")
                         result = runner.invoke(app, ["branch", "-a"])
                         assert result.exit_code == 0
                         # Should only run on pymongo group (2 repos), not global
