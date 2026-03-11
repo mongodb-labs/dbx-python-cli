@@ -183,6 +183,16 @@ def _run_just_in_repo(
         # Set UV_PROJECT_ENVIRONMENT to tell uv where the venv is
         # This makes uv use the existing venv instead of creating a new one
         just_env["UV_PROJECT_ENVIRONMENT"] = str(venv_path)
+
+        # Add the venv's bin directory to PATH so uv run --active can detect it
+        # This simulates activating the venv
+        venv_bin = venv_path / "bin"
+        if venv_bin.exists():
+            current_path = just_env.get("PATH", os.environ.get("PATH", ""))
+            just_env["PATH"] = f"{venv_bin}:{current_path}"
+            if verbose:
+                typer.echo(f"[verbose] Prepending {venv_bin} to PATH")
+
         if verbose:
             typer.echo(f"[verbose] Setting VIRTUAL_ENV={venv_path}")
             typer.echo(f"[verbose] Setting UV_PROJECT_ENVIRONMENT={venv_path}")
