@@ -138,7 +138,10 @@ def sync_callback(
                     f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
                 )
 
-                for repo_info in target_repos:
+                for i, repo_info in enumerate(target_repos):
+                    # Add separator between repos (not before first or after last)
+                    if i > 0:
+                        typer.echo("─" * 60)
                     _sync_repository(
                         repo_info["path"], repo_info["name"], verbose, force, dry_run
                     )
@@ -233,7 +236,10 @@ def sync_callback(
                     f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n"
                 )
 
-                for repo_info in group_repos:
+                for i, repo_info in enumerate(group_repos):
+                    # Add separator between repos (not before first or after last)
+                    if i > 0:
+                        typer.echo("─" * 60)
                     _sync_repository(
                         repo_info["path"], repo_info["name"], verbose, force, dry_run
                     )
@@ -294,15 +300,10 @@ def _sync_repository(
     For main/master branches: rebases to upstream/<branch_name>
     For feature branches: rebases to upstream's default branch (main/master)
     """
-    separator = "─" * 60
-    typer.echo(separator)
-
     if dry_run:
         typer.echo(f"🔍 Checking {repo_name}")
     else:
         typer.echo(f"🔄 Syncing {repo_name}")
-
-    typer.echo(separator)
 
     if verbose:
         typer.echo(f"[verbose] Repository path: {repo_path}")
