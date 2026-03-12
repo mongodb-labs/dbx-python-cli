@@ -30,7 +30,7 @@ def log_callback(
     repo_name: str = typer.Argument(None, help="Repository name to show logs for"),
     git_args: list[str] = typer.Argument(
         None,
-        help="Git log arguments to run (e.g., '-n 5', '--oneline', '--graph'). If not provided, runs 'git log -n 10'.",
+        help="Git log arguments to run (e.g., '-n 5', '--oneline', '--graph'). If not provided, shows entire log.",
     ),
     group: str = typer.Option(
         None,
@@ -54,9 +54,9 @@ def log_callback(
 
     Examples::
 
-        dbx log mongo-python-driver                    # Show last 10 commits
+        dbx log mongo-python-driver                    # Show entire log (paginated)
         dbx log mongo-python-driver -n 5               # Show last 5 commits
-        dbx log mongo-python-driver --oneline          # Show in oneline format
+        dbx log mongo-python-driver --oneline          # Show entire log in oneline format
         dbx log mongo-python-driver --graph -n 5       # Show graph with last 5 commits
         dbx log -g pymongo -n 20                       # Show last 20 commits for all repos
         dbx log -g pymongo --oneline -n 5              # Show last 5 commits in oneline format
@@ -75,9 +75,9 @@ def log_callback(
         git_args.insert(0, repo_name)
         repo_name = None
 
-    # If no args provided, default to showing last 10 commits
+    # If no args provided, show entire log (no limit)
     if not git_args:
-        git_args = ["-n", "10"]
+        git_args = []
 
     try:
         config = get_config()

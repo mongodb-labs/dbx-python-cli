@@ -103,9 +103,7 @@ def test_log_basic(tmp_path, temp_repos_dir, mock_config):
                     "--no-pager",
                     "log",
                     "--color=always",
-                    "-n",
-                    "10",
-                ]  # Default 10 commits
+                ]  # Default: entire log (no limit)
 
 
 def test_log_with_number(tmp_path, temp_repos_dir, mock_config):
