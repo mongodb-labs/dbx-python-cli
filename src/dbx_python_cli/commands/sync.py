@@ -284,17 +284,22 @@ def _sync_repository(
     For main/master branches: rebases to upstream/<branch_name>
     For feature branches: rebases to upstream's default branch (main/master)
     """
+    separator = "─" * 60
+    typer.echo(separator)
+
     if dry_run:
-        typer.echo(f"  🔍 Checking {repo_name}...")
+        typer.echo(f"🔍 Checking {repo_name}")
     else:
-        typer.echo(f"  🔄 Syncing {repo_name}...")
+        typer.echo(f"🔄 Syncing {repo_name}")
+
+    typer.echo(separator)
 
     if verbose:
-        typer.echo(f"  [verbose] Repository path: {repo_path}")
+        typer.echo(f"[verbose] Repository path: {repo_path}")
         if force:
-            typer.echo("  [verbose] Force push enabled")
+            typer.echo("[verbose] Force push enabled")
         if dry_run:
-            typer.echo("  [verbose] Dry run mode enabled")
+            typer.echo("[verbose] Dry run mode enabled")
 
     # Check if upstream remote exists
     try:
@@ -308,14 +313,14 @@ def _sync_repository(
 
         if "upstream" not in remotes:
             typer.echo(
-                f"  ⚠️  {repo_name}: No 'upstream' remote found (skipping)",
+                "⚠️  No 'upstream' remote found (skipping)",
                 err=True,
             )
             return
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ❌ {repo_name}: Failed to check remotes: {e.stderr}",
+            f"❌ Failed to check remotes: {e.stderr}",
             err=True,
         )
         return
@@ -332,17 +337,17 @@ def _sync_repository(
 
         if not current_branch:
             typer.echo(
-                f"  ⚠️  {repo_name}: Not on a branch (detached HEAD), skipping",
+                "⚠️  Not on a branch (detached HEAD), skipping",
                 err=True,
             )
             return
 
         if verbose:
-            typer.echo(f"  [verbose] Current branch: {current_branch}")
+            typer.echo(f"[verbose] Current branch: {current_branch}")
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ❌ {repo_name}: Failed to get current branch: {e.stderr}",
+            f"❌ Failed to get current branch: {e.stderr}",
             err=True,
         )
         return
@@ -350,7 +355,7 @@ def _sync_repository(
     # Fetch from upstream
     try:
         if verbose:
-            typer.echo("  [verbose] Fetching from upstream...")
+            typer.echo("[verbose] Fetching from upstream...")
 
         subprocess.run(
             ["git", "-C", str(repo_path), "fetch", "upstream"],
@@ -361,7 +366,7 @@ def _sync_repository(
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ❌ {repo_name}: Failed to fetch from upstream: {e.stderr if not verbose else ''}",
+            f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
             err=True,
         )
         return
@@ -372,7 +377,7 @@ def _sync_repository(
     if current_branch in ["main", "master"]:
         rebase_target = f"upstream/{current_branch}"
         if verbose:
-            typer.echo(f"  [verbose] Main branch detected, rebasing to {rebase_target}")
+            typer.echo(f"[verbose] Main branch detected, rebasing to {rebase_target}")
     else:
         # Get upstream's default branch
         upstream_default = _get_upstream_default_branch(repo_path, verbose)
@@ -380,7 +385,7 @@ def _sync_repository(
             # Fallback to trying common default branches
             if verbose:
                 typer.echo(
-                    "  [verbose] Could not detect upstream default, trying main/master..."
+                    "[verbose] Could not detect upstream default, trying main/master..."
                 )
             # Try main first, then master
             for branch in ["main", "master"]:
@@ -404,7 +409,7 @@ def _sync_repository(
 
             if not upstream_default:
                 typer.echo(
-                    f"  ❌ {repo_name}: Could not determine upstream default branch",
+                    "❌ Could not determine upstream default branch",
                     err=True,
                 )
                 return
@@ -412,7 +417,7 @@ def _sync_repository(
         rebase_target = f"upstream/{upstream_default}"
         if verbose:
             typer.echo(
-                f"  [verbose] Feature branch detected, rebasing to {rebase_target}"
+                f"[verbose] Feature branch detected, rebasing to {rebase_target}"
             )
 
     # If dry-run, compare commits and show what would happen
@@ -425,7 +430,7 @@ def _sync_repository(
     # Rebase on target branch
     try:
         if verbose:
-            typer.echo(f"  [verbose] Rebasing on {rebase_target}...")
+            typer.echo(f"[verbose] Rebasing on {rebase_target}...")
 
         subprocess.run(
             ["git", "-C", str(repo_path), "rebase", rebase_target],
@@ -436,13 +441,13 @@ def _sync_repository(
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ❌ {repo_name}: Failed to rebase on {rebase_target}",
+            f"❌ Failed to rebase on {rebase_target}",
             err=True,
         )
         if not verbose and e.stderr:
-            typer.echo(f"     {e.stderr.strip()}", err=True)
+            typer.echo(f"  {e.stderr.strip()}", err=True)
         typer.echo(
-            f"     You may need to resolve conflicts manually in {repo_path}",
+            f"  You may need to resolve conflicts manually in {repo_path}",
             err=True,
         )
         return
@@ -452,7 +457,7 @@ def _sync_repository(
         if verbose:
             push_type = "force pushing" if force else "pushing"
             typer.echo(
-                f"  [verbose] {push_type.capitalize()} to origin/{current_branch}..."
+                f"[verbose] {push_type.capitalize()} to origin/{current_branch}..."
             )
 
         push_cmd = ["git", "-C", str(repo_path), "push"]
@@ -467,17 +472,17 @@ def _sync_repository(
             text=True,
         )
 
-        typer.echo(f"  ✅ {repo_name} synced and pushed successfully")
+        typer.echo("✅ Synced and pushed successfully")
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ⚠️  {repo_name}: Synced but failed to push to origin/{current_branch}",
+            f"⚠️  Synced but failed to push to origin/{current_branch}",
             err=True,
         )
         if not verbose and e.stderr:
-            typer.echo(f"     {e.stderr.strip()}", err=True)
+            typer.echo(f"  {e.stderr.strip()}", err=True)
         typer.echo(
-            f"     Try running: dbx sync {repo_name} --force",
+            f"  Try running: dbx sync {repo_name} --force",
             err=True,
         )
 
@@ -506,7 +511,7 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
             default_branch = ref.replace("refs/remotes/upstream/", "")
             if verbose:
                 typer.echo(
-                    f"  [verbose] Detected upstream default branch: {default_branch}"
+                    f"[verbose] Detected upstream default branch: {default_branch}"
                 )
             return default_branch
     except subprocess.CalledProcessError:
@@ -514,9 +519,7 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
         # Try to set it by running remote show
         try:
             if verbose:
-                typer.echo(
-                    "  [verbose] Attempting to detect upstream default branch..."
-                )
+                typer.echo("[verbose] Attempting to detect upstream default branch...")
             result = subprocess.run(
                 ["git", "-C", str(repo_path), "remote", "show", "upstream"],
                 check=True,
@@ -529,7 +532,7 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
                     default_branch = line.split("HEAD branch:")[-1].strip()
                     if verbose:
                         typer.echo(
-                            f"  [verbose] Detected upstream default branch: {default_branch}"
+                            f"[verbose] Detected upstream default branch: {default_branch}"
                         )
                     return default_branch
         except subprocess.CalledProcessError:
@@ -568,7 +571,7 @@ def _show_commit_comparison(
             )
         except subprocess.CalledProcessError:
             typer.echo(
-                f"  ⚠️  {repo_name}: No origin/{current_branch} branch found",
+                f"⚠️  No origin/{current_branch} branch found",
                 err=True,
             )
             return
@@ -607,7 +610,7 @@ def _show_commit_comparison(
 
         # Show status
         if commits_ahead == 0 and commits_behind == 0:
-            typer.echo(f"  ✅ {repo_name}: Already up to date with {rebase_target}")
+            typer.echo(f"✅ Already up to date with {rebase_target}")
         else:
             status_parts = []
             if commits_behind > 0:
@@ -618,15 +621,13 @@ def _show_commit_comparison(
                 status_parts.append(f"{commits_ahead} commit(s) ahead")
 
             status = ", ".join(status_parts)
-            typer.echo(f"  📊 {repo_name}: {status}")
+            typer.echo(f"📊 {status}")
 
             # Show commit details if verbose or if there are commits
             if verbose or commits_behind > 0 or commits_ahead > 0:
                 # Show commits that would be applied from upstream
                 if commits_behind > 0:
-                    typer.echo(
-                        f"\n  Commits from {rebase_target} that would be applied:"
-                    )
+                    typer.echo(f"\nCommits from {rebase_target} that would be applied:")
                     result = subprocess.run(
                         [
                             "git",
@@ -643,12 +644,12 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            typer.echo(f"    + {line}")
+                            typer.echo(f"  + {line}")
 
                 # Show commits in origin that would be rebased
                 if commits_ahead > 0:
                     typer.echo(
-                        f"\n  Commits in origin/{current_branch} that would be rebased:"
+                        f"\nCommits in origin/{current_branch} that would be rebased:"
                     )
                     result = subprocess.run(
                         [
@@ -666,12 +667,12 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            typer.echo(f"    * {line}")
+                            typer.echo(f"  * {line}")
 
                 typer.echo("")  # Empty line for spacing
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"  ❌ {repo_name}: Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
+            f"❌ Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
             err=True,
         )

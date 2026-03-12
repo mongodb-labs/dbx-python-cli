@@ -886,7 +886,7 @@ repos = [
             result = runner.invoke(app, ["sync", "mongo-python-driver"])
             assert result.exit_code == 0
             assert "Syncing mongo-python-driver" in result.stdout
-            assert "synced and pushed successfully" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
 
             # Verify git commands were called
             calls = mock_run.call_args_list
@@ -952,7 +952,7 @@ repos = [
             assert "Syncing 2 repository(ies)" in result.stdout
             assert "mongo-python-driver" in result.stdout
             assert "specifications" in result.stdout
-            assert "synced and pushed successfully" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
 
             # Verify push was called for both repos
             calls = mock_run.call_args_list
@@ -1093,7 +1093,7 @@ repos = [
             result = runner.invoke(app, ["sync", "mongo-python-driver"])
             assert result.exit_code == 0
             assert "Syncing mongo-python-driver" in result.stdout
-            assert "synced and pushed successfully" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
 
             # Verify rebase was called with upstream/main
             calls = mock_run.call_args_list
@@ -1167,7 +1167,7 @@ repos = [
             result = runner.invoke(app, ["sync", "mongo-python-driver"])
             assert result.exit_code == 0
             assert "Syncing mongo-python-driver" in result.stdout
-            assert "synced and pushed successfully" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
 
             # Verify rebase was called with upstream/main
             calls = mock_run.call_args_list
@@ -1232,7 +1232,7 @@ repos = [
             result = runner.invoke(app, ["sync", "mongo-python-driver"])
             assert result.exit_code == 0
             assert "Syncing mongo-python-driver" in result.stdout
-            assert "synced and pushed successfully" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
 
             # Verify rebase was called with upstream/main
             calls = mock_run.call_args_list
