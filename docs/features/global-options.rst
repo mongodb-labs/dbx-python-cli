@@ -58,7 +58,7 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
 
 - Uses ``less -R`` to display output with color support
 - Only activates when stdout is a terminal (not when piping to files)
-- Some commands (like ``branch``, ``log``, ``config show``) use a pager by default when displaying multiple repositories
-- The ``-p`` flag forces pager usage for all commands
+- Pagination is opt-in: you must use the ``-p`` flag to enable it
+- Works with all commands that produce output
 
 **Note:** The pager flag must come **before** the subcommand (e.g., ``dbx -p branch``, not ``dbx branch -p``).

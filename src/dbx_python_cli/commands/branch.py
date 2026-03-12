@@ -144,8 +144,8 @@ def branch_callback(
                 if output:
                     output_buffer.append(output)
 
-        # Paginate the output - always use pager for -a flag
-        use_pager = should_use_pager(ctx, command_default=True)
+        # Paginate the output
+        use_pager = should_use_pager(ctx, command_default=False)
         paginate_output("\n".join(output_buffer), use_pager)
         return
 
@@ -183,8 +183,8 @@ def branch_callback(
             if output:
                 output_buffer.append(output)
 
-        # Paginate the output - always use pager for -g flag
-        use_pager = should_use_pager(ctx, command_default=True)
+        # Paginate the output
+        use_pager = should_use_pager(ctx, command_default=False)
         paginate_output("\n".join(output_buffer), use_pager)
         return
 

@@ -343,6 +343,6 @@ def show(ctx: typer.Context):
 
     output = "\n".join(buf)
 
-    # Use pager if requested or by default for config show
-    use_pager = should_use_pager(ctx, command_default=True)
+    # Use pager if requested
+    use_pager = should_use_pager(ctx, command_default=False)
     paginate_output(output, use_pager)

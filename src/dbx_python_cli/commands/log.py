@@ -121,7 +121,7 @@ def log_callback(
             if log_output:
                 output_parts.append(log_output)
 
-        use_pager = should_use_pager(ctx, command_default=True)
+        use_pager = should_use_pager(ctx, command_default=False)
         paginate_output("\n".join(output_parts), use_pager)
         return
 
@@ -138,7 +138,7 @@ def log_callback(
 
         log_output = _get_git_log_output(project_path, project, git_args, verbose)
         if log_output:
-            use_pager = should_use_pager(ctx, command_default=True)
+            use_pager = should_use_pager(ctx, command_default=False)
             paginate_output(log_output, use_pager)
         return
 
@@ -160,7 +160,7 @@ def log_callback(
     repo_path = Path(repo["path"])
     log_output = _get_git_log_output(repo_path, repo_name, git_args, verbose)
     if log_output:
-        use_pager = should_use_pager(ctx, command_default=True)
+        use_pager = should_use_pager(ctx, command_default=False)
         paginate_output(log_output, use_pager)
 
 
