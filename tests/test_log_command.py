@@ -89,7 +89,9 @@ def test_log_basic(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["log", "mongo-python-driver"])
                 assert result.exit_code == 0
                 assert "mongo-python-driver" in result.stdout
@@ -111,7 +113,9 @@ def test_log_with_number(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["log", "mongo-python-driver", "-n", "5"])
                 assert result.exit_code == 0
                 # Verify git log was called with -n 5
@@ -131,7 +135,9 @@ def test_log_with_oneline(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["log", "mongo-python-driver", "--oneline"])
                 assert result.exit_code == 0
                 assert "oneline" in result.stdout
@@ -151,7 +157,9 @@ def test_log_with_group(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["log", "-g", "pymongo"])
                 assert result.exit_code == 0
                 assert "pymongo" in result.stdout
@@ -198,7 +206,9 @@ def test_verbose_flag_with_log_command(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["--verbose", "log", "mongo-python-driver"])
                 assert result.exit_code == 0
                 assert "[verbose]" in result.stdout
@@ -209,7 +219,9 @@ def test_log_with_number_and_oneline(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(
                     app, ["log", "mongo-python-driver", "-n", "20", "--oneline"]
                 )
@@ -232,7 +244,9 @@ def test_log_with_group_and_number(tmp_path, temp_repos_dir, mock_config):
     with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
         with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
             with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0, stdout="test log output")
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="test log output"
+                )
                 result = runner.invoke(app, ["log", "-g", "pymongo", "-n", "3"])
                 assert result.exit_code == 0
                 # Should call git log twice with -n3 (plus pagination)

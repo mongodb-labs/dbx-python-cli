@@ -203,6 +203,3 @@ def _get_git_log_output(
         output_parts.append(result.stdout)
 
     return "\n".join(output_parts)
-
-
-

@@ -105,7 +105,9 @@ def sync_callback(
             global_group_names = repo.get_global_groups(config)
 
             # Get all non-global groups
-            non_global_groups = [g for g in groups.keys() if g not in global_group_names]
+            non_global_groups = [
+                g for g in groups.keys() if g not in global_group_names
+            ]
 
             if not non_global_groups:
                 typer.echo("❌ Error: No groups found in configuration.", err=True)

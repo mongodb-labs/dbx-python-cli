@@ -288,6 +288,3 @@ def _run_git_branch_to_string(
             output_lines.append(result.stderr.rstrip())
 
     return "\n".join(output_lines)
-
-
-

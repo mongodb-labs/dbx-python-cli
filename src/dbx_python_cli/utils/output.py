@@ -44,4 +44,3 @@ def should_use_pager(ctx: typer.Context, command_default: bool = False) -> bool:
 
     # Otherwise use the command's default behavior
     return command_default
-
