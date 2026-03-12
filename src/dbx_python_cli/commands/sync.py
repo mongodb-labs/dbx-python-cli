@@ -31,6 +31,12 @@ def sync_callback(
         "-g",
         help="Sync all repositories in a group",
     ),
+    all_groups: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Sync all repositories across all groups",
+    ),
     force: bool = typer.Option(
         False,
         "--force",
@@ -57,20 +63,24 @@ def sync_callback(
 
         dbx sync <repo_name>                    # Sync a single repository
         dbx sync -g <group>                     # Sync all repos in a group
+        dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
         dbx sync <repo_name> --force            # Force push after rebasing
         dbx sync <repo_name> --dry-run          # Show what would be synced
         dbx sync -g <group> --dry-run           # Preview group sync without changes
+        dbx sync -a --dry-run                   # Preview all groups sync without changes
         dbx sync -g <group> <repo_name> --dry-run  # Preview single repo in group
 
     Examples::
 
         dbx sync mongo-python-driver                    # Sync single repo
         dbx sync -g pymongo                             # Sync all repos in group
+        dbx sync -a                                     # Sync all repos in all groups
         dbx sync -g pymongo mongo-python-driver         # Sync specific repo in pymongo group
         dbx sync my-repo --force                        # Force push after rebase
         dbx sync my-repo --dry-run                      # Preview changes without syncing
         dbx sync -g pymongo --dry-run                   # Preview group sync
+        dbx sync -a --dry-run                           # Preview all groups sync
         dbx sync -g pymongo mongo-python-driver --dry-run  # Preview specific repo
     """
     from dbx_python_cli.utils.repo import find_all_repos, find_repo_by_name
@@ -86,6 +96,43 @@ def sync_callback(
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Available groups: {list(groups.keys())}\n")
+
+        # Handle all groups option
+        if all_groups:
+            global_group_names = repo.get_global_groups(config)
+
+            # Get all non-global groups
+            non_global_groups = [g for g in groups.keys() if g not in global_group_names]
+
+            if not non_global_groups:
+                typer.echo("❌ Error: No groups found in configuration.", err=True)
+                raise typer.Exit(1)
+
+            # Find all repos across all non-global groups
+            all_repos = find_all_repos(base_dir)
+            target_repos = [r for r in all_repos if r["group"] in non_global_groups]
+
+            if not target_repos:
+                typer.echo("❌ Error: No repositories found in any group.", err=True)
+                typer.echo("\nClone repositories using: dbx clone -a")
+                raise typer.Exit(1)
+
+            typer.echo(
+                f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
+            )
+
+            for repo_info in target_repos:
+                _sync_repository(
+                    repo_info["path"], repo_info["name"], verbose, force, dry_run
+                )
+
+            if dry_run:
+                typer.echo(
+                    f"\n✨ Dry run complete! Checked {len(target_repos)} repository(ies)"
+                )
+            else:
+                typer.echo(f"\n✨ Done! Synced {len(target_repos)} repository(ies)")
+            return
 
         # Handle sync with both group and repo name specified
         if group and repo_name:

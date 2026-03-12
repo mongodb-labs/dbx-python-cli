@@ -148,6 +148,9 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Sync all repositories in a group
    dbx sync -g pymongo
 
+   # Sync all repositories across all groups
+   dbx sync -a
+
    # Preview what would be synced without making changes
    dbx sync mongo-python-driver --dry-run
 

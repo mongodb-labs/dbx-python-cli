@@ -159,6 +159,9 @@ dbx sync django-mongodb-backend
 
 # Sync all repositories in a group
 dbx sync -g django
+
+# Sync all repositories across all groups
+dbx sync -a
 ```
 
 **View Git Branches:**
