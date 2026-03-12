@@ -161,7 +161,7 @@ repos = [
         result = runner.invoke(app, ["sync", "bare_repo"])
         assert result.exit_code == 0
         assert "Syncing bare_repo" in result.stdout
-        assert "synced and pushed successfully" in result.stdout
+        assert "Synced and pushed successfully" in result.stdout
 
         # Verify the new file was pulled
         assert (cloned_repo / "new_file.txt").exists()
