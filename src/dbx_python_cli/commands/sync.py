@@ -1,11 +1,14 @@
 """Sync command for syncing repositories with upstream."""
 
+import io
 import subprocess
+import sys
 from pathlib import Path
 
 import typer
 
 from dbx_python_cli.utils import repo
+from dbx_python_cli.utils.output import paginate_output, should_use_pager
 
 app = typer.Typer(
     help="Sync repositories with upstream",
@@ -117,21 +120,34 @@ def sync_callback(
                 typer.echo("\nClone repositories using: dbx clone -a")
                 raise typer.Exit(1)
 
-            typer.echo(
-                f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
-            )
+            # Capture output for pagination
+            output_buffer = io.StringIO()
+            old_stdout = sys.stdout
+            sys.stdout = output_buffer
 
-            for repo_info in target_repos:
-                _sync_repository(
-                    repo_info["path"], repo_info["name"], verbose, force, dry_run
-                )
-
-            if dry_run:
+            try:
                 typer.echo(
-                    f"\n✨ Dry run complete! Checked {len(target_repos)} repository(ies)"
+                    f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
                 )
-            else:
-                typer.echo(f"\n✨ Done! Synced {len(target_repos)} repository(ies)")
+
+                for repo_info in target_repos:
+                    _sync_repository(
+                        repo_info["path"], repo_info["name"], verbose, force, dry_run
+                    )
+
+                if dry_run:
+                    typer.echo(
+                        f"\n✨ Dry run complete! Checked {len(target_repos)} repository(ies)"
+                    )
+                else:
+                    typer.echo(f"\n✨ Done! Synced {len(target_repos)} repository(ies)")
+            finally:
+                sys.stdout = old_stdout
+
+            # Display output with optional pagination
+            output = output_buffer.getvalue()
+            use_pager = should_use_pager(ctx, command_default=False)
+            paginate_output(output, use_pager)
             return
 
         # Handle sync with both group and repo name specified
@@ -191,21 +207,34 @@ def sync_callback(
                 typer.echo(f"\nClone repositories using: dbx clone -g {group}")
                 raise typer.Exit(1)
 
-            typer.echo(
-                f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n"
-            )
+            # Capture output for pagination
+            output_buffer = io.StringIO()
+            old_stdout = sys.stdout
+            sys.stdout = output_buffer
 
-            for repo_info in group_repos:
-                _sync_repository(
-                    repo_info["path"], repo_info["name"], verbose, force, dry_run
-                )
-
-            if dry_run:
+            try:
                 typer.echo(
-                    f"\n✨ Dry run complete! Checked {len(group_repos)} repository(ies)"
+                    f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n"
                 )
-            else:
-                typer.echo(f"\n✨ Done! Synced {len(group_repos)} repository(ies)")
+
+                for repo_info in group_repos:
+                    _sync_repository(
+                        repo_info["path"], repo_info["name"], verbose, force, dry_run
+                    )
+
+                if dry_run:
+                    typer.echo(
+                        f"\n✨ Dry run complete! Checked {len(group_repos)} repository(ies)"
+                    )
+                else:
+                    typer.echo(f"\n✨ Done! Synced {len(group_repos)} repository(ies)")
+            finally:
+                sys.stdout = old_stdout
+
+            # Display output with optional pagination
+            output = output_buffer.getvalue()
+            use_pager = should_use_pager(ctx, command_default=False)
+            paginate_output(output, use_pager)
             return
 
         # Handle single repo sync
