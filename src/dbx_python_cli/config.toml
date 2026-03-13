@@ -69,7 +69,7 @@ port = 27017
 # docker_options = ["--rm"]  # Uncomment to auto-remove container on stop
 
 [repo]
-base_dir = "~/Developer/mongodb"
+base_dir = "~/Developer"
 fork_user = "aclark4life"  # Change to your GitHub username for fork operations
 # Repos in these groups are installed into every other group's venv automatically
 global_groups = ["global"]
