@@ -7,6 +7,8 @@ To enable Wagtail, uncomment the three lines in {{ project_name }}.py:
   MIDDLEWARE += WAGTAIL_MIDDLEWARE
 """
 
+from pathlib import Path as _Path
+
 WAGTAIL_INSTALLED_APPS = [
     "{{ project_name }}.settings.apps.wagtail.CustomWagtailConfig",
     "{{ project_name }}.settings.apps.wagtail.CustomWagtailAdminConfig",
@@ -29,5 +31,5 @@ WAGTAIL_SITE_NAME = "{{ project_name }}"
 
 WAGTAILADMIN_BASE_URL = "http://localhost:8000"
 
-MEDIA_ROOT = base_dir / "media"  # noqa: F821
+MEDIA_ROOT = _Path(__file__).resolve().parent.parent.parent / "media"
 MEDIA_URL = "/media/"
