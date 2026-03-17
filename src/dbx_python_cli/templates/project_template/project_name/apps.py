@@ -21,6 +21,14 @@ from django.contrib.contenttypes.apps import ContentTypesConfig
 from django.contrib.flatpages.apps import FlatPagesConfig
 from django.contrib.redirects.apps import RedirectsConfig
 from django.contrib.sites.apps import SitesConfig
+from wagtail.admin.apps import WagtailAdminAppConfig
+from wagtail.apps import WagtailAppConfig
+from wagtail.contrib.forms.apps import WagtailFormsAppConfig
+from wagtail.contrib.redirects.apps import WagtailRedirectsAppConfig
+from wagtail.documents.apps import WagtailDocsAppConfig
+from wagtail.images.apps import WagtailImagesAppConfig
+from wagtail.search.apps import WagtailSearchAppConfig
+from wagtail.snippets.apps import WagtailSnippetsAppConfig
 
 
 class CustomAdminConfig(AdminConfig):
@@ -65,6 +73,73 @@ class CustomRedirectsConfig(RedirectsConfig):
 
 class CustomSitesConfig(SitesConfig):
     """Custom sites app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+# Wagtail app configs
+
+
+class CustomWagtailConfig(WagtailAppConfig):
+    """Custom wagtail app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailAdminConfig(WagtailAdminAppConfig):
+    """Custom wagtail.admin app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailDocsConfig(WagtailDocsAppConfig):
+    """Custom wagtail.documents app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailImagesConfig(WagtailImagesAppConfig):
+    """Custom wagtail.images app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailSearchConfig(WagtailSearchAppConfig):
+    """Custom wagtail.search app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailSnippetsConfig(WagtailSnippetsAppConfig):
+    """Custom wagtail.snippets app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailFormsConfig(WagtailFormsAppConfig):
+    """Custom wagtail.contrib.forms app config that uses the project's DEFAULT_AUTO_FIELD setting."""
+
+    @property
+    def default_auto_field(self):
+        return getattr(settings, "DEFAULT_AUTO_FIELD", "django.db.models.BigAutoField")
+
+
+class CustomWagtailRedirectsConfig(WagtailRedirectsAppConfig):
+    """Custom wagtail.contrib.redirects app config that uses the project's DEFAULT_AUTO_FIELD setting."""
 
     @property
     def default_auto_field(self):
