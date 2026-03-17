@@ -137,15 +137,22 @@ def _find_existing_venvs(base_path):
     return existing_venvs
 
 
-def get_venv_info(repo_path, group_path=None, base_path=None):
+def get_venv_info(repo_path, group_path=None, base_path=None, fallback_paths=None):
     """
     Get information about which venv will be used.
 
     Checks in priority order (most specific to least specific):
     1. Repository-level venv
     2. Group-level venv
-    3. Base directory venv
-    4. Activated venv
+    3. Fallback group venvs (e.g. django group for projects), if provided
+    4. Base directory venv
+    5. Activated venv
+
+    Args:
+        repo_path: Path to the repository
+        group_path: Path to the primary group directory (optional)
+        base_path: Path to the base directory (optional)
+        fallback_paths: Additional group paths to check before base_path (optional)
 
     Returns:
         tuple: (python_path, venv_type) where venv_type is "base", "repo", "group", or "venv"
@@ -170,6 +177,13 @@ def get_venv_info(repo_path, group_path=None, base_path=None):
         group_venv_python = group_path / ".venv" / python_subpath
         if group_venv_python.exists():
             return str(group_venv_python), "group"
+
+    # Check fallback group paths (more specific than base, e.g. django group for projects)
+    if fallback_paths:
+        for fpath in fallback_paths:
+            fallback_python = fpath / ".venv" / python_subpath
+            if fallback_python.exists():
+                return str(fallback_python), "group"
 
     # Check base directory venv if base_path provided (least specific)
     if base_path:

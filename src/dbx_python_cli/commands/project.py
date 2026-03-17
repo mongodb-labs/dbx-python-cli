@@ -117,13 +117,7 @@ def install_project(
     # Resolve project path
     proj = resolve_project_path(name, directory)
 
-    # Get venv info
-    try:
-        python_path, venv_type = get_venv_info(
-            proj.project_path, proj.projects_dir, base_path=proj.base_dir
-        )
-    except typer.Exit:
-        raise
+    python_path, venv_type = get_django_python_path(proj, directory)
 
     typer.echo(f"📦 Installing project '{proj.name}'...")
     typer.echo(f"   Project path: {proj.project_path}")
@@ -457,10 +451,16 @@ def add_project(
             repos_config = get_config()
             repos_base_dir = get_base_dir(repos_config)
 
-            # Get the virtual environment info
-            # This will raise an error if no venv is found
+            # Get the virtual environment info, checking most specific to least specific:
+            # project → projects group → django group → base
+            projects_dir = repos_base_dir / "projects"
+            django_group_path = repos_base_dir / "django"
+            fallback_paths = [django_group_path] if django_group_path.exists() else None
             python_path, venv_type = get_venv_info(
-                project_path, None, base_path=repos_base_dir
+                project_path,
+                projects_dir if projects_dir.exists() else None,
+                base_path=repos_base_dir,
+                fallback_paths=fallback_paths,
             )
 
             # Install the Python package

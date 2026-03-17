@@ -680,7 +680,7 @@ def install_callback(
                 elif venv_type == "repo":
                     typer.echo(f"Using repo venv: {repo_path}/.venv\n")
                 elif venv_type == "group":
-                    typer.echo(f"Using group venv: {group_path}/.venv\n")
+                    typer.echo(f"Using group venv: {Path(python_path).parent.parent}\n")
                 elif venv_type == "venv":
                     typer.echo(f"Using venv: {python_path}\n")
 
@@ -848,19 +848,15 @@ def install_callback(
         # Default to repo's own group
         group_path = repo_path.parent
 
-    # Detect venv
-    python_path, venv_type = get_venv_info(repo_path, group_path, base_path=base_dir)
-
-    # For projects in the "projects" group, prefer django group venv if available
-    # This matches the behavior of `dbx project manage`
-    if repo.get("group") == "projects" and venv_type == "venv":
+    # Detect venv: most specific (repo) → group → fallback groups → base
+    fallback_paths = None
+    if repo.get("group") == "projects":
         django_group_path = base_dir / "django"
         if django_group_path.exists():
-            django_venv_python = django_group_path / ".venv" / "bin" / "python"
-            if django_venv_python.exists():
-                python_path = str(django_venv_python)
-                venv_type = "group"
-                group_path = django_group_path
+            fallback_paths = [django_group_path]
+    python_path, venv_type = get_venv_info(
+        repo_path, group_path, base_path=base_dir, fallback_paths=fallback_paths
+    )
 
     # Check if this repo should skip installation
     if should_skip_install(config, repo["group"], repo["name"]):
@@ -882,7 +878,7 @@ def install_callback(
     elif venv_type == "repo":
         typer.echo(f"Using repo venv: {repo_path}/.venv\n")
     elif venv_type == "group":
-        typer.echo(f"Using group venv: {group_path}/.venv\n")
+        typer.echo(f"Using group venv: {Path(python_path).parent.parent}\n")
     elif venv_type == "venv":
         typer.echo(f"Using venv: {python_path}\n")
 

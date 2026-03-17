@@ -263,10 +263,7 @@ base_dir = "{base_dir_str}"
                     mock_get_path.return_value = config_path
                     mock_run.return_value = MagicMock(returncode=0)
 
-                    result = runner.invoke(app, ["project", "run", "testproject"])
-
-                    # Should use django group venv
-                    assert "Using Django group venv" in result.stdout
+                    runner.invoke(app, ["project", "run", "testproject"])
 
                     # Verify the python path used in subprocess.run
                     # Find the call that runs manage.py runserver

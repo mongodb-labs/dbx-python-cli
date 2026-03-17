@@ -129,10 +129,10 @@ def get_django_python_path(
     """
     Get the Python path for Django commands, with Django group venv fallback.
 
-    This helper consolidates the venv detection logic that checks:
+    Checks in priority order (most specific to least specific):
     1. project-level venv  (project_path/.venv)
     2. group-level venv    (projects_dir/.venv OR directory/.venv)
-    3. django group venv   (base_dir/django/.venv) - for Django projects
+    3. django group venv   (base_dir/django/.venv)
     4. base-level venv     (base_dir/.venv, only when using config path)
     5. activated / PATH venv
 
@@ -146,55 +146,21 @@ def get_django_python_path(
     Raises:
         typer.Exit: If no suitable venv is found
     """
-    import platform
-
-    try:
-        if directory is None:
-            # First try the standard venv detection (project, projects group, base)
-            python_path, venv_type = get_venv_info(
-                ctx.project_path, ctx.projects_dir, base_path=ctx.base_dir
-            )
-
-            # If we fell back to an activated venv, check if django group venv exists
-            # and prefer that for Django projects
-            if venv_type == "venv" and ctx.base_dir is not None:
-                django_group_path = ctx.base_dir / "django"
-                if django_group_path.exists():
-                    python_subpath = (
-                        "Scripts/python.exe"
-                        if platform.system() == "Windows"
-                        else "bin/python"
-                    )
-                    django_venv_python = django_group_path / ".venv" / python_subpath
-                    if django_venv_python.exists():
-                        python_path = str(django_venv_python)
-                        venv_type = "group"
-                        typer.echo(
-                            f"✅ Using Django group venv: {django_group_path}/.venv"
-                        )
-        else:
-            python_path, venv_type = get_venv_info(
-                ctx.project_path, ctx.project_path.parent, base_path=None
-            )
-    except typer.Exit:
-        # Before re-raising, check if django group venv exists as a fallback
-        # This handles the case where no venv was found but django group venv is available
-        if directory is None and ctx.base_dir is not None:
+    if directory is None:
+        fallback_paths = None
+        if ctx.base_dir is not None:
             django_group_path = ctx.base_dir / "django"
             if django_group_path.exists():
-                python_subpath = (
-                    "Scripts/python.exe"
-                    if platform.system() == "Windows"
-                    else "bin/python"
-                )
-                django_venv_python = django_group_path / ".venv" / python_subpath
-                if django_venv_python.exists():
-                    typer.echo(f"✅ Using Django group venv: {django_group_path}/.venv")
-                    return str(django_venv_python), "group"
-        # No django group venv found, re-raise the original error
-        raise
+                fallback_paths = [django_group_path]
 
-    return python_path, venv_type
+        return get_venv_info(
+            ctx.project_path,
+            ctx.projects_dir,
+            base_path=ctx.base_dir,
+            fallback_paths=fallback_paths,
+        )
+    else:
+        return get_venv_info(ctx.project_path, ctx.project_path.parent, base_path=None)
 
 
 def setup_django_command_env(
