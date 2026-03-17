@@ -28,7 +28,8 @@ INSTALLED_APPS += [  # noqa: F405
 # from .qe import *  # noqa
 
 # Wagtail CMS Configuration
-# Uncomment the three lines below to enable Wagtail settings.
+# Uncomment the four lines below to enable Wagtail settings.
 # from .wagtail import *  # noqa
 # INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405
 # MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405
+# MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405
