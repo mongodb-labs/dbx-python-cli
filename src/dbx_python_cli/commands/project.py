@@ -536,6 +536,9 @@ postgres = [
     "dj-database-url",
     "psycopg[binary]",
 ]
+wagtail = [
+    "wagtail",
+]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "{project_name}.{settings_path}"
