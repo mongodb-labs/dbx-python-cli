@@ -316,9 +316,16 @@ def add_project(
         try:
             if directory is None and not use_base_dir_override:
                 # Using config-based base_dir/projects/name
-                # Check: projects_dir/.venv → base_dir/.venv → activated
+                # Check: projects_dir/.venv → django group/.venv → base_dir/.venv → activated
+                django_group_path = base_dir / "django"
+                fallback_paths = (
+                    [django_group_path] if django_group_path.exists() else None
+                )
                 python_path, venv_type = get_venv_info(
-                    None, projects_dir, base_path=base_dir
+                    None,
+                    projects_dir,
+                    base_path=base_dir,
+                    fallback_paths=fallback_paths,
                 )
             else:
                 # Using custom --directory or --base-dir override
@@ -327,7 +334,7 @@ def add_project(
 
             # Show which venv is being used
             if venv_type == "group":
-                typer.echo(f"✅ Using projects group venv: {projects_dir}/.venv\n")
+                typer.echo(f"✅ Using group venv: {Path(python_path).parent.parent}\n")
             elif venv_type == "base":
                 typer.echo(f"✅ Using base venv: {base_dir}/.venv\n")
             elif venv_type == "venv":
