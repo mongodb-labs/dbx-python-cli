@@ -118,14 +118,18 @@ def test_just_without_command(tmp_path, temp_repos_dir, mock_config):
         "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
         with patch("dbx_python_cli.commands.just.get_config", return_value={}):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-                result = runner.invoke(app, ["just", "mongo-python-driver"])
-                assert result.exit_code == 0
-                assert "Running 'just' in" in result.stdout
-                mock_run.assert_called_once()
-                args = mock_run.call_args[0][0]
-                assert args == ["just"]
+            with patch(
+                "dbx_python_cli.commands.just.ensure_mongodb",
+                side_effect=lambda e, *a, **k: e,
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+                    result = runner.invoke(app, ["just", "mongo-python-driver"])
+                    assert result.exit_code == 0
+                    assert "Running 'just' in" in result.stdout
+                    mock_run.assert_called_once()
+                    args = mock_run.call_args[0][0]
+                    assert args == ["just"]
 
 
 def test_just_with_command(tmp_path, temp_repos_dir, mock_config):
@@ -134,14 +138,18 @@ def test_just_with_command(tmp_path, temp_repos_dir, mock_config):
         "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
         with patch("dbx_python_cli.commands.just.get_config", return_value={}):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-                result = runner.invoke(app, ["just", "mongo-python-driver", "test"])
-                assert result.exit_code == 0
-                assert "Running 'just test' in" in result.stdout
-                mock_run.assert_called_once()
-                args = mock_run.call_args[0][0]
-                assert args == ["just", "test"]
+            with patch(
+                "dbx_python_cli.commands.just.ensure_mongodb",
+                side_effect=lambda e, *a, **k: e,
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+                    result = runner.invoke(app, ["just", "mongo-python-driver", "test"])
+                    assert result.exit_code == 0
+                    assert "Running 'just test' in" in result.stdout
+                    mock_run.assert_called_once()
+                    args = mock_run.call_args[0][0]
+                    assert args == ["just", "test"]
 
 
 def test_just_with_command_and_args(tmp_path, temp_repos_dir, mock_config):
@@ -150,16 +158,20 @@ def test_just_with_command_and_args(tmp_path, temp_repos_dir, mock_config):
         "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
         with patch("dbx_python_cli.commands.just.get_config", return_value={}):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-                result = runner.invoke(
-                    app, ["just", "mongo-python-driver", "test", "-v"]
-                )
-                assert result.exit_code == 0
-                assert "Running 'just test -v' in" in result.stdout
-                mock_run.assert_called_once()
-                args = mock_run.call_args[0][0]
-                assert args == ["just", "test", "-v"]
+            with patch(
+                "dbx_python_cli.commands.just.ensure_mongodb",
+                side_effect=lambda e, *a, **k: e,
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+                    result = runner.invoke(
+                        app, ["just", "mongo-python-driver", "test", "-v"]
+                    )
+                    assert result.exit_code == 0
+                    assert "Running 'just test -v' in" in result.stdout
+                    mock_run.assert_called_once()
+                    args = mock_run.call_args[0][0]
+                    assert args == ["just", "test", "-v"]
 
 
 def test_verbose_flag_with_just_command(tmp_path, temp_repos_dir, mock_config):
@@ -168,15 +180,19 @@ def test_verbose_flag_with_just_command(tmp_path, temp_repos_dir, mock_config):
         "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
         with patch("dbx_python_cli.commands.just.get_config", return_value={}):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-                result = runner.invoke(
-                    app, ["-v", "just", "mongo-python-driver", "test"]
-                )
-                assert result.exit_code == 0
-                output = strip_ansi(result.stdout)
-                assert "[verbose]" in output
-                assert "Running command:" in output
+            with patch(
+                "dbx_python_cli.commands.just.ensure_mongodb",
+                side_effect=lambda e, *a, **k: e,
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+                    result = runner.invoke(
+                        app, ["-v", "just", "mongo-python-driver", "test"]
+                    )
+                    assert result.exit_code == 0
+                    output = strip_ansi(result.stdout)
+                    assert "[verbose]" in output
+                    assert "Running command:" in output
 
 
 def test_just_list_shows_repos_with_justfiles(tmp_path, temp_repos_dir, mock_config):

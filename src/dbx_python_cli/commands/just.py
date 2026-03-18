@@ -4,9 +4,11 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 import typer
 
+from dbx_python_cli.commands.mongodb import ensure_mongodb
 from dbx_python_cli.utils.repo import (
     find_all_repos,
     find_all_repos_by_name,
@@ -167,6 +169,32 @@ def _run_just_in_repo(
 
     if env_vars:
         just_env.update(env_vars)
+
+    # Get CLI overrides from context
+    backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
+    edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
+
+    # Ensure MongoDB is available (uses env, config, or starts mongodb-runner)
+    just_env = ensure_mongodb(just_env, backend_override, edition_override)
+
+    # For pymongo tests: parse MONGODB_URI and set DB_IP and DB_PORT
+    # The pymongo test suite uses DB_IP and DB_PORT instead of MONGODB_URI
+    if "MONGODB_URI" in just_env and "DB_IP" not in just_env:
+        try:
+            parsed = urlparse(just_env["MONGODB_URI"])
+            if parsed.hostname:
+                just_env["DB_IP"] = parsed.hostname
+                if parsed.port:
+                    just_env["DB_PORT"] = str(parsed.port)
+                else:
+                    just_env["DB_PORT"] = "27017"  # Default MongoDB port
+                if verbose:
+                    typer.echo(
+                        f"[verbose] Set DB_IP={just_env['DB_IP']} and DB_PORT={just_env['DB_PORT']} from MONGODB_URI"
+                    )
+        except Exception as e:
+            if verbose:
+                typer.echo(f"[verbose] Could not parse MONGODB_URI: {e}")
 
     # Set VIRTUAL_ENV to the correct venv path if it exists
     # Check in priority order: repo venv, group venv, base venv
