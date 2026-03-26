@@ -659,9 +659,15 @@ def ensure_mongodb(
         config["project"]["mongodb"]["edition"] = edition_override
 
     # Start MongoDB based on backend
-    if backend == "docker":
+    if backend == "runner":
+        return ensure_mongodb_runner(env, config)
+    elif backend == "docker":
         return ensure_mongodb_docker(env, config)
     elif backend == "atlas-local":
         return ensure_mongodb_atlas_local(env, config)
-    else:  # default to runner
-        return ensure_mongodb_runner(env, config)
+    else:
+        typer.echo(
+            f"❌ Unknown MongoDB backend '{backend}'. Valid options: runner, docker, atlas-local",
+            err=True,
+        )
+        raise typer.Exit(code=1)

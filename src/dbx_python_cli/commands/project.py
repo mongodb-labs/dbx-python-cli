@@ -781,6 +781,48 @@ def run_project(
     venv_bin = str(Path(python_path).parent)
     env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
 
+    # Run migrations before starting server
+    typer.echo(f"🗄️  Running migrations for project '{proj.name}'")
+    migrate_env = setup_django_command_env(
+        proj, ctx, settings=settings, include_dyld_fallback=False
+    )
+    try:
+        subprocess.run(
+            [python_path, "-m", "django", "migrate"],
+            cwd=proj.project_path.parent,
+            env=migrate_env,
+            check=True,
+        )
+        typer.echo("✅ Migrations completed successfully")
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"❌ Migrations failed with exit code {e.returncode}", err=True)
+        raise typer.Exit(code=e.returncode)
+
+    # Create superuser (non-fatal if already exists)
+    su_email = os.getenv("PROJECT_EMAIL", "admin@example.com")
+    typer.echo("👑 Creating Django superuser 'admin'")
+    su_env = setup_django_command_env(
+        proj, ctx, settings=settings, include_dyld_fallback=False
+    )
+    su_env["DJANGO_SUPERUSER_PASSWORD"] = "admin"
+    su_result = subprocess.run(
+        [
+            python_path,
+            "-m",
+            "django",
+            "createsuperuser",
+            "--noinput",
+            "--username=admin",
+            f"--email={su_email}",
+        ],
+        cwd=proj.project_path.parent,
+        env=su_env,
+    )
+    if su_result.returncode == 0:
+        typer.echo("✅ Superuser 'admin' created successfully")
+    else:
+        typer.echo("ℹ️  Superuser 'admin' already exists, skipping")
+
     if has_frontend:
         # Ensure frontend is installed
         typer.echo("📦 Checking frontend dependencies...")
