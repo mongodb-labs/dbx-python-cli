@@ -751,11 +751,12 @@ def clone_callback(
                     )
             else:
                 # Create group-level venvs for group clones
+                # In flat mode all groups share base_dir, so only one venv is created
                 unique_groups: dict[str, Path] = {}
                 for repo_info in cloned_repos:
                     gname = repo_info["group"]
                     if gname not in unique_groups:
-                        unique_groups[gname] = base_dir / gname
+                        unique_groups[gname] = get_group_dir(base_dir, gname, flat)
 
                 for gname, gdir in unique_groups.items():
                     python_version = repo.get_python_version(config, gname)
