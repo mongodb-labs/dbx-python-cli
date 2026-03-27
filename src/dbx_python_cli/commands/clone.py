@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from dbx_python_cli.utils import repo
-from dbx_python_cli.utils.repo import switch_to_branch as _switch_to_branch
+from dbx_python_cli.utils.repo import get_group_dir, is_flat_mode, switch_to_branch as _switch_to_branch
 
 
 def auto_install_repo(
@@ -287,6 +287,7 @@ def clone_callback(
     try:
         config = repo.get_config()
         base_dir = repo.get_base_dir(config)
+        flat = is_flat_mode(config)
         groups = repo.get_repo_groups(config)
 
         if verbose:
@@ -489,8 +490,8 @@ def clone_callback(
 
         # Process each group
         for group_name, repos in repos_to_clone.items():
-            # Create group directory under base directory
-            group_dir = base_dir / group_name
+            # In flat mode repos land directly in base_dir; otherwise in base_dir/<group>
+            group_dir = get_group_dir(base_dir, group_name, flat)
             group_dir.mkdir(parents=True, exist_ok=True)
 
             # Display appropriate message

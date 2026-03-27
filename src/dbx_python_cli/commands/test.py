@@ -14,9 +14,11 @@ from dbx_python_cli.utils.repo import (
     find_all_repos_by_name,
     get_base_dir,
     get_config,
+    get_repo_dir,
     get_test_env_vars,
     get_test_runner,
     get_test_runner_args,
+    is_flat_mode,
 )
 from dbx_python_cli.utils.venv import get_venv_info
 from dbx_python_cli.commands.project import add_project
@@ -96,6 +98,7 @@ def test_callback(
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Config:\n{json.dumps(config, indent=4)}\n")
@@ -133,15 +136,15 @@ def test_callback(
         # Find the repository
         if group:
             # When group is specified, find the repo in that specific group
-            group_path = Path(base_dir) / group
-            if not group_path.exists():
+            group_path = Path(base_dir) if flat else Path(base_dir) / group
+            if not flat and not group_path.exists():
                 typer.echo(
                     f"❌ Error: Group '{group}' not found in {base_dir}", err=True
                 )
                 raise typer.Exit(1)
 
             # Look for the repo in the specified group
-            repo_path = group_path / repo_name
+            repo_path = get_repo_dir(base_dir, group, repo_name, flat)
             if not repo_path.exists() or not (repo_path / ".git").exists():
                 typer.echo(
                     f"❌ Error: Repository '{repo_name}' not found in group '{group}'",
@@ -164,7 +167,7 @@ def test_callback(
                 raise typer.Exit(1)
 
             # Check if repo exists in multiple groups
-            all_matches = find_all_repos_by_name(repo_name, base_dir)
+            all_matches = find_all_repos_by_name(repo_name, base_dir, config)
             if len(all_matches) > 1:
                 groups = [r["group"] for r in all_matches]
                 typer.echo(

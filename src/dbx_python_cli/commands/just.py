@@ -16,7 +16,9 @@ from dbx_python_cli.utils.repo import (
     get_base_dir,
     get_config,
     get_global_groups,
+    get_repo_dir,
     get_test_env_vars,
+    is_flat_mode,
 )
 
 # Create a Typer app that will act as a single command
@@ -52,7 +54,7 @@ def _list_repos_with_justfiles(ctx: typer.Context):
         raise typer.Exit(1)
 
     # Get all repos and filter for those with justfiles, excluding global groups
-    all_repos = find_all_repos(base_dir)
+    all_repos = find_all_repos(base_dir, config)
     global_group_names = set(get_global_groups(config))
     repos_with_justfiles = [
         repo
@@ -102,6 +104,7 @@ def _run_just_in_repo(
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Config:\n{json.dumps(config, indent=4)}\n")
@@ -112,7 +115,7 @@ def _run_just_in_repo(
     # Find the repository
     if group:
         # Look for repo in specific group
-        repo_path = base_dir / group / repo_name
+        repo_path = get_repo_dir(base_dir, group, repo_name, flat)
         if not repo_path.exists():
             typer.echo(
                 f"❌ Error: Repository '{repo_name}' not found in group '{group}'",
@@ -135,7 +138,7 @@ def _run_just_in_repo(
             raise typer.Exit(1)
 
         # Check if repo exists in multiple groups
-        all_matches = find_all_repos_by_name(repo_name, base_dir)
+        all_matches = find_all_repos_by_name(repo_name, base_dir, config)
         if len(all_matches) > 1:
             groups = [r["group"] for r in all_matches]
             typer.echo(

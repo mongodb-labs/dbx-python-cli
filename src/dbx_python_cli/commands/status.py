@@ -82,7 +82,7 @@ def status_callback(
             raise typer.Exit(1)
 
         # Find all repos in the group
-        all_repos_list = find_all_repos(base_dir)
+        all_repos_list = find_all_repos(base_dir, config)
         group_repos = [r for r in all_repos_list if r["group"] == group]
 
         if not group_repos:

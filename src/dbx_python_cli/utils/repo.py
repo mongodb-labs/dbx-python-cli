@@ -44,6 +44,21 @@ def get_base_dir(config):
     return Path(base_dir).expanduser()
 
 
+def is_flat_mode(config):
+    """Return True if repos live directly under base_dir (flat layout)."""
+    return config.get("repo", {}).get("flat", False)
+
+
+def get_group_dir(base_dir, group, flat=False):
+    """Return the group directory path, or base_dir itself in flat mode."""
+    return base_dir if flat else base_dir / group
+
+
+def get_repo_dir(base_dir, group, repo_name, flat=False):
+    """Return the repo directory path regardless of layout mode."""
+    return base_dir / repo_name if flat else base_dir / group / repo_name
+
+
 def get_repo_groups(config):
     """Get repository groups from config."""
     return config.get("repo", {}).get("groups", {})
@@ -457,12 +472,46 @@ def extract_repo_name_from_url(url):
     return url.split("/")[-1]
 
 
-def find_all_repos(base_dir):
+def _build_repo_group_map(config):
+    """
+    Build a mapping of repo name → config group name for flat mode.
+
+    Scans all non-global groups in config and returns the first group
+    each repo name appears in (respecting group_priority order).
+    """
+    groups = get_repo_groups(config)
+    global_group_names = set(get_global_groups(config))
+    priority = get_group_priority(config)
+
+    repo_to_group = {}
+
+    # Process priority groups first so they win on conflicts
+    ordered_group_names = priority + [
+        g for g in groups if g not in priority and g not in global_group_names
+    ]
+    for group_name in ordered_group_names:
+        if group_name not in groups or group_name in global_group_names:
+            continue
+        for url in groups[group_name].get("repos", []):
+            repo_name = extract_repo_name_from_url(url)
+            if repo_name not in repo_to_group:
+                repo_to_group[repo_name] = group_name
+
+    return repo_to_group
+
+
+def find_all_repos(base_dir, config=None):
     """
     Find all cloned repositories in the base directory.
 
+    In flat mode (``config["repo"]["flat"] = true``) repos live directly
+    under *base_dir*.  Otherwise the classic two-level layout is used:
+    ``base_dir/<group>/<repo>``.
+
     Args:
-        base_dir: Path to the base directory containing group subdirectories
+        base_dir: Path to the base directory
+        config: Optional configuration dictionary; enables flat-mode detection
+                and group assignment from config when flat is true.
 
     Returns:
         list: List of dictionaries with 'name', 'path', and 'group' keys
@@ -471,7 +520,17 @@ def find_all_repos(base_dir):
     if not base_dir.exists():
         return repos
 
-    # Look for repos in group subdirectories
+    if config and is_flat_mode(config):
+        # Flat layout: repos are direct children of base_dir.
+        # Assign config group names so -g filtering still works.
+        repo_to_group = _build_repo_group_map(config)
+        for repo_dir in sorted(base_dir.iterdir()):
+            if repo_dir.is_dir() and (repo_dir / ".git").exists():
+                group = repo_to_group.get(repo_dir.name, "")
+                repos.append({"name": repo_dir.name, "path": repo_dir, "group": group})
+        return repos
+
+    # Grouped layout: base_dir/<group>/<repo>
     for group_dir in base_dir.iterdir():
         if group_dir.is_dir():
             for repo_dir in group_dir.iterdir():
@@ -530,7 +589,7 @@ def find_repo_by_name(repo_name, base_dir, config=None):
     Returns:
         dict: Dictionary with 'name', 'path', and 'group' keys, or None if not found
     """
-    all_repos = find_all_repos(base_dir)
+    all_repos = find_all_repos(base_dir, config)
     matching_repos = [repo for repo in all_repos if repo["name"] == repo_name]
 
     if not matching_repos:
@@ -552,18 +611,19 @@ def find_repo_by_name(repo_name, base_dir, config=None):
     return matching_repos[0]
 
 
-def find_all_repos_by_name(repo_name, base_dir):
+def find_all_repos_by_name(repo_name, base_dir, config=None):
     """
     Find all repositories with a given name in the base directory.
 
     Args:
         repo_name: Name of the repository to find
         base_dir: Path to the base directory containing group subdirectories
+        config: Optional configuration dictionary
 
     Returns:
         list: List of dictionaries with 'name', 'path', and 'group' keys
     """
-    all_repos = find_all_repos(base_dir)
+    all_repos = find_all_repos(base_dir, config)
     return [repo for repo in all_repos if repo["name"] == repo_name]
 
 
@@ -579,7 +639,7 @@ def list_repos(base_dir, format_style="default", config=None):
     Returns:
         str: Formatted list of repositories
     """
-    repos = find_all_repos(base_dir)
+    repos = find_all_repos(base_dir, config)
 
     # If config is provided, get available repos from config
     available_repos = {}
@@ -616,6 +676,34 @@ def list_repos(base_dir, format_style="default", config=None):
     # If no repos cloned and no config, return None
     if not repos and not available_repos:
         return None
+
+    # Flat mode: render a plain list (no group-subdir tree)
+    if config and is_flat_mode(config):
+        # Collect all repo names: cloned + available from config
+        cloned_names = {r["name"] for r in repos}
+        all_available_names = set()
+        for names in available_repos.values():
+            all_available_names.update(names)
+        all_names = sorted(cloned_names | all_available_names)
+
+        if not all_names:
+            return None
+
+        lines = []
+        for i, repo_name in enumerate(all_names):
+            is_last = i == len(all_names) - 1
+            prefix = "└──" if is_last else "├──"
+            if config:
+                if repo_name in cloned_names and repo_name in all_available_names:
+                    status = typer.style("✓", fg=typer.colors.GREEN)
+                elif repo_name in cloned_names:
+                    status = typer.style("?", fg=typer.colors.MAGENTA)
+                else:
+                    status = typer.style("○", fg=typer.colors.YELLOW)
+                lines.append(f"{prefix} {status} {repo_name}")
+            else:
+                lines.append(f"{prefix} {repo_name}")
+        return "\n".join(lines)
 
     if format_style == "tree":
         # Tree format with group as parent

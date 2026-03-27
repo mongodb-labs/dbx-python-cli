@@ -115,7 +115,7 @@ def switch_callback(
             raise typer.Exit(1)
 
         # Find all repos in the group
-        all_repos = find_all_repos(base_dir)
+        all_repos = find_all_repos(base_dir, config)
         group_repos = [r for r in all_repos if r["group"] == group]
 
         if not group_repos:

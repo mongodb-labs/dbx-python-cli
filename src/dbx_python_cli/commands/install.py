@@ -15,9 +15,12 @@ from dbx_python_cli.utils.repo import (
     get_build_commands,
     get_config,
     get_global_groups,
+    get_group_dir,
     get_install_dirs,
     get_install_extras,
     get_install_groups,
+    get_repo_dir,
+    is_flat_mode,
     should_skip_install,
 )
 from dbx_python_cli.utils.venv import get_venv_info
@@ -418,6 +421,7 @@ def install_callback(
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Config:\n{json.dumps(config, indent=4)}\n")
@@ -451,10 +455,10 @@ def install_callback(
             groups = [venv_group]
 
             # Validate all groups exist
-            all_repos = find_all_repos(base_dir)
+            all_repos = find_all_repos(base_dir, config)
             for grp in groups:
-                group_path = base_dir / grp
-                if not group_path.exists():
+                group_path = get_group_dir(base_dir, grp, flat)
+                if not flat and not group_path.exists():
                     typer.echo(
                         f"❌ Error: Group '{grp}' not found in {base_dir}", err=True
                     )
@@ -538,14 +542,14 @@ def install_callback(
         # Find the repository, optionally filtering by -G flag
         if repo_group:
             # Look for repo in the specified group (-G flag)
-            group_path = base_dir / repo_group
-            if not group_path.exists():
+            group_path = get_group_dir(base_dir, repo_group, flat)
+            if not flat and not group_path.exists():
                 typer.echo(
                     f"❌ Error: Group '{repo_group}' not found in {base_dir}", err=True
                 )
                 raise typer.Exit(1)
 
-            repo_path = group_path / repo_name
+            repo_path = get_repo_dir(base_dir, repo_group, repo_name, flat)
             if not repo_path.exists() or not (repo_path / ".git").exists():
                 typer.echo(
                     f"❌ Error: Repository '{repo_name}' not found in group '{repo_group}'",
@@ -616,10 +620,10 @@ def install_callback(
         groups = [venv_group]
 
         # Validate all groups exist before installing
-        all_repos = find_all_repos(base_dir)
+        all_repos = find_all_repos(base_dir, config)
         for grp in groups:
-            group_path = base_dir / grp
-            if not group_path.exists():
+            group_path = get_group_dir(base_dir, grp, flat)
+            if not flat and not group_path.exists():
                 typer.echo(f"❌ Error: Group '{grp}' not found in {base_dir}", err=True)
                 raise typer.Exit(1)
 
@@ -642,7 +646,7 @@ def install_callback(
         total_items = 0
 
         for grp in groups:
-            group_path = base_dir / grp
+            group_path = get_group_dir(base_dir, grp, flat)
             group_repos = [r for r in all_repos if r["group"] == grp]
 
             if len(groups) > 1:
@@ -796,15 +800,15 @@ def install_callback(
     # Determine which group to use
     if venv_group:
         # Use specified group
-        group_path = base_dir / venv_group
-        if not group_path.exists():
+        group_path = get_group_dir(base_dir, venv_group, flat)
+        if not flat and not group_path.exists():
             typer.echo(
                 f"❌ Error: Group '{venv_group}' not found in {base_dir}", err=True
             )
             raise typer.Exit(1)
 
         # Look for the repo in the specified group
-        repo_path = group_path / repo_name
+        repo_path = get_repo_dir(base_dir, venv_group, repo_name, flat)
         if not repo_path.exists() or not (repo_path / ".git").exists():
             typer.echo(
                 f"❌ Error: Repository '{repo_name}' not found in group '{venv_group}'",
@@ -828,7 +832,7 @@ def install_callback(
             raise typer.Exit(1)
 
         # Check if repo exists in multiple groups (suppress warning if one is a global group)
-        all_repos = find_all_repos(base_dir)
+        all_repos = find_all_repos(base_dir, config)
         matching_repos = [r for r in all_repos if r["name"] == repo_name]
         if len(matching_repos) > 1:
             groups = [r["group"] for r in matching_repos]

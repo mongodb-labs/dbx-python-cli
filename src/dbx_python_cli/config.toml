@@ -77,6 +77,8 @@ global_groups = ["global"]
 # Higher priority groups are preferred when running commands without -g flag
 # Groups not listed have equal lower priority
 group_priority = ["mongo-python-driver", "django", "langchain"]
+# Set to true if repos live directly under base_dir instead of base_dir/<group>/<repo>
+flat = true
 # Default editor for all repos (can be overridden per group or per repo)
 editor = "vii"
 

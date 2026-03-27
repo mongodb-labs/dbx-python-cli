@@ -114,7 +114,7 @@ def sync_callback(
                 raise typer.Exit(1)
 
             # Find all repos across all non-global groups
-            all_repos = find_all_repos(base_dir)
+            all_repos = find_all_repos(base_dir, config)
             target_repos = [r for r in all_repos if r["group"] in non_global_groups]
 
             if not target_repos:
@@ -175,7 +175,7 @@ def sync_callback(
             # Find the specific repo within the group
             from dbx_python_cli.utils.repo import find_all_repos_by_name
 
-            matching_repos = find_all_repos_by_name(repo_name, base_dir)
+            matching_repos = find_all_repos_by_name(repo_name, base_dir, config)
             repo_info = None
             for r in matching_repos:
                 if r["group"] == group:
@@ -210,7 +210,7 @@ def sync_callback(
                 raise typer.Exit(1)
 
             # Find all repos in the group
-            all_repos = find_all_repos(base_dir)
+            all_repos = find_all_repos(base_dir, config)
             group_repos = [r for r in all_repos if r["group"] == group]
 
             if not group_repos:

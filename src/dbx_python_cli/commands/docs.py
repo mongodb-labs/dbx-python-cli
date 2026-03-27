@@ -77,7 +77,7 @@ def _list_repos_with_docs(ctx: typer.Context):
         raise typer.Exit(1)
 
     # Get all repos and filter for those with docs, excluding global groups
-    all_repos = find_all_repos(base_dir)
+    all_repos = find_all_repos(base_dir, config)
     global_group_names = set(get_global_groups(config))
     repos_with_docs = [
         repo

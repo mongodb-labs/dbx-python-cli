@@ -62,6 +62,7 @@ def remove_callback(
     try:
         config = repo.get_config()
         base_dir = repo.get_base_dir(config)
+        flat = repo.is_flat_mode(config)
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Config:\n{json.dumps(config, indent=4)}\n")
@@ -73,7 +74,7 @@ def remove_callback(
     from dbx_python_cli.utils.repo import find_all_repos
 
     # Get all repos
-    all_repos = find_all_repos(base_dir)
+    all_repos = find_all_repos(base_dir, config)
 
     # Determine what to remove
     repos_to_remove = []
@@ -191,7 +192,8 @@ def remove_callback(
         raise typer.Exit(1)
 
     # When removing an entire group, also remove the group directory itself
-    if group and failed_count == 0:
+    # (not applicable in flat mode — repos live directly in base_dir)
+    if group and not flat and failed_count == 0:
         group_dir = base_dir / group
         if group_dir.exists():
             try:

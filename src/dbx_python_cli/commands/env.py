@@ -5,11 +5,14 @@ import subprocess
 import typer
 
 from dbx_python_cli.utils.repo import (
+    find_all_repos,
     get_base_dir,
     get_config,
     get_global_groups,
+    get_group_dir,
     get_python_version,
     get_repo_groups,
+    is_flat_mode,
 )
 
 app = typer.Typer(
@@ -58,6 +61,7 @@ def init(
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         groups = get_repo_groups(config)
         global_group_names = set(get_global_groups(config))
 
@@ -67,6 +71,10 @@ def init(
 
         # Handle --list flag
         if list_groups:
+            if flat:
+                typer.echo("Flat mode is enabled — group venvs are not used.")
+                typer.echo("Use 'dbx env init' for the base venv.")
+                return
             non_global_groups = {
                 k: v for k, v in groups.items() if k not in global_group_names
             }
@@ -76,7 +84,7 @@ def init(
 
             typer.echo("Available groups:\n")
             for group_name in sorted(non_global_groups.keys()):
-                group_dir = base_dir / group_name
+                group_dir = get_group_dir(base_dir, group_name, flat)
                 venv_path = group_dir / ".venv"
                 if venv_path.exists():
                     typer.echo(f"  • {group_name} (venv exists)")
@@ -104,7 +112,7 @@ def init(
                 raise typer.Exit(1)
 
             # Find repo within the specified group
-            matching_repos = find_all_repos_by_name(repo, base_dir)
+            matching_repos = find_all_repos_by_name(repo, base_dir, config)
             repo_info = None
             for r in matching_repos:
                 if r["group"] == group:
@@ -143,23 +151,31 @@ def init(
 
         elif group:
             # Create venv in group directory
-            if group in global_group_names:
+            if flat:
+                typer.echo(
+                    f"Note: flat mode is enabled — group venvs are not used. Creating base venv instead.",
+                    err=True,
+                )
+                venv_path = base_dir / ".venv"
+                location_desc = "base directory (flat mode)"
+                working_dir = base_dir
+            elif group in global_group_names:
                 typer.echo(
                     f"❌ Error: '{group}' is a global group used only for config — it has no group venv.",
                     err=True,
                 )
                 raise typer.Exit(1)
-            if group not in groups:
+            elif group not in groups:
                 typer.echo(
                     f"❌ Error: Group '{group}' not found in configuration.", err=True
                 )
                 typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
                 raise typer.Exit(1)
-
-            group_dir = base_dir / group
-            venv_path = group_dir / ".venv"
-            location_desc = f"group '{group}'"
-            working_dir = group_dir
+            else:
+                group_dir = get_group_dir(base_dir, group, flat)
+                venv_path = group_dir / ".venv"
+                location_desc = f"group '{group}'"
+                working_dir = group_dir
 
         else:
             # Create venv in base directory (default)
@@ -242,9 +258,9 @@ def list(ctx: typer.Context):
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         groups = get_repo_groups(config)
         global_group_names = set(get_global_groups(config))
-        from dbx_python_cli.utils.repo import find_all_repos
 
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}\n")
@@ -272,37 +288,38 @@ def list(ctx: typer.Context):
         else:
             typer.echo("  ❌ [BASE]: No venv (create with: dbx env init)")
 
-        # Check group-level venvs (skip global groups — they have no group directory)
-        typer.echo("\n  Group venvs:")
-        for group_name in sorted(
-            k for k in groups.keys() if k not in global_group_names
-        ):
-            group_dir = base_dir / group_name
-            venv_path = group_dir / ".venv"
+        # Check group-level venvs (skip in flat mode and for global groups)
+        if not flat:
+            typer.echo("\n  Group venvs:")
+            for group_name in sorted(
+                k for k in groups.keys() if k not in global_group_names
+            ):
+                group_dir = get_group_dir(base_dir, group_name, flat)
+                venv_path = group_dir / ".venv"
 
-            if venv_path.exists():
-                found_any = True
-                python_path = venv_path / "bin" / "python"
-                if python_path.exists():
-                    # Get Python version
-                    result = subprocess.run(
-                        [str(python_path), "--version"],
-                        capture_output=True,
-                        text=True,
-                    )
-                    version = (
-                        result.stdout.strip() if result.returncode == 0 else "unknown"
-                    )
-                    typer.echo(f"    ✅ {group_name}: {venv_path} ({version})")
+                if venv_path.exists():
+                    found_any = True
+                    python_path = venv_path / "bin" / "python"
+                    if python_path.exists():
+                        # Get Python version
+                        result = subprocess.run(
+                            [str(python_path), "--version"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        version = (
+                            result.stdout.strip() if result.returncode == 0 else "unknown"
+                        )
+                        typer.echo(f"    ✅ {group_name}: {venv_path} ({version})")
+                    else:
+                        typer.echo(f"    ⚠️  {group_name}: {venv_path} (invalid)")
                 else:
-                    typer.echo(f"    ⚠️  {group_name}: {venv_path} (invalid)")
-            else:
-                typer.echo(
-                    f"    ❌ {group_name}: No venv (create with: dbx env init -g {group_name})"
-                )
+                    typer.echo(
+                        f"    ❌ {group_name}: No venv (create with: dbx env init -g {group_name})"
+                    )
 
         # Check repo-level venvs
-        all_repos = find_all_repos(base_dir)
+        all_repos = find_all_repos(base_dir, config)
         repo_venvs = []
         for repo in all_repos:
             repo_venv_path = repo["path"] / ".venv"
@@ -383,6 +400,7 @@ def remove(
     try:
         config = get_config()
         base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
         groups = get_repo_groups(config)
         global_group_names = set(get_global_groups(config))
 
@@ -392,6 +410,10 @@ def remove(
 
         # Handle --list flag
         if list_groups:
+            if flat:
+                typer.echo("Flat mode is enabled — group venvs are not used.")
+                typer.echo("Use 'dbx env init' for the base venv.")
+                return
             non_global_groups = {
                 k: v for k, v in groups.items() if k not in global_group_names
             }
@@ -401,7 +423,7 @@ def remove(
 
             typer.echo("Available groups:\n")
             for group_name in sorted(non_global_groups.keys()):
-                group_dir = base_dir / group_name
+                group_dir = get_group_dir(base_dir, group_name, flat)
                 venv_path = group_dir / ".venv"
                 if venv_path.exists():
                     typer.echo(f"  • {group_name} (venv exists)")
@@ -429,7 +451,7 @@ def remove(
                 raise typer.Exit(1)
 
             # Find repo within the specified group
-            matching_repos = find_all_repos_by_name(repo, base_dir)
+            matching_repos = find_all_repos_by_name(repo, base_dir, config)
             repo_info = None
             for r in matching_repos:
                 if r["group"] == group:
@@ -462,29 +484,38 @@ def remove(
 
         elif group:
             # Remove venv from group directory
-            if group in global_group_names:
+            if flat:
+                typer.echo(
+                    "Note: flat mode is enabled — group venvs are not used. "
+                    "Targeting base venv instead.",
+                    err=True,
+                )
+                venv_path = base_dir / ".venv"
+                location_desc = "base directory (flat mode)"
+                recreate_cmd = "dbx env init"
+            elif group in global_group_names:
                 typer.echo(
                     f"❌ Error: '{group}' is a global group used only for config — it has no group venv.",
                     err=True,
                 )
                 raise typer.Exit(1)
-            if group not in groups:
+            elif group not in groups:
                 typer.echo(
                     f"❌ Error: Group '{group}' not found in configuration.", err=True
                 )
                 typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
                 raise typer.Exit(1)
+            else:
+                group_dir = get_group_dir(base_dir, group, flat)
+                if not flat and not group_dir.exists():
+                    typer.echo(
+                        f"❌ Error: Group directory '{group_dir}' does not exist.", err=True
+                    )
+                    raise typer.Exit(1)
 
-            group_dir = base_dir / group
-            if not group_dir.exists():
-                typer.echo(
-                    f"❌ Error: Group directory '{group_dir}' does not exist.", err=True
-                )
-                raise typer.Exit(1)
-
-            venv_path = group_dir / ".venv"
-            location_desc = f"group '{group}'"
-            recreate_cmd = f"dbx env init -g {group}"
+                venv_path = group_dir / ".venv"
+                location_desc = f"group '{group}'"
+                recreate_cmd = f"dbx env init -g {group}"
 
         else:
             # Remove venv from base directory (default)
