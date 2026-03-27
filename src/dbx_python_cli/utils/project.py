@@ -41,7 +41,7 @@ def get_newest_project(projects_dir: Path) -> tuple[str, Path]:
     # Find all projects (directories with pyproject.toml)
     projects = []
     for item in projects_dir.iterdir():
-        if item.is_dir() and (item / "pyproject.toml").exists():
+        if item.is_dir() and (item / "manage.py").exists():
             projects.append(item)
 
     if not projects:

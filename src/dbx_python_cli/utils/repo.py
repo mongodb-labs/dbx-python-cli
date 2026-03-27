@@ -539,8 +539,8 @@ def find_all_repos(base_dir, config=None):
             if (repo_dir / ".git").exists():
                 group = repo_to_group.get(repo_dir.name, "")
                 repos.append({"name": repo_dir.name, "path": repo_dir, "group": group})
-            elif (repo_dir / "pyproject.toml").exists():
-                # Django projects: no .git, live directly in base_dir in flat mode
+            elif (repo_dir / "manage.py").exists():
+                # Django projects: identified by manage.py, live directly in base_dir
                 repos.append({"name": repo_dir.name, "path": repo_dir, "group": ""})
         return repos
 

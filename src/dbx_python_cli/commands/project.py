@@ -65,7 +65,7 @@ def list_projects():
     # Find all projects (directories with pyproject.toml)
     projects = []
     for item in projects_dir.iterdir():
-        if item.is_dir() and (item / "pyproject.toml").exists():
+        if item.is_dir() and (item / "manage.py").exists():
             projects.append(item.name)
 
     if not projects:
@@ -686,7 +686,7 @@ def remove_project(
         remaining_projects = []
         if proj.projects_dir.exists():
             for item in proj.projects_dir.iterdir():
-                if item.is_dir() and (item / "pyproject.toml").exists():
+                if item.is_dir() and (item / "manage.py").exists():
                     remaining_projects.append(item)
 
         # If no projects remain, remove the projects directory
