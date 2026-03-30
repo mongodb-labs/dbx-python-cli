@@ -10,6 +10,7 @@ These utilities are used by both `dbx project` commands and `dbx test` commands.
 """
 
 import re
+import shutil
 import subprocess
 import time
 
@@ -514,6 +515,14 @@ def ensure_mongodb_runner(env: dict, config: dict) -> dict:
     edition = config.get("project", {}).get("mongodb", {}).get("edition", "community")
 
     typer.echo(f"⚠️  MONGODB_URI is not set. Checking for mongodb-runner ({edition})...")
+
+    # Check that mongodb-runner is actually available before attempting npx calls,
+    # which would otherwise hang while npm tries to download the package.
+    if not shutil.which("mongodb-runner"):
+        typer.echo("❌ mongodb-runner not found in PATH.", err=True)
+        typer.echo("💡 Install it with: npm install -g mongodb-runner", err=True)
+        typer.echo("no db running", err=True)
+        raise typer.Exit(code=1)
 
     # First check if mongodb-runner is already running (use 'ls' command)
     try:
