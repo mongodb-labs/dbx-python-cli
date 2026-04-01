@@ -618,7 +618,7 @@ def _add_frontend(
             name,
             str(project_path),
         ]
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=str(project_path))
 
 
 @app.command("remove")
