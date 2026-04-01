@@ -1,3 +1,7 @@
+INSTALLED_APPS += [  # noqa: F405
+    "medical_records",
+]
+
 # Queryable Encryption (QE) Configuration
 # Uncomment and configure these settings to enable Queryable Encryption.
 # See: https://django-mongodb-backend.readthedocs.io/en/latest/howto/queryable-encryption/

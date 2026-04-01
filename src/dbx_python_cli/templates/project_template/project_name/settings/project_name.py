@@ -19,8 +19,6 @@ INSTALLED_APPS += [  # noqa: F405
     # Add your project-specific apps here
     # Example:
     # "myapp",
-    # For Queryable Encryption demo:
-    # "medical_records",
 ]
 
 # Queryable Encryption (QE) Configuration
