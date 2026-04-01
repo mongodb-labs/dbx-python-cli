@@ -201,9 +201,9 @@ def init(
                 typer.echo(f"[verbose] Creating directory: {working_dir}\n")
             working_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine Python version: CLI flag > config > default
+        # Determine Python version: CLI flag > group config > repo default
         effective_python = python
-        if not effective_python and group:
+        if not effective_python:
             effective_python = get_python_version(config, group)
 
         # Create venv using uv

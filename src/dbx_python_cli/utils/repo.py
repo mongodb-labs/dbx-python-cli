@@ -234,7 +234,7 @@ def get_test_runner_args(config, group_name, repo_name):
     return test_runner_args_config.get(repo_name, [])
 
 
-def get_python_version(config, group_name):
+def get_python_version(config, group_name=None):
     """
     Get the Python version to use for a group's virtual environment.
 
@@ -243,16 +243,20 @@ def get_python_version(config, group_name):
 
     Args:
         config: Configuration dictionary
-        group_name: Name of the group (e.g., 'django')
+        group_name: Name of the group (e.g., 'django'), or None for the default
 
     Returns:
-        str: Python version string (e.g., '3.12'), or None to use system default
+        str: Python version string (e.g., '3.13'), or None to use system default
     """
+    default = config.get("repo", {}).get("python_version")
+    if group_name is None:
+        return default
+
     groups = get_repo_groups(config)
     if group_name not in groups:
-        return None
+        return default
 
-    return groups[group_name].get("python_version")
+    return groups[group_name].get("python_version") or default
 
 
 def get_editor(config, group_name=None, repo_name=None):
