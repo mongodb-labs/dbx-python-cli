@@ -1,4 +1,4 @@
-INSTALLED_APPS += [  # noqa: F405
+QE_INSTALLED_APPS = [
     "medical_records",
 ]
 

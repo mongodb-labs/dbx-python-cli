@@ -22,8 +22,9 @@ INSTALLED_APPS += [  # noqa: F405
 ]
 
 # Queryable Encryption (QE) Configuration
-# Uncomment the import below to enable Queryable Encryption settings.
+# Uncomment the two lines below to enable Queryable Encryption settings.
 # from .qe import *  # noqa
+# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405
 
 # Wagtail CMS Configuration
 # Uncomment the four lines below to enable Wagtail settings.
