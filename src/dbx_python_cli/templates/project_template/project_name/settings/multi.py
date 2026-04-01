@@ -24,10 +24,9 @@ import dj_database_url
 # explicitly, so DEFAULT_AUTO_FIELD does not affect them.
 DEFAULT_AUTO_FIELD = "django_mongodb_backend.fields.ObjectIdAutoField"
 
-# Add MongoDB extensions to installed apps
-INSTALLED_APPS += [  # noqa: F405
-    "django_mongodb_extensions",  # MQL Panel for Debug Toolbar
-]
+# Add MongoDB extensions to installed apps (guard against duplicate if mongodb.py was also imported)
+if "django_mongodb_extensions" not in INSTALLED_APPS:  # noqa: F405
+    INSTALLED_APPS += ["django_mongodb_extensions"]  # noqa: F405
 
 # Multi-database configuration: MongoDB as default, PostgreSQL as secondary
 DATABASES = {
@@ -43,15 +42,17 @@ DATABASES = {
     ),
 }
 
-# Add both MQL Panel and SQL Panel to debug toolbar
-DEBUG_TOOLBAR_PANELS.insert(  # noqa: F405
-    DEBUG_TOOLBAR_PANELS.index("debug_toolbar.panels.staticfiles.StaticFilesPanel"),  # noqa: F405
-    "django_mongodb_extensions.mql_panel.MQLPanel",
-)
-DEBUG_TOOLBAR_PANELS.insert(  # noqa: F405
-    DEBUG_TOOLBAR_PANELS.index("debug_toolbar.panels.staticfiles.StaticFilesPanel"),  # noqa: F405
-    "debug_toolbar.panels.sql.SQLPanel",
-)
+# Add both MQL Panel and SQL Panel to debug toolbar (guard against duplicates)
+if "django_mongodb_extensions.mql_panel.MQLPanel" not in DEBUG_TOOLBAR_PANELS:  # noqa: F405
+    DEBUG_TOOLBAR_PANELS.insert(  # noqa: F405
+        DEBUG_TOOLBAR_PANELS.index("debug_toolbar.panels.staticfiles.StaticFilesPanel"),  # noqa: F405
+        "django_mongodb_extensions.mql_panel.MQLPanel",
+    )
+if "debug_toolbar.panels.sql.SQLPanel" not in DEBUG_TOOLBAR_PANELS:  # noqa: F405
+    DEBUG_TOOLBAR_PANELS.insert(  # noqa: F405
+        DEBUG_TOOLBAR_PANELS.index("debug_toolbar.panels.staticfiles.StaticFilesPanel"),  # noqa: F405
+        "debug_toolbar.panels.sql.SQLPanel",
+    )
 
 # PostgreSQLRouter must come before MongoRouter so that Django built-in apps are
 # claimed by PostgreSQL before MongoRouter routes everything else to MongoDB.
