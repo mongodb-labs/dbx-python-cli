@@ -582,10 +582,12 @@ def _add_frontend(
     """
     Internal helper to create a frontend app inside an existing project.
 
-    ``python_path`` should be the Python executable inside the target venv.
-    When provided, python -m django is used to ensure the correct Django
-    is invoked even when the venv is not activated in the calling shell.
+    Copies the frontend_template/app_name/ directory directly to
+    project_path/frontend/ — no Django startapp needed since the template
+    contains no Django template variables.
     """
+    import shutil
+
     project_path = directory / project_name
     name = "frontend"
     if not project_path.exists() or not project_path.is_dir():
@@ -600,35 +602,11 @@ def _add_frontend(
         raise typer.Exit(code=1)
     typer.echo(f"📦 Creating app '{name}' in project '{project_name}'")
 
-    # Use the provided python_path or fall back to system python
-    effective_python = python_path if python_path else "python"
-
-    # Locate the Django app template directory in package resources
     with resources.path(
         "dbx_python_cli.templates", "frontend_template"
     ) as template_path:
-        # Use python -m django to ensure we use the correct venv's Django
-        cmd = [
-            effective_python,
-            "-m",
-            "django",
-            "startapp",
-            "--template",
-            str(template_path),
-            name,
-            str(project_path),
-        ]
-        result = subprocess.run(
-            cmd, check=False, capture_output=True, text=True, cwd=str(project_path)
-        )
-        if result.returncode != 0:
-            # Surface just the final error line rather than the full traceback
-            last_line = ""
-            if result.stderr:
-                last_line = result.stderr.strip().splitlines()[-1]
-            raise subprocess.CalledProcessError(
-                result.returncode, cmd, output=result.stdout, stderr=last_line
-            )
+        src = Path(template_path) / "app_name"
+        shutil.copytree(src, app_path)
 
 
 @app.command("remove")
