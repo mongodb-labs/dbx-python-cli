@@ -3,12 +3,13 @@ Base Django settings for {{ project_name }}.
 
 Database Configuration:
 -----------------------
-This template supports both MongoDB and PostgreSQL.
+This template supports MongoDB, PostgreSQL, or both simultaneously.
 - mongodb.py: MongoDB-specific settings
 - postgresql.py: PostgreSQL-specific settings
+- multi.py: Both MongoDB and PostgreSQL simultaneously
 - {{ project_name }}.py: Project settings (imports from mongodb.py by default)
 
-To switch databases, edit {{ project_name }}.py to import from postgresql.py instead.
+To switch databases, edit {{ project_name }}.py to import from the desired settings file.
 """
 
 from pathlib import Path

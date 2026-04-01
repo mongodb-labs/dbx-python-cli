@@ -9,6 +9,12 @@ from .mongodb import *  # noqa
 # To use PostgreSQL (uncomment the line below and comment out the MongoDB import above):
 # from .postgresql import *  # noqa
 
+# To use both MongoDB and PostgreSQL simultaneously (e.g. for testing both backends):
+# - Uncomment the line below and comment out the other imports above.
+# - Application models use MongoDB ("default"); Django built-ins use PostgreSQL.
+# - Requires: pip install -e ".[postgres]"
+# from .multi import *  # noqa
+
 # Add project-specific settings below
 # Example:
 # DEBUG = False
