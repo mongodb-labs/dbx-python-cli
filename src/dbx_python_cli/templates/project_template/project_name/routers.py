@@ -22,7 +22,7 @@ class PostgreSQLRouter:
         ]
     """
 
-    POSTGRESQL_APPS = {"auth", "admin", "contenttypes", "sessions"}
+    POSTGRESQL_APPS: set = set()  # Add app labels here to route them to PostgreSQL
 
     def db_for_read(self, model, **hints):
         if model._meta.app_label in self.POSTGRESQL_APPS:
