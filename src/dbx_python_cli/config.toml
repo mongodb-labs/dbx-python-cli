@@ -7,6 +7,9 @@
 # MONGODB_URI: If not set, will automatically start MongoDB based on mongodb_backend setting
 # Uncomment and set this if you have MongoDB running elsewhere:
 # MONGODB_URI = "mongodb://localhost:27017"
+# Queryable Encryption support (set paths to your local builds)
+PYMONGOCRYPT_LIB = "~/Developer/mongodb/django/libmongocrypt/cmake-build/libmongocrypt.dylib"
+CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.2.5/lib/mongo_crypt_v1.dylib"
 
 # MongoDB backend configuration
 [project.mongodb]
@@ -173,10 +176,7 @@ django = ["-v", "2"]
 django = "mongodb-6.0.x"
 
 # Environment variables for test runs
-# Set the path to your libmongocrypt build for Queryable Encryption support
 [repo.groups.django.test_env]
-PYMONGOCRYPT_LIB = "~/Developer/mongodb/django/libmongocrypt/cmake-build/libmongocrypt.dylib"
-CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.2.5/lib/mongo_crypt_v1.dylib"
 
 [repo.groups.django-3p]
 # Python version for the group's virtual environment
