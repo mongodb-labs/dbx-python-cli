@@ -403,7 +403,7 @@ def test_get_config_fallback_to_default(temp_config_dir):
         # Should have loaded the default config which has repo.groups structure
         assert "repo" in config
         assert "groups" in config["repo"]
-        assert "mongo-python-driver" in config["repo"]["groups"]
+        assert "pymongo" in config["repo"]["groups"]
 
 
 def test_repo_clone_no_group_shows_error(mock_config):

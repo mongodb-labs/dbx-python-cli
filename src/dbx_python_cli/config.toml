@@ -84,7 +84,7 @@ global_groups = ["global"]
 # Priority ordering for groups when a repo exists in multiple groups
 # Higher priority groups are preferred when running commands without -g flag
 # Groups not listed have equal lower priority
-group_priority = ["mongo-python-driver", "django", "langchain"]
+group_priority = ["pymongo", "django", "langchain"]
 # Set to true if repos live directly under base_dir instead of base_dir/<group>/<repo>
 flat = true
 # Default editor for all repos (can be overridden per group or per repo)
@@ -104,7 +104,7 @@ mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/mongo-python-driver/drivers-
 [repo.groups.global.install_extras]
 mongo-python-driver = ["test"]
 
-[repo.groups.mongo-python-driver]
+[repo.groups.pymongo]
 # Python version for the group's virtual environment
 python_version = "3.13"
 repos = [
@@ -117,7 +117,7 @@ repos = [
 
 # Build commands: specify commands to run before installing (e.g., rust builds)
 # Note: Rust build only works when the rust branch is checked out
-# [repo.groups.mongo-python-driver.build_commands]
+# [repo.groups.pymongo.build_commands]
 # mongo-python-driver = [
 #     "cd bson/_rbson && maturin build --release",
 # ]
