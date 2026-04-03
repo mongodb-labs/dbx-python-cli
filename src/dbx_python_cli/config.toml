@@ -30,7 +30,7 @@ enable_test_commands = true
 # runner configuration (only used when backend = "runner")
 [project.mongodb.runner]
 # Topology type: "standalone", "replset", or "sharded"
-topology = "standalone"
+topology = "replset"
 # Number of shards (only for sharded topology)
 # shards = 2
 # Number of secondaries per replica set (for replset and sharded topologies)
