@@ -98,7 +98,7 @@ repos = [
 # Environment variables for test runs
 # You can use {base_dir} placeholder; {group} resolves to "global" for repos in this group
 [repo.groups.global.test_env]
-mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/mongo-python-driver/drivers-evergreen-tools", USE_ACTIVE_VENV = "1", COVERAGE = "1" }
+mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/drivers-evergreen-tools", USE_ACTIVE_VENV = "1", COVERAGE = "1" }
 
 # Default extras to install automatically
 [repo.groups.global.install_extras]
