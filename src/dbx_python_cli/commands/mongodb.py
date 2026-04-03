@@ -566,7 +566,7 @@ def ensure_mongodb_runner(env: dict, config: dict) -> dict:
         if edition == "enterprise":
             start_cmd.append("--enterprise")
         if enable_test_commands:
-            start_cmd.extend(["--setParameter", "enableTestCommands=1"])
+            start_cmd.extend(["--", "--setParameter", "enableTestCommands=1"])
 
         result = subprocess.run(
             start_cmd,
