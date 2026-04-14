@@ -96,6 +96,44 @@ def test_test_nonexistent_repo(mock_config, temp_repos_dir):
         assert "Repository 'nonexistent-repo' not found" in output
 
 
+def test_test_dot_from_repo_root(mock_config, temp_repos_dir, monkeypatch):
+    """Test that '.' resolves to the repo at the current directory."""
+    repo_dir = temp_repos_dir / "pymongo" / "mongo-python-driver"
+
+    monkeypatch.chdir(repo_dir)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+            with patch("subprocess.run") as mock_run:
+                with patch.dict("os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}):
+                    mock_get_path.return_value = mock_config
+                    mock_venv.return_value = ("python", "venv")
+
+                    mock_result = MagicMock()
+                    mock_result.returncode = 0
+                    mock_run.return_value = mock_result
+
+                    result = runner.invoke(app, ["test", "."])
+                    assert result.exit_code == 0
+                    assert "Running pytest" in result.stdout
+                    assert "Tests passed in mongo-python-driver" in result.stdout
+
+
+def test_test_dot_not_in_managed_repo(mock_config, temp_repos_dir, monkeypatch):
+    """Test that '.' in an unmanaged directory gives a clear error."""
+    unrelated = temp_repos_dir / "unrelated"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        result = runner.invoke(app, ["test", "."])
+        assert result.exit_code == 1
+        output = result.stdout + result.stderr
+        assert "No managed repository found" in output
+
+
 def test_test_runs_pytest_success(mock_config, temp_repos_dir):
     """Test that test runs pytest successfully."""
     with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:

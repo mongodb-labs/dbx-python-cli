@@ -12,6 +12,7 @@ from dbx_python_cli.utils.repo import (
     find_all_repos,
     find_all_repos_by_name,
     find_repo_by_name,
+    find_repo_by_path,
     get_base_dir,
     get_config,
     get_global_groups,
@@ -129,25 +130,46 @@ def _run_just_in_repo(
             "group": group,
         }
     else:
-        # Find repo by name across all groups
-        repo = find_repo_by_name(repo_name, base_dir, config)
-        if not repo:
-            typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
-            typer.echo("\nRun 'dbx list' to see available repositories")
-            raise typer.Exit(1)
+        # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
+        _is_path_like = (
+            repo_name in (".", "..")
+            or repo_name.startswith(("./", "../", "/", "~/"))
+            or "/" in repo_name
+            or Path(repo_name).is_dir()
+        )
 
-        # Check if repo exists in multiple groups
-        all_matches = find_all_repos_by_name(repo_name, base_dir, config)
-        if len(all_matches) > 1:
-            groups = [r["group"] for r in all_matches]
-            typer.echo(
-                f"⚠️  Warning: '{repo_name}' exists in multiple groups: {', '.join(groups)}",
-                err=True,
-            )
-            typer.echo(
-                f"⚠️  Using '{repo['group']}' group. Specify -g <group> to use a different one.\n",
-                err=True,
-            )
+        if _is_path_like:
+            repo = find_repo_by_path(repo_name, base_dir, config)
+            if not repo:
+                typer.echo(
+                    f"❌ Error: No managed repository found at '{Path(repo_name).resolve()}'",
+                    err=True,
+                )
+                typer.echo("\nRun 'dbx list' to see available repositories")
+                raise typer.Exit(1)
+            # Update repo_name so env-var lookups and messages use the real name
+            repo_name = repo["name"]
+        else:
+            # Find repo by name across all groups
+            repo = find_repo_by_name(repo_name, base_dir, config)
+            if not repo:
+                typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+                typer.echo("\nRun 'dbx list' to see available repositories")
+                raise typer.Exit(1)
+
+        # Check if repo exists in multiple groups (name-based lookup only)
+        if not _is_path_like:
+            all_matches = find_all_repos_by_name(repo_name, base_dir, config)
+            if len(all_matches) > 1:
+                groups = [r["group"] for r in all_matches]
+                typer.echo(
+                    f"⚠️  Warning: '{repo_name}' exists in multiple groups: {', '.join(groups)}",
+                    err=True,
+                )
+                typer.echo(
+                    f"⚠️  Using '{repo['group']}' group. Specify -g <group> to use a different one.\n",
+                    err=True,
+                )
 
     repo_path = Path(repo["path"])
 

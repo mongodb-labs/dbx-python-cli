@@ -99,6 +99,43 @@ def test_just_repo_not_found(tmp_path, temp_repos_dir, mock_config):
             assert "not found" in output or "available repositories" in output
 
 
+def test_just_dot_from_repo_root(tmp_path, temp_repos_dir, mock_config, monkeypatch):
+    """Test that '.' resolves to the repo at the current directory."""
+    repo_dir = temp_repos_dir / "pymongo" / "mongo-python-driver"
+
+    monkeypatch.chdir(repo_dir)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch(
+            "dbx_python_cli.commands.just.ensure_mongodb",
+            side_effect=lambda e, *a, **k: e,
+        ):
+            with patch("subprocess.run") as mock_run:
+                mock_get_path.return_value = mock_config
+                mock_run.return_value = MagicMock(returncode=0)
+
+                result = runner.invoke(app, ["just", ".", "test"])
+                assert result.exit_code == 0
+                assert "Running 'just test' in" in result.stdout
+                args = mock_run.call_args[0][0]
+                assert args == ["just", "test"]
+
+
+def test_just_dot_not_in_managed_repo(tmp_path, temp_repos_dir, mock_config, monkeypatch):
+    """Test that '.' in an unmanaged directory gives a clear error."""
+    unrelated = tmp_path / "unrelated"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = mock_config
+
+        result = runner.invoke(app, ["just", "."])
+        assert result.exit_code == 1
+        output = result.stdout + result.stderr
+        assert "No managed repository found" in output
+
+
 def test_just_no_justfile(tmp_path, temp_repos_dir, mock_config):
     """Test that just with repo without justfile shows warning."""
     with patch(
