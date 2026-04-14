@@ -629,6 +629,46 @@ def find_repo_by_name(repo_name, base_dir, config=None):
     return matching_repos[0]
 
 
+def find_repo_by_path(path, base_dir, config=None):
+    """
+    Find a repository by filesystem path.
+
+    Resolves *path* to an absolute path and checks all known repos for a
+    match.  An exact match on the repo root is tried first; if not found,
+    the function checks whether *path* is located *inside* a known repo
+    (useful when the caller is in a subdirectory of the repo).
+
+    Args:
+        path: A :class:`pathlib.Path` (or anything accepted by ``Path()``)
+              pointing at or inside the repository root.
+        base_dir: Path to the base directory containing group subdirectories.
+        config: Optional configuration dictionary.
+
+    Returns:
+        dict: Dictionary with ``'name'``, ``'path'``, and ``'group'`` keys,
+              or ``None`` if no matching repository is found.
+    """
+    from pathlib import Path as _Path
+
+    resolved = _Path(path).resolve()
+    all_repos = find_all_repos(base_dir, config)
+
+    # Exact match first
+    for r in all_repos:
+        if r["path"].resolve() == resolved:
+            return r
+
+    # Path is inside a repo (e.g. a subdirectory)
+    for r in all_repos:
+        try:
+            resolved.relative_to(r["path"].resolve())
+            return r
+        except ValueError:
+            continue
+
+    return None
+
+
 def find_all_repos_by_name(repo_name, base_dir, config=None):
     """
     Find all repositories with a given name in the base directory.

@@ -86,7 +86,7 @@ def sync_callback(
         dbx sync -a --dry-run                           # Preview all groups sync
         dbx sync -g pymongo mongo-python-driver --dry-run  # Preview specific repo
     """
-    from dbx_python_cli.utils.repo import find_all_repos, find_repo_by_name
+    from dbx_python_cli.utils.repo import find_all_repos, find_repo_by_name, find_repo_by_path
 
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -269,12 +269,30 @@ def sync_callback(
             typer.echo("   or: dbx sync -g <group> <repo-name>")
             raise typer.Exit(1)
 
+        # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
+        _is_path_like = (
+            repo_name in (".", "..")
+            or repo_name.startswith(("./", "../", "/", "~/"))
+            or "/" in repo_name
+            or Path(repo_name).is_dir()
+        )
+
         # Find the repository
-        repo_info = find_repo_by_name(repo_name, base_dir, config)
-        if not repo_info:
-            typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
-            typer.echo("\nUse 'dbx list' to see available repositories")
-            raise typer.Exit(1)
+        if _is_path_like:
+            repo_info = find_repo_by_path(repo_name, base_dir, config)
+            if not repo_info:
+                typer.echo(
+                    f"❌ Error: No managed repository found at '{Path(repo_name).resolve()}'",
+                    err=True,
+                )
+                typer.echo("\nUse 'dbx list' to see available repositories")
+                raise typer.Exit(1)
+        else:
+            repo_info = find_repo_by_name(repo_name, base_dir, config)
+            if not repo_info:
+                typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+                typer.echo("\nUse 'dbx list' to see available repositories")
+                raise typer.Exit(1)
 
         _sync_repository(repo_info["path"], repo_info["name"], verbose, force, dry_run)
 

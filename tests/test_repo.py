@@ -900,6 +900,133 @@ repos = [
             assert "main" in push_calls[0][0][0]
 
 
+def test_repo_sync_dot_from_repo_root(tmp_path, temp_repos_dir, monkeypatch):
+    """Test syncing with '.' resolves to the repo at the current directory."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.test]
+repos = [
+    "git@github.com:mongodb/mongo-python-driver.git",
+]
+"""
+    config_path.write_text(config_content)
+
+    # Create mock repository
+    group_dir = temp_repos_dir / "test"
+    repo_dir = group_dir / "mongo-python-driver"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    # Change into the repo root so that "." resolves to it
+    monkeypatch.chdir(repo_dir)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "remote" in cmd and "add" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                elif "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
+                else:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "."])
+            assert result.exit_code == 0
+            assert "Syncing mongo-python-driver" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
+
+
+def test_repo_sync_dot_from_repo_subdirectory(tmp_path, temp_repos_dir, monkeypatch):
+    """Test that '.' resolves correctly when run from inside a repo subdirectory."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.test]
+repos = [
+    "git@github.com:mongodb/mongo-python-driver.git",
+]
+"""
+    config_path.write_text(config_content)
+
+    # Create mock repository with a subdirectory
+    group_dir = temp_repos_dir / "test"
+    repo_dir = group_dir / "mongo-python-driver"
+    subdir = repo_dir / "src" / "pymongo"
+    subdir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    # Change into a subdirectory of the repo
+    monkeypatch.chdir(subdir)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "remote" in cmd and "add" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                elif "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
+                else:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "."])
+            assert result.exit_code == 0
+            assert "Syncing mongo-python-driver" in result.stdout
+            assert "Synced and pushed successfully" in result.stdout
+
+
+def test_repo_sync_dot_not_in_managed_repo(tmp_path, temp_repos_dir, monkeypatch):
+    """Test that '.' in an unmanaged directory gives a clear error."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.test]
+repos = [
+    "git@github.com:mongodb/mongo-python-driver.git",
+]
+"""
+    config_path.write_text(config_content)
+
+    # Change into a directory that is NOT a managed repo
+    unrelated_dir = tmp_path / "unrelated"
+    unrelated_dir.mkdir()
+    monkeypatch.chdir(unrelated_dir)
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = config_path
+
+        result = runner.invoke(app, ["sync", "."])
+        assert result.exit_code == 1
+        output = result.stdout + result.stderr
+        assert "No managed repository found" in output
+
+
 def test_repo_sync_group(tmp_path, temp_repos_dir):
     """Test syncing all repositories in a group."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
