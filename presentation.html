@@ -328,8 +328,8 @@
     <pre style="text-align:left;"><code class="language-bash">pipx install git+https://github.com/aclark4life/dbx-python-cli.git
 
 dbx clone -g django          # clone the whole django group
-dbx install                  # install all deps with uv
-dbx test -k "test_find"      # run tests — MongoDB starts automatically</code></pre>
+dbx install -g django                  # install all deps with uv
+dbx test -g django -k "test_find"      # run tests — MongoDB starts automatically</code></pre>
   </div>
   <div class="leaf-corner"></div>
 </section>
