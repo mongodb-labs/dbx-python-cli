@@ -259,8 +259,6 @@
   </style>
 </head>
 <body>
-<!-- Persistent leaf mark: lives outside .slides so Reveal.js transforms can't affect it -->
-<div id="leaf-fixed"></div>
 <div class="reveal">
 <div class="slides">
 
@@ -731,5 +729,7 @@ dbx --help</code></pre>
     plugins: [ RevealHighlight, RevealNotes ],
   });
 </script>
+<!-- Persistent leaf mark: last in DOM so it paints above Reveal.js's stacking context -->
+<div id="leaf-fixed"></div>
 </body>
 </html>
