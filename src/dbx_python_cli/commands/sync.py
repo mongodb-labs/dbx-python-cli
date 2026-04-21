@@ -142,20 +142,29 @@ def sync_callback(
                     f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
                 )
 
+                synced_count = 0
+                skipped_count = 0
                 for i, repo_info in enumerate(target_repos):
                     # Add separator between repos (not before first or after last)
                     if i > 0:
                         typer.echo("─" * 60)
-                    _sync_repository(
+                    status = _sync_repository(
                         repo_info["path"], repo_info["name"], verbose, force, dry_run
                     )
+                    if status == "skipped":
+                        skipped_count += 1
+                    elif status in ("synced", "dry_run"):
+                        synced_count += 1
 
                 if dry_run:
-                    typer.echo(
-                        f"\n✨ Dry run complete! Checked {len(target_repos)} repository(ies)"
+                    summary = (
+                        f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
                     )
                 else:
-                    typer.echo(f"\n✨ Done! Synced {len(target_repos)} repository(ies)")
+                    summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
+                if skipped_count:
+                    summary += f", skipped {skipped_count}"
+                typer.echo(summary)
             finally:
                 if use_pager:
                     sys.stdout = old_stdout
@@ -240,20 +249,29 @@ def sync_callback(
                     f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n"
                 )
 
+                synced_count = 0
+                skipped_count = 0
                 for i, repo_info in enumerate(group_repos):
                     # Add separator between repos (not before first or after last)
                     if i > 0:
                         typer.echo("─" * 60)
-                    _sync_repository(
+                    status = _sync_repository(
                         repo_info["path"], repo_info["name"], verbose, force, dry_run
                     )
+                    if status == "skipped":
+                        skipped_count += 1
+                    elif status in ("synced", "dry_run"):
+                        synced_count += 1
 
                 if dry_run:
-                    typer.echo(
-                        f"\n✨ Dry run complete! Checked {len(group_repos)} repository(ies)"
+                    summary = (
+                        f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
                     )
                 else:
-                    typer.echo(f"\n✨ Done! Synced {len(group_repos)} repository(ies)")
+                    summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
+                if skipped_count:
+                    summary += f", skipped {skipped_count}"
+                typer.echo(summary)
             finally:
                 if use_pager:
                     sys.stdout = old_stdout
@@ -316,11 +334,14 @@ def _sync_repository(
     verbose: bool = False,
     force: bool = False,
     dry_run: bool = False,
-):
+) -> str:
     """Sync a single repository with upstream.
 
     For main/master branches: rebases to upstream/<branch_name>
     For feature branches: rebases to upstream's default branch (main/master)
+
+    Returns:
+        "synced", "skipped", "failed", or "dry_run"
     """
     if dry_run:
         typer.echo(f"🔍 Checking {repo_name}")
@@ -349,14 +370,14 @@ def _sync_repository(
                 "⚠️  No 'upstream' remote found (skipping)",
                 err=True,
             )
-            return
+            return "skipped"
 
     except subprocess.CalledProcessError as e:
         typer.echo(
             f"❌ Failed to check remotes: {e.stderr}",
             err=True,
         )
-        return
+        return "failed"
 
     # Get current branch
     try:
@@ -373,7 +394,7 @@ def _sync_repository(
                 "⚠️  Not on a branch (detached HEAD), skipping",
                 err=True,
             )
-            return
+            return "skipped"
 
         if verbose:
             typer.echo(f"[verbose] Current branch: {current_branch}")
@@ -383,7 +404,7 @@ def _sync_repository(
             f"❌ Failed to get current branch: {e.stderr}",
             err=True,
         )
-        return
+        return "failed"
 
     # Fetch from upstream
     try:
@@ -402,7 +423,7 @@ def _sync_repository(
             f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
             err=True,
         )
-        return
+        return "failed"
 
     # Determine which branch to rebase onto
     # For main/master: rebase to upstream/<current_branch>
@@ -445,7 +466,7 @@ def _sync_repository(
                     "❌ Could not determine upstream default branch",
                     err=True,
                 )
-                return
+                return "failed"
 
         rebase_target = f"upstream/{upstream_default}"
         if verbose:
@@ -458,7 +479,7 @@ def _sync_repository(
         _show_commit_comparison(
             repo_path, repo_name, current_branch, rebase_target, verbose
         )
-        return
+        return "dry_run"
 
     # Rebase on target branch
     try:
@@ -483,7 +504,7 @@ def _sync_repository(
             f"  You may need to resolve conflicts manually in {repo_path}",
             err=True,
         )
-        return
+        return "failed"
 
     # Push to origin
     try:
@@ -506,6 +527,7 @@ def _sync_repository(
         )
 
         typer.echo("✅ Synced and pushed successfully")
+        return "synced"
 
     except subprocess.CalledProcessError as e:
         typer.echo(
@@ -518,6 +540,7 @@ def _sync_repository(
             f"  Try running: dbx sync {repo_name} --force",
             err=True,
         )
+        return "synced"
 
 
 def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str | None:
