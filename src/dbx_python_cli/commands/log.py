@@ -8,13 +8,15 @@ import typer
 
 from dbx_python_cli.utils.output import paginate_output, should_use_pager
 from dbx_python_cli.utils.repo import (
+    find_all_repos,
+    find_repo_by_name,
     get_base_dir,
     get_config,
+    get_global_groups,
     get_projects_dir,
     get_repo_groups,
     is_flat_mode,
 )
-from dbx_python_cli.utils.repo import find_all_repos, find_repo_by_name
 
 # Create a Typer app that will act as a single command
 app = typer.Typer(
@@ -43,6 +45,12 @@ def log_callback(
         "-g",
         help="Show logs for all repositories in a group",
     ),
+    all_groups: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Show logs for all cloned repositories across all groups",
+    ),
     project: str = typer.Option(
         None,
         "--project",
@@ -55,6 +63,7 @@ def log_callback(
 
         dbx log <repo_name> [git_args...]
         dbx log -g <group> [git_args...]
+        dbx log -a [git_args...]
         dbx log --project <project> [git_args...]
 
     Examples::
@@ -65,6 +74,7 @@ def log_callback(
         dbx log mongo-python-driver --graph -n 5       # Show graph with last 5 commits
         dbx log -g pymongo -n 20                       # Show last 20 commits for all repos
         dbx log -g pymongo --oneline -n 5              # Show last 5 commits in oneline format
+        dbx log -a --oneline -n 5                      # Show last 5 commits for all cloned repos
         dbx log --project myproject -n 5               # Show last 5 commits for a project
     """
     # Get verbose flag from parent context
@@ -93,6 +103,39 @@ def log_callback(
     except Exception as e:
         typer.echo(f"❌ Error: {e}", err=True)
         raise typer.Exit(1)
+
+    # Handle all groups option
+    if all_groups:
+        groups = get_repo_groups(config)
+        global_group_names = get_global_groups(config)
+        non_global_groups = [g for g in groups.keys() if g not in global_group_names]
+
+        if not non_global_groups:
+            typer.echo("❌ Error: No groups found in configuration.", err=True)
+            raise typer.Exit(1)
+
+        all_repos = find_all_repos(base_dir, config)
+        target_repos = [r for r in all_repos if r["group"] in non_global_groups]
+
+        if not target_repos:
+            typer.echo("❌ Error: No repositories found in any group.", err=True)
+            typer.echo("\nClone repositories using: dbx clone -a")
+            raise typer.Exit(1)
+
+        output_parts = [
+            f"Showing logs for {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
+        ]
+
+        for repo_info in target_repos:
+            log_output = _get_git_log_output(
+                repo_info["path"], repo_info["name"], git_args, verbose
+            )
+            if log_output:
+                output_parts.append(log_output)
+
+        use_pager = should_use_pager(ctx, command_default=False)
+        paginate_output("\n".join(output_parts), use_pager)
+        return
 
     # Handle group option
     if group:
@@ -153,6 +196,7 @@ def log_callback(
         typer.echo("❌ Error: Repository name, group, or project is required", err=True)
         typer.echo("\nUsage: dbx log <repo_name> [git_args...]")
         typer.echo("   or: dbx log -g <group> [git_args...]")
+        typer.echo("   or: dbx log -a [git_args...]")
         typer.echo("   or: dbx log --project <project> [git_args...]")
         raise typer.Exit(1)
 
