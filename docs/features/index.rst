@@ -12,3 +12,4 @@ Features
    just-commands
    documentation
    status
+   spec-sync
