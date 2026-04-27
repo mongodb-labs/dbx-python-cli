@@ -2,8 +2,8 @@
 
 > A command line tool for DBX Python development tasks. AI first. De-siloing happens here. Inspired by [django-mongodb-cli](https://github.com/mongodb-labs/django-mongodb-cli).
 
-[![CI](https://github.com/aclark4life/dbx-python-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/aclark4life/dbx-python-cli/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/aclark4life/dbx-python-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/aclark4life/dbx-python-cli)
+[![CI](https://github.com/mongodb-labs/dbx-python-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/mongodb-labs/dbx-python-cli/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mongodb-labs/dbx-python-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/mongodb-labs/dbx-python-cli)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/dbx-python-cli/badge/?version=latest)](https://dbx-python-cli.readthedocs.io/en/latest/?badge=latest)
