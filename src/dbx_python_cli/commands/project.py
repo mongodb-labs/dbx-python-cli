@@ -515,6 +515,56 @@ def add_project(
             )
 
 
+def _ensure_package_installed(
+    import_name: str,
+    python_path: str,
+    base_dir,
+    verbose: bool = False,
+) -> None:
+    """Ensure a package is installed, preferring a local clone over PyPI.
+
+    Checks if already importable; if not, looks for a local clone at
+    base_dir/<repo-name> (flat layout) or base_dir/django/<repo-name>
+    (group layout), then falls back to installing from PyPI.
+    """
+    check = subprocess.run(
+        [python_path, "-c", f"import {import_name}"],
+        capture_output=True,
+        cwd="/tmp",
+    )
+    if check.returncode == 0:
+        return
+
+    repo_name = import_name.replace("_", "-")
+
+    if base_dir is not None:
+        for clone_path in [Path(base_dir) / repo_name, Path(base_dir) / "django" / repo_name]:
+            if clone_path.exists() and (
+                (clone_path / "pyproject.toml").exists() or (clone_path / "setup.py").exists()
+            ):
+                typer.echo(f"📦 Installing {repo_name} from local clone at {clone_path}...")
+                subprocess.run(
+                    ["uv", "pip", "install", "--reinstall", "--python", python_path, "-e", str(clone_path)],
+                    capture_output=not verbose,
+                    check=False,
+                )
+                return
+
+    # Use --reinstall to override any stale editable installs pointing to a
+    # deleted source directory (uv skips reinstall otherwise, leaving a broken .pth).
+    typer.echo(f"📦 Installing {repo_name} from PyPI...")
+    result = subprocess.run(
+        ["uv", "pip", "install", "--reinstall", "--python", python_path, repo_name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        typer.echo(f"⚠️  Failed to install {repo_name} from PyPI:", err=True)
+        if result.stderr:
+            typer.echo(result.stderr.strip(), err=True)
+
+
 def _create_pyproject_toml(
     project_path: Path, project_name: str, settings_path: str = "settings.base"
 ):
@@ -735,43 +785,28 @@ def run_project(
     proj = resolve_project_path(name, directory)
     python_path, venv_type = get_django_python_path(proj, directory)
 
-    # Check if the project is installed in the venv
-    # This is important when using the Django group venv
+    # Always sync project dependencies before starting to ensure all declared
+    # dependencies (including ones added after the project was first installed)
+    # are present in the venv. uv pip install is fast and idempotent.
     pyproject_path = proj.project_path / "pyproject.toml"
     if pyproject_path.exists():
-        # Check if the project is installed by trying to import it
-        # We need to clear PYTHONPATH and run from a different directory to check actual installation
-        module_name = proj.name.replace("-", "_")
-        check_env = os.environ.copy()
-        check_env.pop(
-            "PYTHONPATH", None
-        )  # Remove PYTHONPATH to check actual installation
-        check_cmd = [
+        typer.echo(f"📦 Syncing project dependencies for '{proj.name}'...")
+        install_result = install_package(
+            proj.project_path,
             python_path,
-            "-c",
-            f"import importlib.util; import sys; sys.exit(0 if importlib.util.find_spec('{module_name}') else 1)",
-        ]
-        # Run from /tmp to avoid Python adding the current directory to sys.path
-        result = subprocess.run(
-            check_cmd, capture_output=True, env=check_env, cwd="/tmp"
+            install_dir=None,
+            extras=None,
+            groups=None,
+            verbose=verbose,
         )
-
-        if result.returncode != 0:
-            # Project not installed, install it
-            typer.echo(f"📦 Installing project dependencies for '{proj.name}'...")
-            install_result = install_package(
-                proj.project_path,
-                python_path,
-                install_dir=None,
-                extras=None,
-                groups=None,
-                verbose=False,
+        if install_result == "failed":
+            typer.echo(
+                f"⚠️  Warning: Failed to install project '{proj.name}'. Some dependencies may be missing.",
+                err=True,
             )
-            if install_result != "success":
-                typer.echo(
-                    f"⚠️  Warning: Failed to install project '{proj.name}'. Some dependencies may be missing.",
-                    err=True,
-                )
+
+    # Ensure django_mongodb_extensions is available: prefer a local clone over PyPI.
+    _ensure_package_installed("django_mongodb_extensions", python_path, proj.base_dir, verbose)
 
     # Check if frontend exists
     frontend_path = proj.project_path / "frontend"
