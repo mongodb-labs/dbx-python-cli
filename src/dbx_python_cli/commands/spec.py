@@ -87,7 +87,7 @@ def _show_patch_summary(driver_repo, verbose: bool = False) -> int:
                 typer.echo(f"      {f}")
         else:
             typer.echo(f"  • {ticket} ({len(files)} file(s))")
-    typer.echo(f"\n  Run 'dbx spec patch apply' to apply them.")
+    typer.echo("\n  Run 'dbx spec patch apply' to apply them.")
     return len(patches)
 
 
@@ -440,7 +440,7 @@ def patch_create(
     if verbose:
         for f in files_affected:
             typer.echo(f"   {f}")
-    typer.echo(f"\n  Run 'dbx spec patch apply' to apply it now.")
+    typer.echo("\n  Run 'dbx spec patch apply' to apply it now.")
 
 
 # ---------------------------------------------------------------------------
