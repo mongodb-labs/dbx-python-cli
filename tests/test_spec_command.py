@@ -1,5 +1,6 @@
 """Tests for the spec command."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -130,10 +131,12 @@ def test_spec_patch_help():
 def test_spec_sync_help():
     result = runner.invoke(app, ["spec", "sync", "--help"])
     assert result.exit_code == 0
-    assert "--repo" in result.output
-    assert "--block" in result.output
-    assert "--dry-run" in result.output
-    assert "--apply-patches" in result.output
+    # Strip ANSI escape codes before checking (macOS runners may inject them)
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--repo" in clean
+    assert "--block" in clean
+    assert "--dry-run" in clean
+    assert "--apply-patches" in clean
 
 
 def test_spec_sync_dry_run(mock_config):
