@@ -225,6 +225,12 @@ def add_project(
         "-f/-F",
         help="Add frontend (default: True)",
     ),
+    add_wagtail: bool = typer.Option(
+        False,
+        "--wagtail/--no-wagtail",
+        "-w/-W",
+        help="Enable Wagtail CMS (default: False)",
+    ),
     auto_install: bool = typer.Option(
         True,
         "--install/--no-install",
@@ -240,6 +246,7 @@ def add_project(
     """
     Create a new Django project using bundled templates.
     Frontend is added by default. Use --no-frontend to skip frontend creation.
+    Use --wagtail to enable Wagtail CMS.
 
     Projects are created in base_dir/projects/ by default.
     If no name is provided, a random name is generated.
@@ -249,6 +256,7 @@ def add_project(
         dbx project add                    # Create with random name (includes frontend)
         dbx project add myproject          # Create with explicit name (includes frontend)
         dbx project add myproject --no-frontend  # Create without frontend
+        dbx project add myproject --wagtail      # Create with Wagtail CMS enabled
         dbx project add -d ~/custom/path   # Create with random name in custom directory
         dbx project add myproject -d ~/custom/path  # Create in custom directory
         dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at ~/path/to/myproject
@@ -263,6 +271,8 @@ def add_project(
         base_dir = None
     if not isinstance(add_frontend, bool):
         add_frontend = True
+    if not isinstance(add_wagtail, bool):
+        add_wagtail = False
     if not isinstance(auto_install, bool):
         auto_install = True
     if not isinstance(python_path_override, (str, type(None))):
@@ -443,7 +453,18 @@ def add_project(
         raise typer.Exit(code=1)
 
     # Add pyproject.toml after project creation
-    _create_pyproject_toml(project_path, name, settings_path)
+    _create_pyproject_toml(project_path, name, settings_path, wagtail=add_wagtail)
+
+    # Enable Wagtail CMS if requested
+    if add_wagtail:
+        typer.echo(f"🌿 Enabling Wagtail CMS for project '{name}'...")
+        try:
+            _enable_wagtail(project_path, name)
+        except Exception as e:
+            typer.echo(
+                f"⚠️  Project created successfully, but Wagtail setup failed: {e}",
+                err=True,
+            )
 
     # Create frontend by default (unless --no-frontend is specified)
     if add_frontend:
@@ -515,6 +536,111 @@ def add_project(
             )
 
 
+def _fix_broken_editable_installs(
+    python_path: str, project_path: Path, verbose: bool = False
+) -> None:
+    """Reinstall any declared dependency that has a stale editable-install dist-info.
+
+    Scoped to the project's declared dependencies so that old removed projects
+    (which also leave behind dist-info entries) are never touched.
+
+    uv considers a package satisfied if its dist-info exists, even when the source
+    directory the editable install pointed to has been deleted. This leaves the package
+    unimportable while uv's resolver thinks it's fine.
+    """
+    import json
+    import re
+    import tomllib
+
+    pyproject = project_path / "pyproject.toml"
+    if not pyproject.exists():
+        return
+
+    try:
+        with open(pyproject, "rb") as f:
+            toml_data = tomllib.load(f)
+    except Exception:
+        return
+
+    raw_deps = toml_data.get("project", {}).get("dependencies", [])
+    if not raw_deps:
+        return
+
+    # Build a set of normalised names (both hyphen and underscore forms) so we
+    # can match dist-info directory names regardless of normalisation.
+    declared: set[str] = set()
+    for dep in raw_deps:
+        name = re.split(r"[>=<!;\[\s]", dep, maxsplit=1)[0].strip()
+        declared.add(name.lower().replace("-", "_"))
+        declared.add(name.lower().replace("_", "-"))
+
+    site_result = subprocess.run(
+        [python_path, "-c", "import site; print(site.getsitepackages()[0])"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if site_result.returncode != 0:
+        return
+
+    site_packages = Path(site_result.stdout.strip())
+    if not site_packages.exists():
+        return
+
+    for dist_info in site_packages.glob("*.dist-info"):
+        pkg_raw = dist_info.stem.rsplit("-", 1)[0]
+        if (
+            pkg_raw.lower() not in declared
+            and pkg_raw.lower().replace("_", "-") not in declared
+            and pkg_raw.lower().replace("-", "_") not in declared
+        ):
+            continue  # not a declared dependency of this project
+
+        direct_url = dist_info / "direct_url.json"
+        if not direct_url.exists():
+            continue
+        try:
+            data = json.loads(direct_url.read_text())
+        except Exception:
+            continue
+        if not data.get("dir_info", {}).get("editable"):
+            continue
+        url = data.get("url", "")
+        if not url.startswith("file://"):
+            continue
+        source_path = Path(url[len("file://"):])
+        if source_path.exists() and (
+            (source_path / "pyproject.toml").exists()
+            or (source_path / "setup.py").exists()
+        ):
+            continue  # source is still a valid installable package
+
+        top_level = dist_info / "top_level.txt"
+        if not top_level.exists():
+            continue
+        modules = [m.strip() for m in top_level.read_text().splitlines() if m.strip()]
+        if not modules:
+            continue
+
+        check = subprocess.run(
+            [python_path, "-c", f"import {modules[0]}"],
+            capture_output=True,
+            cwd="/tmp",
+            check=False,
+        )
+        if check.returncode == 0:
+            continue
+
+        pkg_name = pkg_raw.replace("_", "-")
+        typer.echo(f"🔧 Reinstalling broken editable install: {pkg_name}")
+        subprocess.run(
+            ["uv", "pip", "install", "--reinstall", "--python", python_path, pkg_name],
+            capture_output=not verbose,
+            text=True,
+            check=False,
+        )
+
+
 def _ensure_package_installed(
     import_name: str,
     python_path: str,
@@ -566,9 +692,21 @@ def _ensure_package_installed(
 
 
 def _create_pyproject_toml(
-    project_path: Path, project_name: str, settings_path: str = "settings.base"
+    project_path: Path,
+    project_name: str,
+    settings_path: str = "settings.base",
+    wagtail: bool = False,
 ):
     """Create a pyproject.toml file for the Django project."""
+    base_deps = [
+        '"django-debug-toolbar"',
+        '"django-mongodb-backend"',
+        '"python-webpack-boilerplate"',
+    ]
+    if wagtail:
+        base_deps.append('"wagtail"')
+    deps_str = ",\n    ".join(base_deps)
+
     pyproject_content = f"""[build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -581,9 +719,7 @@ authors = [
     {{name = "Your Name", email = "your.email@example.com"}},
 ]
 dependencies = [
-    "django-debug-toolbar",
-    "django-mongodb-backend",
-    "python-webpack-boilerplate",
+    {deps_str},
 ]
 
 [project.optional-dependencies]
@@ -622,6 +758,44 @@ packages = ["{project_name}"]
         )
     except Exception as e:
         typer.echo(f"⚠️  Failed to create pyproject.toml: {e}", err=True)
+
+
+def _enable_wagtail(project_path: Path, project_name: str) -> None:
+    """Uncomment the Wagtail block in settings and append Wagtail URL patterns."""
+    settings_file = project_path / project_name / "settings" / f"{project_name}.py"
+    if settings_file.exists():
+        content = settings_file.read_text()
+        content = content.replace(
+            "# from .wagtail import *  # noqa\n"
+            "# INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405\n"
+            "# MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405\n"
+            "# MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405",
+            "from .wagtail import *  # noqa\n"
+            "INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405\n"
+            "MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405\n"
+            "MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405",
+        )
+        settings_file.write_text(content)
+
+    urls_file = project_path / project_name / "urls.py"
+    if urls_file.exists():
+        wagtail_block = (
+            "\n\n# Wagtail CMS\n"
+            "from django.conf import settings\n"
+            "from django.conf.urls.static import static\n"
+            "from django.urls import include\n"
+            "from wagtail import urls as wagtail_urls\n"
+            "from wagtail.admin import urls as wagtailadmin_urls\n"
+            "from wagtail.documents import urls as wagtaildocs_urls\n"
+            "\n"
+            "urlpatterns += [\n"
+            '    path("cms/", include(wagtailadmin_urls)),\n'
+            '    path("documents/", include(wagtaildocs_urls)),\n'
+            '    path("", include(wagtail_urls)),\n'
+            "] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)\n"
+        )
+        with open(urls_file, "a") as f:
+            f.write(wagtail_block)
 
 
 def _add_frontend(
@@ -805,12 +979,22 @@ def run_project(
                 err=True,
             )
 
+    # Fix any declared dependency that has a stale editable-install dist-info.
+    # Scoped to this project's pyproject.toml so removed projects in the same
+    # venv are never accidentally reinstalled.
+    _fix_broken_editable_installs(python_path, proj.project_path, verbose)
+
     # Ensure django_mongodb_extensions is available: prefer a local clone over PyPI.
     _ensure_package_installed("django_mongodb_extensions", python_path, proj.base_dir, verbose)
 
     # Check if frontend exists
     frontend_path = proj.project_path / "frontend"
     has_frontend = frontend_path.exists() and (frontend_path / "package.json").exists()
+
+    # Ensure the frontend build directory exists so Django's staticfiles system
+    # check (W004) doesn't fire before webpack has had a chance to create it.
+    if has_frontend:
+        (frontend_path / "build").mkdir(exist_ok=True)
 
     typer.echo(f"🚀 Running project '{proj.name}' on http://{host}:{port}")
 
@@ -839,8 +1023,11 @@ def run_project(
         if verbose and result.stderr:
             typer.echo(result.stderr, err=True)
         elif not verbose and result.stderr:
-            last_line = result.stderr.strip().splitlines()[-1]
-            typer.echo(f"   {last_line}", err=True)
+            # Show the last few non-blank lines so the real error isn't hidden
+            # behind a warning printed earlier in the same stderr stream.
+            lines = [l for l in result.stderr.strip().splitlines() if l.strip()]
+            for line in lines[-3:]:
+                typer.echo(f"   {line}", err=True)
         raise typer.Exit(code=result.returncode)
     typer.echo("✅ Migrations completed successfully")
 

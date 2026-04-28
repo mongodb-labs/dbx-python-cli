@@ -45,6 +45,14 @@ def test_project_remove_help():
     assert "Delete a Django project by name" in output
 
 
+def test_project_add_help_shows_wagtail():
+    """Test that the project add help shows the --wagtail flag."""
+    result = runner.invoke(app, ["project", "add", "--help"])
+    assert result.exit_code == 0
+    output = strip_ansi(result.stdout)
+    assert "--wagtail" in output
+
+
 def test_project_add_no_name_no_random():
     """Test that project add generates a random name when no name is provided."""
     # When no name is provided, a random name is automatically generated
@@ -223,6 +231,184 @@ class TestEnsureMongodb:
                     with pytest.raises(typer.Exit) as exc_info:
                         ensure_mongodb(env)
                     assert exc_info.value.exit_code == 1
+
+
+def test_enable_wagtail_activates_settings(tmp_path):
+    """Test that _enable_wagtail uncomments the Wagtail settings block."""
+    from dbx_python_cli.commands.project import _enable_wagtail
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    settings_file = settings_dir / "myproject.py"
+    settings_file.write_text(
+        "# Wagtail CMS Configuration\n"
+        "# Uncomment the four lines below to enable Wagtail settings.\n"
+        "# from .wagtail import *  # noqa\n"
+        "# INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405\n"
+        "# MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405\n"
+        "# MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405\n"
+    )
+    (tmp_path / "myproject" / "urls.py").write_text(
+        "from django.urls import path\nurlpatterns = []\n"
+    )
+
+    _enable_wagtail(tmp_path, "myproject")
+
+    content = settings_file.read_text()
+    assert "# from .wagtail import *" not in content
+    assert "from .wagtail import *  # noqa" in content
+    assert "INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405" in content
+    assert "MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405" in content
+    assert "MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405" in content
+
+
+def test_enable_wagtail_adds_url_patterns(tmp_path):
+    """Test that _enable_wagtail appends Wagtail URL patterns to urls.py."""
+    from dbx_python_cli.commands.project import _enable_wagtail
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    (settings_dir / "myproject.py").write_text("# settings\n")
+
+    urls_file = tmp_path / "myproject" / "urls.py"
+    urls_file.write_text("from django.urls import path\nurlpatterns = []\n")
+
+    _enable_wagtail(tmp_path, "myproject")
+
+    content = urls_file.read_text()
+    assert "wagtailadmin_urls" in content
+    assert 'path("cms/"' in content
+    assert 'path("documents/"' in content
+    assert "wagtail_urls" in content
+    assert "MEDIA_URL" in content
+
+
+def test_create_pyproject_toml_includes_wagtail_dep(tmp_path):
+    """Test that _create_pyproject_toml adds wagtail to dependencies when wagtail=True."""
+    from dbx_python_cli.commands.project import _create_pyproject_toml
+
+    _create_pyproject_toml(tmp_path, "myproject", wagtail=True)
+
+    content = (tmp_path / "pyproject.toml").read_text()
+    deps_section = content[content.index("dependencies"):content.index("[project.optional-dependencies]")]
+    assert '"wagtail"' in deps_section
+
+
+def test_create_pyproject_toml_excludes_wagtail_dep_by_default(tmp_path):
+    """Test that _create_pyproject_toml does not add wagtail to dependencies by default."""
+    from dbx_python_cli.commands.project import _create_pyproject_toml
+
+    _create_pyproject_toml(tmp_path, "myproject")
+
+    content = (tmp_path / "pyproject.toml").read_text()
+    deps_section = content[content.index("dependencies"):content.index("[project.optional-dependencies]")]
+    assert '"wagtail"' not in deps_section
+
+
+def test_fix_broken_editable_installs_reinstalls_missing_source(tmp_path):
+    """Broken editable installs for declared deps (dist-info with missing source) get reinstalled."""
+    import json
+    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+
+    # Fake project with wagtail as a declared dependency
+    project_path = tmp_path / "myproject"
+    project_path.mkdir()
+    (project_path / "pyproject.toml").write_text(
+        '[project]\nname = "myproject"\ndependencies = ["wagtail"]\n'
+    )
+
+    site_packages = tmp_path / "lib" / "python3.x" / "site-packages"
+    site_packages.mkdir(parents=True)
+
+    dist_info = site_packages / "wagtail-7.4a0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "direct_url.json").write_text(
+        json.dumps({"dir_info": {"editable": True}, "url": "file:///nonexistent/wagtail"})
+    )
+    (dist_info / "top_level.txt").write_text("wagtail\n")
+
+    python_path = "/fake/python"
+
+    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=str(site_packages), stderr=""),
+            MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError"),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+
+        _fix_broken_editable_installs(python_path, project_path)
+
+    reinstall_call = mock_run.call_args_list[2]
+    cmd = reinstall_call[0][0]
+    assert "--reinstall" in cmd
+    assert "wagtail" in cmd
+
+
+def test_fix_broken_editable_installs_skips_undeclared_packages(tmp_path):
+    """Broken editable installs for packages NOT in pyproject.toml are ignored."""
+    import json
+    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+
+    # Project declares only "requests", NOT "old-project"
+    project_path = tmp_path / "myproject"
+    project_path.mkdir()
+    (project_path / "pyproject.toml").write_text(
+        '[project]\nname = "myproject"\ndependencies = ["requests"]\n'
+    )
+
+    site_packages = tmp_path / "lib" / "python3.x" / "site-packages"
+    site_packages.mkdir(parents=True)
+
+    dist_info = site_packages / "old_project-1.0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "direct_url.json").write_text(
+        json.dumps({"dir_info": {"editable": True}, "url": "file:///nonexistent/old-project"})
+    )
+    (dist_info / "top_level.txt").write_text("old_project\n")
+
+    python_path = "/fake/python"
+
+    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout=str(site_packages), stderr="")
+        _fix_broken_editable_installs(python_path, project_path)
+
+    # Only the site.getsitepackages() call — no import check, no reinstall
+    assert mock_run.call_count == 1
+
+
+def test_fix_broken_editable_installs_skips_valid_source(tmp_path):
+    """Editable installs with an existing, valid source directory are left alone."""
+    import json
+    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+
+    project_path = tmp_path / "myproject"
+    project_path.mkdir()
+    (project_path / "pyproject.toml").write_text(
+        '[project]\nname = "myproject"\ndependencies = ["mypackage"]\n'
+    )
+
+    site_packages = tmp_path / "lib" / "python3.x" / "site-packages"
+    site_packages.mkdir(parents=True)
+
+    source_dir = tmp_path / "mypackage"
+    source_dir.mkdir()
+    (source_dir / "pyproject.toml").write_text("[project]\nname='mypackage'\n")
+
+    dist_info = site_packages / "mypackage-1.0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "direct_url.json").write_text(
+        json.dumps({"dir_info": {"editable": True}, "url": f"file://{source_dir}"})
+    )
+    (dist_info / "top_level.txt").write_text("mypackage\n")
+
+    python_path = "/fake/python"
+
+    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout=str(site_packages), stderr="")
+        _fix_broken_editable_installs(python_path, project_path)
+
+    # Only the site.getsitepackages() call — source is valid, no reinstall
+    assert mock_run.call_count == 1
 
 
 def test_project_run_uses_django_group_venv(tmp_path):
