@@ -1025,7 +1025,7 @@ def run_project(
         elif not verbose and result.stderr:
             # Show the last few non-blank lines so the real error isn't hidden
             # behind a warning printed earlier in the same stderr stream.
-            lines = [l for l in result.stderr.strip().splitlines() if l.strip()]
+            lines = [ln for ln in result.stderr.strip().splitlines() if ln.strip()]
             for line in lines[-3:]:
                 typer.echo(f"   {line}", err=True)
         raise typer.Exit(code=result.returncode)
