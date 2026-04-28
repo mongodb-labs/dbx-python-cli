@@ -259,7 +259,9 @@ def test_enable_wagtail_activates_settings(tmp_path):
     assert "from .wagtail import *  # noqa" in content
     assert "INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405" in content
     assert "MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405" in content
-    assert "MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405" in content
+    assert (
+        "MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405" in content
+    )
 
 
 def test_enable_wagtail_adds_url_patterns(tmp_path):
@@ -290,7 +292,9 @@ def test_create_pyproject_toml_includes_wagtail_dep(tmp_path):
     _create_pyproject_toml(tmp_path, "myproject", wagtail=True)
 
     content = (tmp_path / "pyproject.toml").read_text()
-    deps_section = content[content.index("dependencies"):content.index("[project.optional-dependencies]")]
+    deps_section = content[
+        content.index("dependencies") : content.index("[project.optional-dependencies]")
+    ]
     assert '"wagtail"' in deps_section
 
 
@@ -301,7 +305,9 @@ def test_create_pyproject_toml_excludes_wagtail_dep_by_default(tmp_path):
     _create_pyproject_toml(tmp_path, "myproject")
 
     content = (tmp_path / "pyproject.toml").read_text()
-    deps_section = content[content.index("dependencies"):content.index("[project.optional-dependencies]")]
+    deps_section = content[
+        content.index("dependencies") : content.index("[project.optional-dependencies]")
+    ]
     assert '"wagtail"' not in deps_section
 
 
@@ -323,7 +329,9 @@ def test_fix_broken_editable_installs_reinstalls_missing_source(tmp_path):
     dist_info = site_packages / "wagtail-7.4a0.dist-info"
     dist_info.mkdir()
     (dist_info / "direct_url.json").write_text(
-        json.dumps({"dir_info": {"editable": True}, "url": "file:///nonexistent/wagtail"})
+        json.dumps(
+            {"dir_info": {"editable": True}, "url": "file:///nonexistent/wagtail"}
+        )
     )
     (dist_info / "top_level.txt").write_text("wagtail\n")
 
@@ -362,14 +370,18 @@ def test_fix_broken_editable_installs_skips_undeclared_packages(tmp_path):
     dist_info = site_packages / "old_project-1.0.dist-info"
     dist_info.mkdir()
     (dist_info / "direct_url.json").write_text(
-        json.dumps({"dir_info": {"editable": True}, "url": "file:///nonexistent/old-project"})
+        json.dumps(
+            {"dir_info": {"editable": True}, "url": "file:///nonexistent/old-project"}
+        )
     )
     (dist_info / "top_level.txt").write_text("old_project\n")
 
     python_path = "/fake/python"
 
     with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0, stdout=str(site_packages), stderr="")
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=str(site_packages), stderr=""
+        )
         _fix_broken_editable_installs(python_path, project_path)
 
     # Only the site.getsitepackages() call — no import check, no reinstall
@@ -404,7 +416,9 @@ def test_fix_broken_editable_installs_skips_valid_source(tmp_path):
     python_path = "/fake/python"
 
     with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0, stdout=str(site_packages), stderr="")
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=str(site_packages), stderr=""
+        )
         _fix_broken_editable_installs(python_path, project_path)
 
     # Only the site.getsitepackages() call — source is valid, no reinstall

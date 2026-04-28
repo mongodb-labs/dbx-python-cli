@@ -30,6 +30,7 @@ app.add_typer(patch_app, name="patch")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _find_specs_dir(config, base_dir) -> Path | None:
     """Find the specifications repo directory via the repo config."""
     repo = find_repo_by_name("specifications", base_dir, config)
@@ -100,13 +101,19 @@ def _apply_patches(driver_repo, verbose: bool = False) -> bool:
         return True
 
     cmd = [
-        "git", "apply", "-R", "--allow-empty", "--whitespace=fix",
+        "git",
+        "apply",
+        "-R",
+        "--allow-empty",
+        "--whitespace=fix",
         *[str(p) for p in patches],
     ]
     if verbose:
         typer.echo(f"[verbose] Running: {' '.join(cmd)}")
 
-    result = subprocess.run(cmd, cwd=str(driver_repo["path"]), check=False, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd, cwd=str(driver_repo["path"]), check=False, capture_output=True, text=True
+    )
     if result.returncode != 0:
         typer.echo(f"❌ Failed to apply patches: {result.stderr.strip()}", err=True)
         return False
@@ -116,6 +123,7 @@ def _apply_patches(driver_repo, verbose: bool = False) -> bool:
 # ---------------------------------------------------------------------------
 # dbx spec sync
 # ---------------------------------------------------------------------------
+
 
 @app.command("sync")
 def spec_sync(
@@ -186,13 +194,17 @@ def spec_sync(
     else:
         mdb_specs = _find_specs_dir(config, base_dir)
         if not mdb_specs:
-            typer.echo("❌ Error: Could not find the 'specifications' repository", err=True)
+            typer.echo(
+                "❌ Error: Could not find the 'specifications' repository", err=True
+            )
             typer.echo("\nClone it with: dbx clone specifications")
             typer.echo("Or specify the path with: --specs-dir <path>")
             raise typer.Exit(1)
 
     if not mdb_specs.exists():
-        typer.echo(f"❌ Error: Specifications directory not found: {mdb_specs}", err=True)
+        typer.echo(
+            f"❌ Error: Specifications directory not found: {mdb_specs}", err=True
+        )
         raise typer.Exit(1)
 
     script = driver_repo["path"] / ".evergreen" / "resync-specs.sh"
@@ -223,7 +235,9 @@ def spec_sync(
         typer.echo(f"   Working directory: {cwd}")
         patch_count = len(_list_patches(_get_patch_dir(driver_repo)))
         if patch_count:
-            typer.echo(f"\n📋 {patch_count} patch(es) would be applied with --apply-patches")
+            typer.echo(
+                f"\n📋 {patch_count} patch(es) would be applied with --apply-patches"
+            )
         return
 
     spec_label = ", ".join(specs) if specs else "all"
@@ -247,6 +261,7 @@ def spec_sync(
 # ---------------------------------------------------------------------------
 # dbx spec list
 # ---------------------------------------------------------------------------
+
 
 @app.command("list")
 def spec_list(
@@ -273,13 +288,17 @@ def spec_list(
     else:
         mdb_specs = _find_specs_dir(config, base_dir)
         if not mdb_specs:
-            typer.echo("❌ Error: Could not find the 'specifications' repository", err=True)
+            typer.echo(
+                "❌ Error: Could not find the 'specifications' repository", err=True
+            )
             typer.echo("\nClone it with: dbx clone specifications")
             typer.echo("Or specify the path with: --specs-dir <path>")
             raise typer.Exit(1)
 
     if not mdb_specs.exists():
-        typer.echo(f"❌ Error: Specifications directory not found: {mdb_specs}", err=True)
+        typer.echo(
+            f"❌ Error: Specifications directory not found: {mdb_specs}", err=True
+        )
         raise typer.Exit(1)
 
     source_dir = mdb_specs / "source"
@@ -289,7 +308,9 @@ def spec_list(
         typer.echo(f"[verbose] Listing specs in: {search_dir}\n")
 
     spec_dirs = sorted(
-        d.name for d in search_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
+        d.name
+        for d in search_dir.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
     )
 
     if not spec_dirs:
@@ -306,6 +327,7 @@ def spec_list(
 # ---------------------------------------------------------------------------
 # dbx spec patch list
 # ---------------------------------------------------------------------------
+
 
 @patch_app.command("list")
 def patch_list(
@@ -351,6 +373,7 @@ def patch_list(
 # ---------------------------------------------------------------------------
 # dbx spec patch create
 # ---------------------------------------------------------------------------
+
 
 @patch_app.command("create")
 def patch_create(
@@ -425,7 +448,9 @@ def patch_create(
     diff = result.stdout
     if not diff.strip():
         typer.echo("❌ No changes to capture (git diff is empty)", err=True)
-        typer.echo("\nMake sure you have unstaged changes in the driver repo after syncing.")
+        typer.echo(
+            "\nMake sure you have unstaged changes in the driver repo after syncing."
+        )
         raise typer.Exit(1)
 
     if dry_run:
@@ -446,6 +471,7 @@ def patch_create(
 # ---------------------------------------------------------------------------
 # dbx spec patch remove
 # ---------------------------------------------------------------------------
+
 
 @patch_app.command("remove")
 def patch_remove(
@@ -488,6 +514,7 @@ def patch_remove(
 # dbx spec patch apply
 # ---------------------------------------------------------------------------
 
+
 @patch_app.command("apply")
 def patch_apply(
     ctx: typer.Context,
@@ -527,7 +554,9 @@ def patch_apply(
         typer.echo(f"No patch files found in {patch_dir}")
         return
 
-    typer.echo(f"🩹 {'Would apply' if dry_run else 'Applying'} {len(patches)} patch(es) to {repo_name}:")
+    typer.echo(
+        f"🩹 {'Would apply' if dry_run else 'Applying'} {len(patches)} patch(es) to {repo_name}:"
+    )
     for p in patches:
         files = _parse_patch_files(p)
         typer.echo(f"  • {p.stem} ({len(files)} file(s))")

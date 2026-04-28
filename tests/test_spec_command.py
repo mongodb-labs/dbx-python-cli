@@ -104,6 +104,7 @@ repos = [
 # Help
 # ---------------------------------------------------------------------------
 
+
 def test_spec_help():
     result = runner.invoke(app, ["spec", "--help"])
     assert result.exit_code == 0
@@ -124,6 +125,7 @@ def test_spec_patch_help():
 # ---------------------------------------------------------------------------
 # dbx spec sync
 # ---------------------------------------------------------------------------
+
 
 def test_spec_sync_help():
     result = runner.invoke(app, ["spec", "sync", "--help"])
@@ -152,14 +154,19 @@ def test_spec_sync_dry_run_with_specs(mock_config):
 
 def test_spec_sync_dry_run_with_block(mock_config):
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
-        result = runner.invoke(app, ["spec", "sync", "crud", "-b", "unified", "--dry-run"])
+        result = runner.invoke(
+            app, ["spec", "sync", "crud", "-b", "unified", "--dry-run"]
+        )
     assert result.exit_code == 0
     assert "-b" in result.output
     assert "unified" in result.output
 
 
 def test_spec_sync_dry_run_shows_patch_count(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["spec", "sync", "--dry-run"])
     assert result.exit_code == 0
     assert "2" in result.output
@@ -179,7 +186,7 @@ def test_spec_sync_missing_specs_repo(tmp_path):
     config_path = config_dir / "config.toml"
     config_path.write_text(f"""
 [repo]
-base_dir = "{str(repos_dir).replace(chr(92), '/')}"
+base_dir = "{str(repos_dir).replace(chr(92), "/")}"
 flat = true
 
 [repo.groups.pymongo]
@@ -192,13 +199,16 @@ repos = ["https://github.com/mongodb/mongo-python-driver.git"]
 
 def test_spec_sync_missing_driver_repo(mock_config):
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
-        result = runner.invoke(app, ["spec", "sync", "-r", "nonexistent-repo", "--dry-run"])
+        result = runner.invoke(
+            app, ["spec", "sync", "-r", "nonexistent-repo", "--dry-run"]
+        )
     assert result.exit_code != 0
 
 
 # ---------------------------------------------------------------------------
 # dbx spec list
 # ---------------------------------------------------------------------------
+
 
 def test_spec_list(mock_config):
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
@@ -221,6 +231,7 @@ def test_spec_list_with_specs_dir(temp_repos_dir):
 # dbx spec patch list
 # ---------------------------------------------------------------------------
 
+
 def test_patch_list_empty(mock_config):
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
         result = runner.invoke(app, ["spec", "patch", "list"])
@@ -229,7 +240,10 @@ def test_patch_list_empty(mock_config):
 
 
 def test_patch_list_with_patches(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["spec", "patch", "list"])
     assert result.exit_code == 0
     assert "PYTHON-1234" in result.output
@@ -237,7 +251,10 @@ def test_patch_list_with_patches(mock_config_with_patches):
 
 
 def test_patch_list_verbose_shows_files(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["-v", "spec", "patch", "list"])
     assert result.exit_code == 0
     assert "test/crud/foo.json" in result.output
@@ -253,12 +270,15 @@ def test_patch_list_missing_driver_repo(mock_config):
 # dbx spec patch create
 # ---------------------------------------------------------------------------
 
+
 def test_patch_create_dry_run(mock_config, temp_repos_dir):
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = SAMPLE_PATCH
-            result = runner.invoke(app, ["spec", "patch", "create", "PYTHON-9999", "--dry-run"])
+            result = runner.invoke(
+                app, ["spec", "patch", "create", "PYTHON-9999", "--dry-run"]
+            )
     assert result.exit_code == 0
     assert "Would write" in result.output
     assert "PYTHON-9999" in result.output
@@ -267,7 +287,11 @@ def test_patch_create_dry_run(mock_config, temp_repos_dir):
 
 def test_patch_create_writes_file(mock_config, temp_repos_dir):
     patch_path = (
-        temp_repos_dir / "mongo-python-driver" / ".evergreen" / "spec-patch" / "PYTHON-9999.patch"
+        temp_repos_dir
+        / "mongo-python-driver"
+        / ".evergreen"
+        / "spec-patch"
+        / "PYTHON-9999.patch"
     )
     with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
         with patch("subprocess.run") as mock_run:
@@ -290,7 +314,10 @@ def test_patch_create_empty_diff(mock_config):
 
 
 def test_patch_create_already_exists(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["spec", "patch", "create", "PYTHON-1234"])
     assert result.exit_code != 0
     assert "already exists" in result.output
@@ -300,12 +327,20 @@ def test_patch_create_already_exists(mock_config_with_patches):
 # dbx spec patch remove
 # ---------------------------------------------------------------------------
 
+
 def test_patch_remove(mock_config_with_patches, temp_repos_dir):
     patch_path = (
-        temp_repos_dir / "mongo-python-driver" / ".evergreen" / "spec-patch" / "PYTHON-1234.patch"
+        temp_repos_dir
+        / "mongo-python-driver"
+        / ".evergreen"
+        / "spec-patch"
+        / "PYTHON-1234.patch"
     )
     assert patch_path.exists()
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["spec", "patch", "remove", "PYTHON-1234"])
     assert result.exit_code == 0
     assert not patch_path.exists()
@@ -323,8 +358,12 @@ def test_patch_remove_not_found(mock_config):
 # dbx spec patch apply
 # ---------------------------------------------------------------------------
 
+
 def test_patch_apply_dry_run(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         result = runner.invoke(app, ["spec", "patch", "apply", "--dry-run"])
     assert result.exit_code == 0
     assert "PYTHON-1234" in result.output
@@ -339,7 +378,10 @@ def test_patch_apply_no_patches(mock_config):
 
 
 def test_patch_apply_runs_git(mock_config_with_patches):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config_with_patches):
+    with patch(
+        "dbx_python_cli.utils.repo.get_config_path",
+        return_value=mock_config_with_patches,
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             mock_run.return_value.stderr = ""

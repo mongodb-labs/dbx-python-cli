@@ -608,7 +608,7 @@ def _fix_broken_editable_installs(
         url = data.get("url", "")
         if not url.startswith("file://"):
             continue
-        source_path = Path(url[len("file://"):])
+        source_path = Path(url[len("file://") :])
         if source_path.exists() and (
             (source_path / "pyproject.toml").exists()
             or (source_path / "setup.py").exists()
@@ -664,13 +664,28 @@ def _ensure_package_installed(
     repo_name = import_name.replace("_", "-")
 
     if base_dir is not None:
-        for clone_path in [Path(base_dir) / repo_name, Path(base_dir) / "django" / repo_name]:
+        for clone_path in [
+            Path(base_dir) / repo_name,
+            Path(base_dir) / "django" / repo_name,
+        ]:
             if clone_path.exists() and (
-                (clone_path / "pyproject.toml").exists() or (clone_path / "setup.py").exists()
+                (clone_path / "pyproject.toml").exists()
+                or (clone_path / "setup.py").exists()
             ):
-                typer.echo(f"📦 Installing {repo_name} from local clone at {clone_path}...")
+                typer.echo(
+                    f"📦 Installing {repo_name} from local clone at {clone_path}..."
+                )
                 subprocess.run(
-                    ["uv", "pip", "install", "--reinstall", "--python", python_path, "-e", str(clone_path)],
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--reinstall",
+                        "--python",
+                        python_path,
+                        "-e",
+                        str(clone_path),
+                    ],
                     capture_output=not verbose,
                     check=False,
                 )
@@ -985,7 +1000,9 @@ def run_project(
     _fix_broken_editable_installs(python_path, proj.project_path, verbose)
 
     # Ensure django_mongodb_extensions is available: prefer a local clone over PyPI.
-    _ensure_package_installed("django_mongodb_extensions", python_path, proj.base_dir, verbose)
+    _ensure_package_installed(
+        "django_mongodb_extensions", python_path, proj.base_dir, verbose
+    )
 
     # Check if frontend exists
     frontend_path = proj.project_path / "frontend"

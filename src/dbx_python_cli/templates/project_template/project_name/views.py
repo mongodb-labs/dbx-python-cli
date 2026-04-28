@@ -8,6 +8,7 @@ class HomeView(TemplateView):
         context = super().get_context_data(**kwargs)
         try:
             from wagtail.models import Site
+
             site = Site.find_for_request(self.request)
             if site:
                 context["wagtail_site"] = site
