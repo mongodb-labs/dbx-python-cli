@@ -148,22 +148,7 @@ repos = [
     "git@github.com:mongodb-forks/django.git",
     "git@github.com:mongodb-labs/django-mongodb-backend.git",
     "git@github.com:mongodb-labs/django-mongodb-extensions.git",
-    "git@github.com:mongodb/libmongocrypt.git",
     "git@github.com:aclark4life/medical-records.git",
-]
-
-# Install directories: specify install directories for repos where the package is not at the root
-[repo.groups.django.install_dirs]
-libmongocrypt = [
-    "bindings/python/",
-]
-
-# Build commands: specify commands to run before installing (e.g., cmake builds)
-[repo.groups.django.build_commands]
-libmongocrypt = [
-    "mkdir -p cmake-build",
-    "cd cmake-build && cmake ..",
-    "cd cmake-build && make",
 ]
 
 # Custom test runner configuration: specify test runner script for repos that don't use pytest
@@ -180,6 +165,25 @@ django = "mongodb-6.0.x"
 
 # Environment variables for test runs
 [repo.groups.django.test_env]
+
+[repo.groups.pymongocrypt]
+repos = [
+    "git@github.com:mongodb/libmongocrypt.git",
+]
+
+# Install directories: specify install directories for repos where the package is not at the root
+[repo.groups.pymongocrypt.install_dirs]
+libmongocrypt = [
+    "bindings/python/",
+]
+
+# Build commands: specify commands to run before installing (e.g., cmake builds)
+[repo.groups.pymongocrypt.build_commands]
+libmongocrypt = [
+    "mkdir -p cmake-build",
+    "cd cmake-build && cmake ..",
+    "cd cmake-build && make",
+]
 
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
