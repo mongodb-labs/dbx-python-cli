@@ -173,6 +173,19 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Patch Wagtail API serializer_field_mapping so ObjectIdAutoField PKs
+        # are serialized as strings (hex) rather than integers.
+        # ObjectIdAutoField inherits AutoField → DRF maps it to IntegerField,
+        # which raises TypeError when trying int(ObjectId(...)).
+        try:
+            from django_mongodb_backend.fields import ObjectIdAutoField
+            from rest_framework.fields import CharField
+            from wagtail.api.v2.serializers import BaseSerializer
+
+            BaseSerializer.serializer_field_mapping[ObjectIdAutoField] = CharField
+        except ImportError:
+            pass
+
         # Patch BaseAPIViewSet.get_urlpatterns to use a regex that accepts
         # both 24-char ObjectId hex strings and plain integers for <pk>, and
         # patch get_object_detail_urlpath to str()-convert pk before reverse()
