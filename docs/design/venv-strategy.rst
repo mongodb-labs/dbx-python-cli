@@ -36,6 +36,10 @@ This supports a structure like:
 
    ~/Developer/mongodb/
    ├── .venv/                          # Base venv (shared across all groups)
+   ├── projects/
+   │   ├── .venv/                      # Shared venv for all Django projects
+   │   ├── myproject/
+   │   └── another_project/
    ├── pymongo/
    │   ├── .venv/                      # Group-level venv (optional)
    │   ├── mongo-python-driver/
@@ -95,6 +99,18 @@ Run tests using the most specific venv found:
    # Uses repo, group, or base venv — whichever is most specific
    dbx test mongo-python-driver
 
+dbx project add
+~~~~~~~~~~~~~~~
+
+Django project creation uses a project-specific lookup order:
+
+1. ``projects/.venv`` — shared venv for all projects (group level)
+2. ``base_dir/django/.venv`` — django group venv, if it exists
+3. ``base_dir/.venv`` — base venv
+4. Activated venv
+
+If no venv is found and ``--install`` is active (the default), one is created automatically at ``projects/.venv`` and Django is bootstrapped into it. See :doc:`wagtail-support` for how this interacts with Wagtail projects.
+
 Venv Detection
 --------------
 
@@ -121,7 +137,7 @@ Technical Implementation
 Running Commands in Venvs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When ``dbx`` (running in uvx's isolated environment) needs to execute commands in a venv, it cannot use ``source`` or activation scripts in subprocesses. Instead, it must directly invoke the venv's Python executable:
+When ``dbx`` (installed via pipx into an isolated environment) needs to execute commands in a venv, it cannot use ``source`` or activation scripts in subprocesses. Instead, it must directly invoke the venv's Python executable:
 
 .. code-block:: python
 
@@ -140,46 +156,35 @@ This is because:
 Venv Detection Example
 ~~~~~~~~~~~~~~~~~~~~~~
 
+The actual ``get_venv_info`` signature includes an optional ``fallback_paths`` list for intermediate group lookups (used by ``dbx project`` commands to check the ``django`` group before falling back to base):
+
 .. code-block:: python
 
-   def get_venv_info(repo_path, group_path=None, base_path=None):
+   def get_venv_info(repo_path, group_path=None, base_path=None, fallback_paths=None):
        """
        Get information about which venv will be used.
 
        Checks in priority order (most specific to least specific):
-       1. Repository-level venv
-       2. Group-level venv
-       3. Base directory venv
-       4. Activated venv (sys.executable or shell PATH)
-       5. Auto-detected venv (if exactly one exists)
+       1. repo_path/.venv
+       2. group_path/.venv
+       3. Each path in fallback_paths (e.g. django group)
+       4. base_path/.venv
+       5. sys.executable — if already inside a venv
+       6. PATH python — if a different venv is activated in the shell
+       7. Auto-detected — if exactly one venv exists under base_path
+       8. Error — system Python, installation refused
 
        Returns:
-           tuple: (python_path, venv_type) where venv_type is "base", "repo", "group", or "venv"
+           tuple: (python_path, venv_type)
+           venv_type is one of: "repo", "group", "base", "venv"
 
        Raises:
-           typer.Exit: If no virtual environment is found (system Python detected)
+           typer.Exit: If no virtual environment is found
        """
-       # Check repository-level venv (most specific)
-       if repo_path:
-           repo_venv_python = repo_path / ".venv" / "bin" / "python"
-           if repo_venv_python.exists():
-               return str(repo_venv_python), "repo"
-
-       # Check group-level venv
-       if group_path:
-           group_venv_python = group_path / ".venv" / "bin" / "python"
-           if group_venv_python.exists():
-               return str(group_venv_python), "group"
-
-       # Check base directory venv
-       if base_path:
-           base_venv_python = base_path / ".venv" / "bin" / "python"
-           if base_venv_python.exists():
-               return str(base_venv_python), "base"
-
-       # Check activated venv
-       if _is_venv(sys.executable):
-           return sys.executable, "venv"
-
-       # System Python detected - error out
-       raise typer.Exit(1)
+       # 1. Repo-level venv
+       # 2. Group-level venv
+       # 3. Fallback group venvs (e.g. django group for projects)
+       # 4. Base directory venv
+       # 5-6. Activated venv (sys.executable or shell PATH)
+       # 7. Auto-detect: if exactly one .venv exists, use it unambiguously
+       # 8. Error with suggestions (dbx env init / source .venv/bin/activate)
