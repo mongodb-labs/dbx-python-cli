@@ -105,7 +105,8 @@ Commands detect and use venvs in this priority order (most specific first):
 3. **Base directory venv** - ``<base_path>/.venv``
 4. **Activated venv** - The current ``sys.executable`` or shell-activated Python if it is inside a venv
 5. **Auto-detected venv** - If exactly one venv exists in the base directory, it is used automatically
-6. **Error** - Installation to system Python is not allowed
+6. **Auto-created venv** (``dbx project add`` only) - If no venv is found, one is created automatically at the ``projects/`` group level and Django is bootstrapped into it
+7. **Error** - Installation to system Python is not allowed (all other commands)
 
 You'll see clear messages indicating which venv is being used:
 

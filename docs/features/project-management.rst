@@ -50,13 +50,28 @@ Create a new Django project with the ``add`` command:
    # Create without frontend
    dbx project add myproject --no-frontend
 
-   # Generate a random project name
-   dbx project add --random
+   # Generate a random project name (omit the name argument)
+   dbx project add
 
    # Create in a custom directory
    dbx project add myproject -d ~/custom/path
 
-The ``--random`` flag generates a creative project name using random adjectives and nouns (e.g., "cosmic_nebula", "quantum_forest").
+   # Enable Wagtail CMS
+   dbx project add myproject --wagtail
+
+   # Enable Queryable Encryption
+   dbx project add myproject --qe
+
+   # Stack flags: Wagtail + QE
+   dbx project add myproject --wagtail --qe
+
+   # Install local clones into the project venv after creation
+   dbx project add myproject --with medical-records
+   dbx project add myproject --with django --with django-mongodb-extensions
+
+Omitting the project name generates a random name from adjectives and nouns (e.g., ``swift_seal``, ``brave_eagle``).
+
+If no virtual environment exists when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level and Django is installed into it before scaffolding begins.
 
 Project Structure
 -----------------
@@ -310,6 +325,26 @@ This will:
 
    When using the ``--directory`` flag, you must specify the project name explicitly.
 
+Installing Local Clones
+-----------------------
+
+The ``--with`` flag installs one or more local clones (managed by ``dbx clone``) as editable packages into the project venv immediately after project creation:
+
+.. code-block:: bash
+
+   # Install a single local clone
+   dbx project add myproject --with medical-records
+
+   # Install multiple local clones
+   dbx project add myproject --with django --with django-mongodb-extensions
+
+   # Combine with other flags
+   dbx project add myproject --wagtail --with medical-records
+
+Each ``--with`` value is looked up by name using the same discovery logic as ``dbx install`` (respecting group priority from your config). If a clone is not found locally a warning is printed and that repo is skipped — the project is still created successfully.
+
+This is useful when you want to develop against a local fork or in-progress version of a library rather than the PyPI release. For a dependency already in ``pyproject.toml`` (e.g. ``django-mongodb-extensions``), specifying ``--with`` reinstalls it from the local clone, overriding the PyPI version.
+
 Virtual Environments
 --------------------
 
@@ -323,11 +358,11 @@ Projects use a shared virtual environment in the ``projects/`` directory:
    # List all virtual environments
    dbx env list
 
-**Current Limitation**: The virtual environment is created at the ``projects/`` level, not per individual project. This means all projects in the ``projects/`` directory share the same virtual environment.
+**Auto-creation**: If no virtual environment is found when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level (``base_dir/projects/.venv``) and Django is bootstrapped into it before project scaffolding begins. You do not need to run ``dbx env init`` manually before your first ``dbx project add``.
 
 .. note::
 
-   **Future Enhancement**: Per-project virtual environments (e.g., ``projects/myproject/.venv``) may be added in a future release. For now, if you need isolated environments for different projects, you can use the ``--directory`` flag to create projects in separate locations and manage their virtual environments independently.
+   All projects in the ``projects/`` directory share the same virtual environment. If you need full isolation, use the ``--directory`` flag to create projects in separate locations and manage their virtual environments independently.
 
 Configuration
 -------------
