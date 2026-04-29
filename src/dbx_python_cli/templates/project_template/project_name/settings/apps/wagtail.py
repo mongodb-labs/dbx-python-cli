@@ -42,16 +42,18 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         super().ready()
         # Register a telepath adapter so MongoDB ObjectId values are serialized
         # as their hex string when Wagtail's sidebar builds its JS props.
+        # Must register with wagtail.admin.telepath.registry (not the global
+        # telepath registry) — Wagtail's JSContext uses its own registry instance.
         try:
             from bson import ObjectId
-            from telepath import Adapter
-            from telepath import register as telepath_register
+            from telepath import BaseAdapter
+            from wagtail.admin.telepath import register as wagtail_register
 
-            class _ObjectIdAdapter(Adapter):
+            class _ObjectIdAdapter(BaseAdapter):
                 def build_node(self, obj, context):
                     return context.build_node(str(obj))
 
-            telepath_register(_ObjectIdAdapter(), ObjectId)
+            wagtail_register(_ObjectIdAdapter(), ObjectId)
         except ImportError:
             pass
 
