@@ -173,6 +173,38 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Patch BaseAPIViewSet.get_urlpatterns to use a regex that accepts
+        # both 24-char ObjectId hex strings and plain integers for <pk>, and
+        # patch get_object_detail_urlpath to str()-convert pk before reverse()
+        # so ObjectId values produce valid URLs.
+        try:
+            from django.urls import path as _dj_path
+            from django.urls import re_path as _dj_re_path
+            from django.urls import reverse as _dj_reverse
+            from wagtail.api.v2.views import BaseAPIViewSet
+
+            @classmethod
+            def _api_get_urlpatterns(cls):
+                return [
+                    _dj_path("", cls.as_view({"get": "listing_view"}), name="listing"),
+                    _dj_re_path(
+                        r"^(?P<pk>[0-9a-fA-F]{24}|\d+)/$",
+                        cls.as_view({"get": "detail_view"}),
+                        name="detail",
+                    ),
+                    _dj_path("find/", cls.as_view({"get": "find_view"}), name="find"),
+                ]
+
+            @classmethod
+            def _api_get_object_detail_urlpath(cls, model, pk, namespace=""):
+                url_name = (namespace + ":detail") if namespace else "detail"
+                return _dj_reverse(url_name, args=(str(pk),))
+
+            BaseAPIViewSet.get_urlpatterns = _api_get_urlpatterns
+            BaseAPIViewSet.get_object_detail_urlpath = _api_get_object_detail_urlpath
+        except ImportError:
+            pass
+
         # Patch ModelViewSet.pk_path_converter so viewsets whose model uses
         # ObjectIdAutoField get "object_id" URL converter instead of "int".
         # ObjectIdAutoField inherits AutoField → IntegerField, so Wagtail's
