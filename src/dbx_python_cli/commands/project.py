@@ -716,6 +716,7 @@ def _create_pyproject_toml(
     base_deps = [
         '"django-debug-toolbar"',
         '"django-mongodb-backend"',
+        '"django-mongodb-extensions"',
         '"python-webpack-boilerplate"',
     ]
     if wagtail:
