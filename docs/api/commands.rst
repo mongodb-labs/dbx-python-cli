@@ -99,14 +99,6 @@ dbx_python_cli.commands.remove module
    :undoc-members:
    :show-inheritance:
 
-dbx_python_cli.commands.repo_utils module
-------------------------------------------
-
-.. automodule:: dbx_python_cli.commands.repo_utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 dbx_python_cli.commands.status module
 --------------------------------------
 
@@ -135,14 +127,6 @@ dbx_python_cli.commands.test module
 ------------------------------------
 
 .. automodule:: dbx_python_cli.commands.test
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-dbx_python_cli.commands.venv_utils module
-------------------------------------------
-
-.. automodule:: dbx_python_cli.commands.venv_utils
    :members:
    :undoc-members:
    :show-inheritance:
