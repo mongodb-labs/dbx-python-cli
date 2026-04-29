@@ -10,7 +10,7 @@ alias o := django-open
 
 [group('django')]
 django-serve:
-    python manage.py runserver
+    DJANGO_SETTINGS_MODULE={{ project_name }}.settings.{{ project_name }} python manage.py runserver
 
 [group('django')]
 django-migrate:
