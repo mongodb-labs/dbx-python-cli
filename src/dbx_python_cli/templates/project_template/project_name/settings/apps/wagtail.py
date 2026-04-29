@@ -73,6 +73,25 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Also patch the base json.JSONEncoder so that direct json.dumps() calls
+        # (e.g. in wagtail.admin.widgets.chooser) can serialize ObjectId values.
+        try:
+            import json as _json
+
+            from bson import ObjectId
+
+            _orig_base_default = _json.JSONEncoder.default
+
+            def _patched_base_json_default(self, o, _orig=_orig_base_default):
+                if isinstance(o, ObjectId):
+                    return str(o)
+                return _orig(self, o)
+
+            _json.JSONEncoder.default = _patched_base_json_default
+            del _patched_base_json_default, _orig_base_default
+        except ImportError:
+            pass
+
         # Patch Wagtail API v2 page-ID filters to accept 24-char ObjectId hex
         # strings in addition to integers.  All four filters call int(value)
         # and raise BadRequestError on ValueError, rejecting ObjectId strings.
