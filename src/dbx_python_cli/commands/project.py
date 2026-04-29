@@ -800,8 +800,8 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
             "from django.conf.urls.static import static\n"
             "from django.urls import include\n"
             "from wagtail import urls as wagtail_urls\n"
-            "from wagtail.admin import urls as wagtailadmin_urls\n"
-            "from wagtail.documents import urls as wagtaildocs_urls\n"
+            f"from {project_name}.wagtail_urls import admin as wagtailadmin_urls\n"
+            f"from {project_name}.wagtail_urls import documents as wagtaildocs_urls\n"
             "\n"
             "urlpatterns += [\n"
             '    path("cms/", include(wagtailadmin_urls)),\n'
