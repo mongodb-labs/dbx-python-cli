@@ -231,6 +231,12 @@ def add_project(
         "-w/-W",
         help="Enable Wagtail CMS (default: False)",
     ),
+    add_qe: bool = typer.Option(
+        False,
+        "--qe/--no-qe",
+        "-q/-Q",
+        help="Enable Queryable Encryption (default: False)",
+    ),
     auto_install: bool = typer.Option(
         True,
         "--install/--no-install",
@@ -246,20 +252,23 @@ def add_project(
     """
     Create a new Django project using bundled templates.
     Frontend is added by default. Use --no-frontend to skip frontend creation.
-    Use --wagtail to enable Wagtail CMS.
+    Use --wagtail to enable Wagtail CMS. Use --qe to enable Queryable Encryption.
+    Flags can be stacked: --qe --wagtail enables a Wagtail site with QE.
 
     Projects are created in base_dir/projects/ by default.
     If no name is provided, a random name is generated.
 
     Examples::
 
-        dbx project add                    # Create with random name (includes frontend)
-        dbx project add myproject          # Create with explicit name (includes frontend)
+        dbx project add                          # Create with random name (includes frontend)
+        dbx project add myproject                # Create with explicit name (includes frontend)
         dbx project add myproject --no-frontend  # Create without frontend
         dbx project add myproject --wagtail      # Create with Wagtail CMS enabled
-        dbx project add -d ~/custom/path   # Create with random name in custom directory
-        dbx project add myproject -d ~/custom/path  # Create in custom directory
-        dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at ~/path/to/myproject
+        dbx project add myproject --qe           # Create with Queryable Encryption enabled
+        dbx project add myproject --qe --wagtail # Create with QE + Wagtail
+        dbx project add -d ~/custom/path         # Create with random name in custom directory
+        dbx project add myproject -d ~/custom/path        # Create in custom directory
+        dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at path
     """
     # Normalize parameters when called programmatically (not via CLI).
     # When called directly, typer.Option/Argument defaults are OptionInfo/ArgumentInfo objects.
@@ -273,6 +282,8 @@ def add_project(
         add_frontend = True
     if not isinstance(add_wagtail, bool):
         add_wagtail = False
+    if not isinstance(add_qe, bool):
+        add_qe = False
     if not isinstance(auto_install, bool):
         auto_install = True
     if not isinstance(python_path_override, (str, type(None))):
@@ -453,7 +464,9 @@ def add_project(
         raise typer.Exit(code=1)
 
     # Add pyproject.toml after project creation
-    _create_pyproject_toml(project_path, name, settings_path, wagtail=add_wagtail)
+    _create_pyproject_toml(
+        project_path, name, settings_path, wagtail=add_wagtail, qe=add_qe
+    )
 
     # Enable Wagtail CMS if requested
     if add_wagtail:
@@ -463,6 +476,17 @@ def add_project(
         except Exception as e:
             typer.echo(
                 f"⚠️  Project created successfully, but Wagtail setup failed: {e}",
+                err=True,
+            )
+
+    # Enable Queryable Encryption if requested
+    if add_qe:
+        typer.echo(f"🔐 Enabling Queryable Encryption for project '{name}'...")
+        try:
+            _enable_qe(project_path, name, wagtail=add_wagtail)
+        except Exception as e:
+            typer.echo(
+                f"⚠️  Project created successfully, but QE setup failed: {e}",
                 err=True,
             )
 
@@ -711,6 +735,7 @@ def _create_pyproject_toml(
     project_name: str,
     settings_path: str = "settings.base",
     wagtail: bool = False,
+    qe: bool = False,
 ):
     """Create a pyproject.toml file for the Django project."""
     base_deps = [
@@ -721,6 +746,8 @@ def _create_pyproject_toml(
     ]
     if wagtail:
         base_deps.append('"wagtail"')
+    if qe:
+        base_deps.append('"pymongocrypt"')
     deps_str = ",\n    ".join(base_deps)
 
     pyproject_content = f"""[build-system]
@@ -812,6 +839,30 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
         )
         with open(urls_file, "a") as f:
             f.write(wagtail_block)
+
+
+def _enable_qe(project_path: Path, project_name: str, wagtail: bool = False) -> None:
+    """Uncomment the QE block in settings and select the correct medical_records app."""
+    settings_file = project_path / project_name / "settings" / f"{project_name}.py"
+    if settings_file.exists():
+        content = settings_file.read_text()
+        content = content.replace(
+            "# from .qe import *  # noqa\n"
+            "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405",
+            "from .qe import *  # noqa\n"
+            "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405",
+        )
+        settings_file.write_text(content)
+
+    if wagtail:
+        qe_settings_file = project_path / project_name / "settings" / "qe.py"
+        if qe_settings_file.exists():
+            qe_content = qe_settings_file.read_text()
+            qe_content = qe_content.replace(
+                '"medical_records.django"',
+                '"medical_records.wagtail"',
+            )
+            qe_settings_file.write_text(qe_content)
 
 
 def _setup_wagtail_initial_data(

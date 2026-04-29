@@ -479,4 +479,100 @@ base_dir = "{base_dir_str}"
                         call_args = call[0][0]
                         if len(call_args) > 1 and "manage.py" in str(call_args):
                             assert "django/.venv" in call_args[0]
-                            break
+
+
+def test_project_add_help_shows_qe():
+    """Test that the project add help shows the --qe flag."""
+    result = runner.invoke(app, ["project", "add", "--help"])
+    assert result.exit_code == 0
+    output = strip_ansi(result.stdout)
+    assert "--qe" in output
+
+
+def test_enable_qe_activates_settings(tmp_path):
+    """Test that _enable_qe uncomments the QE settings block."""
+    from dbx_python_cli.commands.project import _enable_qe
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    settings_file = settings_dir / "myproject.py"
+    settings_file.write_text(
+        "# Queryable Encryption (QE) Configuration\n"
+        "# Uncomment the two lines below to enable Queryable Encryption settings.\n"
+        "# from .qe import *  # noqa\n"
+        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
+    )
+    (settings_dir / "qe.py").write_text(
+        'QE_INSTALLED_APPS = ["medical_records.django"]\n'
+    )
+
+    _enable_qe(tmp_path, "myproject")
+
+    content = settings_file.read_text()
+    assert "# from .qe import *" not in content
+    assert "from .qe import *  # noqa" in content
+    assert "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405" in content
+
+
+def test_enable_qe_uses_django_app_by_default(tmp_path):
+    """Test that _enable_qe leaves medical_records.django when wagtail=False."""
+    from dbx_python_cli.commands.project import _enable_qe
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    (settings_dir / "myproject.py").write_text(
+        "# from .qe import *  # noqa\n"
+        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
+    )
+    qe_file = settings_dir / "qe.py"
+    qe_file.write_text('QE_INSTALLED_APPS = ["medical_records.django"]\n')
+
+    _enable_qe(tmp_path, "myproject", wagtail=False)
+
+    assert '"medical_records.django"' in qe_file.read_text()
+
+
+def test_enable_qe_uses_wagtail_app_when_stacked(tmp_path):
+    """Test that _enable_qe replaces app with medical_records.wagtail when wagtail=True."""
+    from dbx_python_cli.commands.project import _enable_qe
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    (settings_dir / "myproject.py").write_text(
+        "# from .qe import *  # noqa\n"
+        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
+    )
+    qe_file = settings_dir / "qe.py"
+    qe_file.write_text('QE_INSTALLED_APPS = ["medical_records.django"]\n')
+
+    _enable_qe(tmp_path, "myproject", wagtail=True)
+
+    qe_content = qe_file.read_text()
+    assert '"medical_records.wagtail"' in qe_content
+    assert '"medical_records.django"' not in qe_content
+
+
+def test_create_pyproject_toml_includes_pymongocrypt_when_qe(tmp_path):
+    """Test that _create_pyproject_toml adds pymongocrypt to dependencies when qe=True."""
+    from dbx_python_cli.commands.project import _create_pyproject_toml
+
+    _create_pyproject_toml(tmp_path, "myproject", qe=True)
+
+    content = (tmp_path / "pyproject.toml").read_text()
+    deps_section = content[
+        content.index("dependencies") : content.index("[project.optional-dependencies]")
+    ]
+    assert '"pymongocrypt"' in deps_section
+
+
+def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
+    """Test that _create_pyproject_toml does not add pymongocrypt by default."""
+    from dbx_python_cli.commands.project import _create_pyproject_toml
+
+    _create_pyproject_toml(tmp_path, "myproject")
+
+    content = (tmp_path / "pyproject.toml").read_text()
+    deps_section = content[
+        content.index("dependencies") : content.index("[project.optional-dependencies]")
+    ]
+    assert '"pymongocrypt"' not in deps_section
