@@ -57,6 +57,22 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Patch DjangoJSONEncoder to serialize MongoDB ObjectId as a hex string.
+        # JsonResponse (used by render_modal_workflow and others) uses this encoder.
+        try:
+            from bson import ObjectId
+            from django.core.serializers.json import DjangoJSONEncoder
+
+            def _patched_json_default(self, o, _orig=DjangoJSONEncoder.default):
+                if isinstance(o, ObjectId):
+                    return str(o)
+                return _orig(self, o)
+
+            DjangoJSONEncoder.default = _patched_json_default
+            del _patched_json_default
+        except ImportError:
+            pass
+
         # Patch ModelViewSet.pk_path_converter so viewsets whose model uses
         # ObjectIdAutoField get "object_id" URL converter instead of "int".
         # ObjectIdAutoField inherits AutoField → IntegerField, so Wagtail's
