@@ -57,6 +57,30 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Patch ModelViewSet.pk_path_converter so viewsets whose model uses
+        # ObjectIdAutoField get "object_id" URL converter instead of "int".
+        # ObjectIdAutoField inherits AutoField → IntegerField, so Wagtail's
+        # isinstance(pk, IntegerField) check incorrectly picks "int".
+        try:
+            from django.db import models
+            from django_mongodb_backend.fields import ObjectIdAutoField
+            from wagtail.admin.viewsets.model import ModelViewSet
+
+            @property
+            def _pk_path_converter(self):
+                if isinstance(self.model_opts.pk, ObjectIdAutoField):
+                    return "object_id"
+                if isinstance(self.model_opts.pk, models.UUIDField):
+                    return "uuid"
+                if isinstance(self.model_opts.pk, models.IntegerField):
+                    return "int"
+                return "str"
+
+            ModelViewSet.pk_path_converter = _pk_path_converter
+            del _pk_path_converter
+        except ImportError:
+            pass
+
 
 class CustomWagtailDocsConfig(WagtailDocsAppConfig):
     @property
