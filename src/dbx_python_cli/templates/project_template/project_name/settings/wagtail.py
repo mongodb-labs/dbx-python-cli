@@ -24,6 +24,7 @@ WAGTAIL_INSTALLED_APPS = [
     "wagtail.sites",
     "modelcluster",
     "{{ project_name }}.settings.apps.wagtail.CustomTaggitConfig",
+    "{{ project_name }}.home.apps.HomeAppConfig",
 ]
 
 WAGTAIL_MIDDLEWARE = [
