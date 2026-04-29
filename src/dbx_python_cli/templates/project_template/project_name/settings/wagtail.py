@@ -24,7 +24,6 @@ WAGTAIL_INSTALLED_APPS = [
     "wagtail.sites",
     "modelcluster",
     "{{ project_name }}.settings.apps.wagtail.CustomTaggitConfig",
-    "{{ project_name }}.home.apps.HomeAppConfig",
 ]
 
 WAGTAIL_MIDDLEWARE = [
@@ -51,10 +50,4 @@ WAGTAIL_MIGRATION_MODULES = {
     "wagtailforms": "{{ project_name }}.migrations.wagtailforms",
     "wagtailusers": "{{ project_name }}.migrations.wagtailusers",
     "taggit": "{{ project_name }}.migrations.taggit",
-    # home uses syncdb (None) for the same reason all Wagtail apps above use
-    # empty migration directories: wagtailcore itself has no recorded migrations,
-    # so any app inheriting from Page cannot express a valid migration dependency
-    # on it.  MongoDB auto-creates collections on first insert, so no migration
-    # file is needed.
-    "home": None,
 }

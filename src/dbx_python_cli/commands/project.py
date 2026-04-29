@@ -939,7 +939,6 @@ def _setup_wagtail_initial_data(
     0001 migration normally creates the root Page and a default Site; without
     them the admin home view cannot build the 'wagtailadmin_explore' URL.
     """
-    proj_name = proj.name
     script_lines = [
         "import sys, django",
         "try:",
@@ -949,13 +948,11 @@ def _setup_wagtail_initial_data(
         "        from django.conf import settings as _s",
         "        from django.contrib.contenttypes.models import ContentType",
         "        from wagtail.models import Locale, Site",
-        f"        from {proj_name}.home.models import HomePage",
         "        lang = (getattr(_s, 'LANGUAGE_CODE', 'en') or 'en').split('-')[0][:2]",
         "        locale, _ = Locale.objects.get_or_create(language_code=lang)",
         "        page_ct, _ = ContentType.objects.get_or_create(app_label='wagtailcore', model='page')",
-        "        home_ct, _ = ContentType.objects.get_or_create(app_label='home', model='homepage')",
         "        root = Page.add_root(title='Root', slug='root', content_type=page_ct, locale=locale)",
-        "        home = root.add_child(instance=HomePage(title='Home', slug='home', content_type=home_ct, locale=locale))",
+        "        home = root.add_child(instance=Page(title='Home', slug='home', content_type=page_ct, locale=locale))",
         "        print('wagtail_root_created')",
         "        if not Site.objects.exists():",
         "            Site.objects.create(hostname='localhost', root_page=home, is_default_site=True)",
