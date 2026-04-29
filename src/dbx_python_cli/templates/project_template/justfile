@@ -24,7 +24,12 @@ alias mm := django-makemigrations
 
 [group('django')]
 django-drop-mongo:
-    mongosh --eval "db.getSiblingDB('{{ project_name }}').dropDatabase()"
+    #!/usr/bin/env sh
+    if [ -n "$MONGODB_URI" ]; then
+        mongosh "$MONGODB_URI" --eval "db.dropDatabase()"
+    else
+        mongosh --eval "db.getSiblingDB('{{ project_name }}').dropDatabase()"
+    fi
 
 [group('django')]
 django-drop-postgres:
