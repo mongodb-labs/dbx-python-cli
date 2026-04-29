@@ -2,7 +2,7 @@
 Create Wagtail root page, home page, default site, and superuser if they don't exist.
 Run with: python scripts/wagtail_setup.py
 """
-import os
+
 import sys
 
 import django
@@ -24,7 +24,9 @@ try:
         home = root.add_child(title="Home", slug="home", content_type=ct, locale=locale)
         print("✅ Wagtail root page and home page created.")
         if not Site.objects.exists():
-            Site.objects.create(hostname="localhost", root_page=home, is_default_site=True)
+            Site.objects.create(
+                hostname="localhost", root_page=home, is_default_site=True
+            )
             print("✅ Wagtail default site created.")
     else:
         print("ℹ️  Wagtail root page already exists, skipping.")
