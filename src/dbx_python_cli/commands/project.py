@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 
@@ -248,6 +248,11 @@ def add_project(
         hidden=True,
         help="Override the Python executable used for django-admin (bypasses venv detection).",
     ),
+    with_repos: List[str] = typer.Option(
+        [],
+        "--with",
+        help="Install a local clone into the project venv after creation (repeatable).",
+    ),
 ):
     """
     Create a new Django project using bundled templates.
@@ -269,6 +274,8 @@ def add_project(
         dbx project add -d ~/custom/path         # Create with random name in custom directory
         dbx project add myproject -d ~/custom/path        # Create in custom directory
         dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at path
+        dbx project add myproject --with medical-records           # Install a local clone
+        dbx project add myproject --with django --with django-mongodb-extensions
     """
     # Normalize parameters when called programmatically (not via CLI).
     # When called directly, typer.Option/Argument defaults are OptionInfo/ArgumentInfo objects.
@@ -288,6 +295,8 @@ def add_project(
         auto_install = True
     if not isinstance(python_path_override, (str, type(None))):
         python_path_override = None
+    if not isinstance(with_repos, list):
+        with_repos = []
 
     # Determine project directory and name
     use_base_dir_override = False
@@ -580,6 +589,43 @@ def add_project(
                 f"⚠️  Project created successfully, but installation failed: {e}",
                 err=True,
             )
+
+    if with_repos:
+        try:
+            _install_with_repos(with_repos, python_path)
+        except Exception as e:
+            typer.echo(f"⚠️  --with install failed: {e}", err=True)
+
+
+def _install_with_repos(
+    repo_names: List[str], python_path: str, verbose: bool = False
+) -> None:
+    """Install local clones into the project venv by name."""
+    from dbx_python_cli.utils.repo import find_repo_by_name
+
+    config = get_config()
+    base_dir = get_base_dir(config)
+    for repo_name in repo_names:
+        repo_info = find_repo_by_name(repo_name, base_dir, config)
+        if not repo_info:
+            typer.echo(
+                f"⚠️  Clone '{repo_name}' not found locally — skipping.", err=True
+            )
+            continue
+        clone_path = repo_info["path"]
+        typer.echo(f"📦 Installing '{repo_name}' from local clone at {clone_path}...")
+        result = install_package(
+            clone_path,
+            python_path,
+            install_dir=None,
+            extras=None,
+            groups=None,
+            verbose=verbose,
+        )
+        if result == "success":
+            typer.echo(f"✅ '{repo_name}' installed")
+        elif result == "failed":
+            typer.echo(f"⚠️  Failed to install '{repo_name}'", err=True)
 
 
 def _create_venv(venv_path: Path) -> str:
