@@ -85,8 +85,10 @@ urlpatterns = [
         move.move_confirm,
         name="move_confirm",
     ),
-    path(
-        "<object_id:page_to_move_id>/set_position/",
+    # re_path instead of <object_id:> so that Wagtail's reverse("...set_page_position",
+    # args=[999999]) sentinel probe succeeds — the view's ORM query coerces the string to ObjectId.
+    re_path(
+        r"^(?P<page_to_move_id>[0-9a-fA-F]{24}|\d+)/set_position/$",
         ordering.set_page_position,
         name="set_page_position",
     ),
