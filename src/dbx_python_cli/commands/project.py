@@ -596,6 +596,14 @@ def add_project(
         except Exception as e:
             typer.echo(f"⚠️  --with install failed: {e}", err=True)
 
+    if add_qe:
+        try:
+            _ensure_package_installed(
+                "medical_records", python_path, get_base_dir(get_config())
+            )
+        except Exception as e:
+            typer.echo(f"⚠️  Failed to install medical-records: {e}", err=True)
+
 
 def _install_with_repos(
     repo_names: List[str], python_path: str, verbose: bool = False
