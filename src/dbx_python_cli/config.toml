@@ -185,6 +185,11 @@ libmongocrypt = [
     "cd cmake-build && make",
 ]
 
+[repo.groups.wagtail]
+repos = [
+    "git@github.com:wagtail/wagtail.git",
+]
+
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
 
