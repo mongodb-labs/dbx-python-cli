@@ -38,6 +38,23 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
     def default_auto_field(self):
         return _auto_field()
 
+    def ready(self):
+        super().ready()
+        # Register a telepath adapter so MongoDB ObjectId values are serialized
+        # as their hex string when Wagtail's sidebar builds its JS props.
+        try:
+            from bson import ObjectId
+            from telepath import Adapter
+            from telepath import register as telepath_register
+
+            class _ObjectIdAdapter(Adapter):
+                def build_node(self, obj, context):
+                    return context.build_node(str(obj))
+
+            telepath_register(_ObjectIdAdapter(), ObjectId)
+        except ImportError:
+            pass
+
 
 class CustomWagtailDocsConfig(WagtailDocsAppConfig):
     @property
