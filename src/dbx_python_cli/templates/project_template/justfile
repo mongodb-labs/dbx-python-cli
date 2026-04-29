@@ -18,6 +18,11 @@ django-migrate:
 alias m := django-migrate
 
 [group('django')]
+django-makemigrations:
+    python manage.py makemigrations taggit wagtailadmin wagtailcore wagtaildocs wagtailembeds wagtailforms wagtailimages wagtailredirects wagtailsearch wagtailusers
+alias mm := django-makemigrations
+
+[group('django')]
 django-drop-mongo:
     mongosh --eval "db.getSiblingDB('{{ project_name }}').dropDatabase()"
 
