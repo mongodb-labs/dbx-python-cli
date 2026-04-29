@@ -26,7 +26,8 @@ alias mm := django-makemigrations
 django-drop-mongo:
     #!/usr/bin/env sh
     if [ -n "$MONGODB_URI" ]; then
-        mongosh "$MONGODB_URI" --eval "db.dropDatabase()"
+        DB_NAME=$(python -c "from urllib.parse import urlparse; import os; r=urlparse(os.environ['MONGODB_URI']); n=r.path.lstrip('/').split('?')[0]; print(n if n else '{{ project_name }}')")
+        mongosh "$MONGODB_URI" --eval "db.getSiblingDB('$DB_NAME').dropDatabase()"
     else
         mongosh --eval "db.getSiblingDB('{{ project_name }}').dropDatabase()"
     fi
