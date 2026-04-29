@@ -813,6 +813,59 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
             f.write(wagtail_block)
 
 
+def _setup_wagtail_initial_data(
+    python_path: str,
+    proj,
+    env: dict,
+    verbose: bool = False,
+) -> None:
+    """Create Wagtail root page and default site if Wagtail is enabled and they don't exist.
+
+    When MIGRATION_MODULES points to empty directories Django uses syncdb, which
+    creates collections/tables but skips RunPython data migrations.  Wagtail's
+    0001 migration normally creates the root Page and a default Site; without
+    them the admin home view cannot build the 'wagtailadmin_explore' URL.
+    """
+    script_lines = [
+        "import sys, django",
+        "try:",
+        "    django.setup()",
+        "    from wagtail.models import Page",
+        "    if not Page.objects.filter(depth=1).exists():",
+        "        from django.conf import settings as _s",
+        "        from django.contrib.contenttypes.models import ContentType",
+        "        from wagtail.models import Locale, Site",
+        "        lang = (getattr(_s, 'LANGUAGE_CODE', 'en') or 'en').split('-')[0][:2]",
+        "        locale, _ = Locale.objects.get_or_create(language_code=lang)",
+        "        ct, _ = ContentType.objects.get_or_create(app_label='wagtailcore', model='page')",
+        "        root = Page.add_root(title='Root', slug='root', content_type=ct, locale=locale)",
+        "        print('wagtail_root_created')",
+        "        if not Site.objects.exists():",
+        "            Site.objects.create(hostname='localhost', root_page=root, is_default_site=True)",
+        "            print('wagtail_site_created')",
+        "except ImportError:",
+        "    pass",
+        "except Exception as e:",
+        "    print('wagtail_setup_error:' + str(e), file=sys.stderr)",
+    ]
+    result = subprocess.run(
+        [python_path, "-c", "\n".join(script_lines)],
+        cwd=str(proj.project_path),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
+    if "wagtail_root_created" in stdout:
+        typer.echo("✅ Created Wagtail root page")
+    if "wagtail_site_created" in stdout:
+        typer.echo("✅ Created Wagtail default site")
+    if "wagtail_setup_error:" in stderr:
+        msg = stderr.split("wagtail_setup_error:")[-1].strip()
+        typer.echo(f"⚠️  Wagtail initial data setup failed: {msg}", err=True)
+
+
 def _add_frontend(
     project_name: str,
     directory: Path = Path("."),
@@ -1047,6 +1100,9 @@ def run_project(
                 typer.echo(f"   {line}", err=True)
         raise typer.Exit(code=result.returncode)
     typer.echo("✅ Migrations completed successfully")
+
+    # Create initial Wagtail data (root page + default site) if Wagtail is installed
+    _setup_wagtail_initial_data(python_path, proj, migrate_env, verbose)
 
     # Create superuser (non-fatal if already exists)
     su_email = os.getenv("PROJECT_EMAIL", "admin@example.com")
