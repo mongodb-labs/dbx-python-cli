@@ -28,7 +28,7 @@ New Approach
 .. code-block:: bash
 
    # Install globally using pipx
-   pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+   pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
 
    # Use from anywhere
    cd ~/Developer/mongodb/
@@ -155,7 +155,7 @@ Users migrating from ``django-mongodb-cli`` should:
 
    .. code-block:: bash
 
-      pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+      pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
 
 2. Initialize configuration:
 

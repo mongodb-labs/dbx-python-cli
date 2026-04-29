@@ -167,6 +167,10 @@ Typical directory structure after setup:
 .. code-block:: text
 
    ~/Developer/mongodb/              # base_dir
+   ├── projects/                     # Django projects
+   │   ├── .venv/                    # Shared venv for all projects
+   │   ├── myproject/               # Created with dbx project add
+   │   └── another_project/
    ├── pymongo/                      # Group directory
    │   ├── .venv/                    # Group-level virtual environment
    │   ├── mongo-python-driver/     # Cloned from global group
