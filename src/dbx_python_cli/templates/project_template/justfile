@@ -43,7 +43,7 @@ alias d := django-drop
 # Create Django superuser (admin/admin)
 [group('django')]
 django-create-superuser:
-    export DJANGO_SUPERUSER_PASSWORD=admin && python manage.py createsuperuser --noinput --username=admin
+    export DJANGO_SUPERUSER_PASSWORD=admin && python manage.py createsuperuser --noinput --username=admin --email=admin@example.com
 alias su := django-create-superuser
 
 [group('npm')]
