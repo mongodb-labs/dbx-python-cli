@@ -7,3 +7,4 @@ Design Decisions
    command-structure
    standalone-installation
    venv-strategy
+   wagtail-support
