@@ -31,7 +31,7 @@ See the [full documentation](https://dbx-python-cli.readthedocs.io/) for detaile
 
 ```bash
 # Install directly from GitHub
-pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
 ```
 
 This will install `dbx-python-cli` globally and make the `dbx` command available in your terminal.
@@ -224,7 +224,7 @@ For more details, see the [full documentation](https://dbx-python-cli.readthedoc
 
 ```bash
 # Clone the repository
-git clone https://github.com/aclark4life/dbx-python-cli.git
+git clone https://github.com/mongodb-labs/dbx-python-cli.git
 cd dbx-python-cli
 
 # Install the package (uses uv pip install -e .)
@@ -424,8 +424,8 @@ This project is licensed under the Apache 2.0 License - see the LICENSE file for
 ## Links
 
 - **Documentation:** [Read the Docs](https://dbx-python-cli.readthedocs.io/)
-- **Source Code:** [GitHub](https://github.com/aclark4life/dbx-python-cli)
-- **Issue Tracker:** [GitHub Issues](https://github.com/aclark4life/dbx-python-cli/issues)
+- **Source Code:** [GitHub](https://github.com/mongodb-labs/dbx-python-cli)
+- **Issue Tracker:** [GitHub Issues](https://github.com/mongodb-labs/dbx-python-cli/issues)
 
 ---
 
