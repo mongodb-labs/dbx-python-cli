@@ -73,6 +73,106 @@ class CustomWagtailAdminConfig(WagtailAdminAppConfig):
         except ImportError:
             pass
 
+        # Patch Wagtail API v2 page-ID filters to accept 24-char ObjectId hex
+        # strings in addition to integers.  All four filters call int(value)
+        # and raise BadRequestError on ValueError, rejecting ObjectId strings.
+        try:
+            from bson import ObjectId
+            from wagtail.api.v2 import filters as _api_filters
+            from wagtail.api.v2.utils import BadRequestError as _BadReq
+            from wagtail.models import Page as _Page
+
+            def _parse_page_id(value):
+                try:
+                    n = int(value)
+                    if n < 0:
+                        raise ValueError()
+                    return n
+                except ValueError:
+                    return ObjectId(value)
+
+            def _child_of_filter(self, request, queryset, view):
+                if "child_of" not in request.GET:
+                    return queryset
+                value = request.GET["child_of"]
+                if value == "root":
+                    parent_page = view.get_root_page()
+                else:
+                    try:
+                        parent_page = view.get_base_queryset().get(
+                            id=_parse_page_id(value)
+                        )
+                    except _Page.DoesNotExist as e:
+                        raise _BadReq("parent page doesn't exist") from e
+                    except Exception as e:
+                        raise _BadReq("child_of must be a positive integer") from e
+                queryset = queryset.child_of(parent_page)
+                queryset._filtered_by_child_of = parent_page
+                return queryset
+
+            def _ancestor_of_filter(self, request, queryset, view):
+                if "ancestor_of" not in request.GET:
+                    return queryset
+                value = request.GET["ancestor_of"]
+                try:
+                    descendant_page = view.get_base_queryset().get(
+                        id=_parse_page_id(value)
+                    )
+                except _Page.DoesNotExist as e:
+                    raise _BadReq("descendant page doesn't exist") from e
+                except Exception as e:
+                    raise _BadReq("ancestor_of must be a positive integer") from e
+                return queryset.ancestor_of(descendant_page)
+
+            def _descendant_of_filter(self, request, queryset, view):
+                if "descendant_of" not in request.GET:
+                    return queryset
+                if hasattr(queryset, "_filtered_by_child_of"):
+                    raise _BadReq(
+                        "filtering by descendant_of with child_of is not supported"
+                    )
+                value = request.GET["descendant_of"]
+                if value == "root":
+                    parent_page = view.get_root_page()
+                else:
+                    try:
+                        parent_page = view.get_base_queryset().get(
+                            id=_parse_page_id(value)
+                        )
+                    except _Page.DoesNotExist as e:
+                        raise _BadReq("ancestor page doesn't exist") from e
+                    except Exception as e:
+                        raise _BadReq("descendant_of must be a positive integer") from e
+                return queryset.descendant_of(parent_page)
+
+            def _translation_of_filter(self, request, queryset, view):
+                if "translation_of" not in request.GET:
+                    return queryset
+                value = request.GET["translation_of"]
+                if value == "root":
+                    page = view.get_root_page()
+                else:
+                    try:
+                        page = view.get_base_queryset().get(id=_parse_page_id(value))
+                    except _Page.DoesNotExist as e:
+                        raise _BadReq("translation_of page doesn't exist") from e
+                    except Exception as e:
+                        raise _BadReq(
+                            "translation_of must be a positive integer"
+                        ) from e
+                saved = getattr(queryset, "_filtered_by_child_of", None)
+                queryset = queryset.translation_of(page)
+                if saved:
+                    queryset._filtered_by_child_of = saved
+                return queryset
+
+            _api_filters.ChildOfFilter.filter_queryset = _child_of_filter
+            _api_filters.AncestorOfFilter.filter_queryset = _ancestor_of_filter
+            _api_filters.DescendantOfFilter.filter_queryset = _descendant_of_filter
+            _api_filters.TranslationOfFilter.filter_queryset = _translation_of_filter
+        except ImportError:
+            pass
+
         # Patch ModelViewSet.pk_path_converter so viewsets whose model uses
         # ObjectIdAutoField get "object_id" URL converter instead of "int".
         # ObjectIdAutoField inherits AutoField → IntegerField, so Wagtail's
