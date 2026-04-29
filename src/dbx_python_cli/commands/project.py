@@ -373,8 +373,30 @@ def add_project(
                 # will be available as long as Django is installed in this env.
                 python_path = sys.executable
             else:
-                # Installation requires a proper venv.  Re-raise the error.
-                raise
+                # No venv found — create one automatically before continuing.
+                if directory is None and not use_base_dir_override:
+                    venv_parent = projects_dir
+                elif use_base_dir_override:
+                    venv_parent = project_path.parent
+                else:
+                    venv_parent = directory
+                typer.echo(
+                    f"⚙️  No virtual environment found. Creating one at {venv_parent / '.venv'}..."
+                )
+                python_path = _create_venv(venv_parent / ".venv")
+                venv_type = "group"
+
+    # Ensure Django is importable in the venv — install it if not.
+    # This handles both freshly created venvs and existing venvs that predate
+    # any project setup (e.g. a venv created by a previous failed run).
+    if python_path_override is None and auto_install:
+        django_check = subprocess.run(
+            [python_path, "-c", "import django"],
+            capture_output=True,
+            check=False,
+        )
+        if django_check.returncode != 0:
+            _bootstrap_venv(python_path)
 
     with resources.path(
         "dbx_python_cli.templates", "project_template"
@@ -558,6 +580,45 @@ def add_project(
                 f"⚠️  Project created successfully, but installation failed: {e}",
                 err=True,
             )
+
+
+def _create_venv(venv_path: Path) -> str:
+    """Create a venv with uv and return the python executable path."""
+    import platform
+
+    result = subprocess.run(
+        ["uv", "venv", str(venv_path), "--no-python-downloads"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        typer.echo("❌ Failed to create virtual environment", err=True)
+        if result.stderr:
+            typer.echo(result.stderr.strip(), err=True)
+        raise typer.Exit(1)
+    typer.echo(f"✅ Created virtual environment at {venv_path}")
+    python_subpath = (
+        "Scripts/python.exe" if platform.system() == "Windows" else "bin/python"
+    )
+    return str(venv_path / python_subpath)
+
+
+def _bootstrap_venv(python_path: str) -> None:
+    """Install Django into a freshly created venv so django-admin startproject can run."""
+    typer.echo("📦 Installing Django into new virtual environment...")
+    result = subprocess.run(
+        ["uv", "pip", "install", "django", "--python", python_path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        typer.echo("❌ Failed to install Django", err=True)
+        if result.stderr:
+            typer.echo(result.stderr.strip(), err=True)
+        raise typer.Exit(1)
+    typer.echo("✅ Django installed")
 
 
 def _fix_broken_editable_installs(
