@@ -60,6 +60,36 @@ pip-install:
     python -m pip install -e .
 alias i := pip-install
 
-serve: npm-install npm-serve django-serve
+# Run migrations and create Wagtail initial data (root page, home, site, superuser)
+[group('django')]
+django-setup:
+    #!/usr/bin/env sh
+    export DJANGO_SETTINGS_MODULE={{ project_name }}.settings.{{ project_name }}
+    python manage.py migrate
+    python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', '{{ project_name }}.settings.{{ project_name }}')
+django.setup()
+try:
+    from wagtail.models import Page
+    if not Page.objects.filter(depth=1).exists():
+        from django.conf import settings as s
+        from django.contrib.contenttypes.models import ContentType
+        from wagtail.models import Locale, Site
+        lang = (getattr(s, 'LANGUAGE_CODE', 'en') or 'en').split('-')[0][:2]
+        locale, _ = Locale.objects.get_or_create(language_code=lang)
+        ct, _ = ContentType.objects.get_or_create(app_label='wagtailcore', model='page')
+        root = Page.add_root(title='Root', slug='root', content_type=ct, locale=locale)
+        home = root.add_child(title='Home', slug='home', content_type=ct, locale=locale)
+        if not Site.objects.exists():
+            Site.objects.create(hostname='localhost', root_page=home, is_default_site=True)
+        print('Wagtail root page and site created.')
+except ImportError:
+    pass
+"
+    export DJANGO_SUPERUSER_PASSWORD=admin && python manage.py createsuperuser --noinput --username=admin --email=admin@example.com || true
+alias setup := django-setup
+
+serve: django-setup npm-install npm-serve django-serve
 
 alias s := serve
