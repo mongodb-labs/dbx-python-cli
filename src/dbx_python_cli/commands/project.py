@@ -1160,9 +1160,16 @@ def _drop_project_databases(proj, python_path: str) -> None:
     """Drop all MongoDB databases declared in the project's Django settings."""
     import json as _json
 
+    from dbx_python_cli.commands.mongodb import ensure_mongodb
+
     env = os.environ.copy()
     env["DJANGO_SETTINGS_MODULE"] = f"{proj.name}.settings.{proj.name}"
     env["PYTHONPATH"] = str(proj.project_path)
+
+    try:
+        env = ensure_mongodb(env)
+    except Exception:
+        pass
 
     script = "\n".join(
         [
