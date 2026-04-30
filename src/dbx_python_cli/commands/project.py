@@ -696,6 +696,15 @@ def _install_with_repos(
 
         # Check if this repo should be added to sys.path rather than pip-installed.
         group_name = (repo_info or {}).get("group")
+        if group_name is None:
+            # repo was freshly cloned — look up its group from config
+            for gname, gcfg in config.get("repo", {}).get("groups", {}).items():
+                if any(
+                    url.split("/")[-1].replace(".git", "") == repo_name
+                    for url in gcfg.get("repos", [])
+                ):
+                    group_name = gname
+                    break
         use_sys_path = group_name is not None and config.get("repo", {}).get(
             "groups", {}
         ).get(group_name, {}).get("sys_path", {}).get(repo_name, False)
