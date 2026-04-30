@@ -974,8 +974,8 @@ def _enable_qe(project_path: Path, project_name: str, wagtail: bool = False) -> 
         if qe_settings_file.exists():
             qe_content = qe_settings_file.read_text()
             qe_content = qe_content.replace(
-                '"medical_records.django_only"',
-                '"medical_records.wagtail"',
+                '"medical_records.medical_records_django"',
+                '"medical_records.medical_records_wagtail"',
             )
             qe_settings_file.write_text(qe_content)
 

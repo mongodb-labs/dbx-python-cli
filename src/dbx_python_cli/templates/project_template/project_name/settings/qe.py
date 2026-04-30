@@ -3,7 +3,7 @@ import os  # noqa: F401
 from pymongo.encryption_options import AutoEncryptionOpts
 
 QE_INSTALLED_APPS = [
-    "medical_records.django_only",
+    "medical_records.medical_records_django",
 ]
 
 DATABASES = {
