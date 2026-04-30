@@ -69,7 +69,7 @@ def test_project_edit_help():
     result = runner.invoke(app, ["project", "edit", "--help"])
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
-    assert "Edit project settings file with your default editor" in output
+    assert "Edit project settings files with your default editor" in output
     assert "--settings" in output
     assert "--directory" in output
 

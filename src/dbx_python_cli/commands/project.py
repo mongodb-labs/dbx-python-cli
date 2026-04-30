@@ -1739,40 +1739,52 @@ def edit_project(
     ),
 ):
     """
-    Edit project settings file with your default editor.
+    Edit project settings files with your default editor.
 
-    Opens the project's settings file using the editor specified in the EDITOR
-    environment variable. If EDITOR is not set, falls back to common editors
-    (vim, nano, vi) or uses 'open' on macOS.
+    Opens all files in the project's settings/ directory by default. Pass
+    --settings to open a single specific file instead.
+
+    Uses the editor from the EDITOR environment variable; falls back to vim,
+    nano, vi, or 'open' on macOS.
 
     If no project name is provided, uses the most recently created project.
 
     Examples::
 
-        dbx project edit                      # Edit newest project's settings
-        dbx project edit myproject            # Edit myproject's settings
-        dbx project edit myproject --settings base  # Edit base settings
-        dbx project edit myproject -s qe      # Edit qe settings
+        dbx project edit                      # Edit all settings files
+        dbx project edit myproject            # Edit myproject's settings files
+        dbx project edit myproject --settings base  # Edit only base settings
+        dbx project edit myproject -s qe      # Edit only qe settings
         EDITOR=code dbx project edit          # Open with VS Code
     """
     # Resolve project path
     proj = resolve_project_path(name, directory)
 
-    # Determine which settings file to edit
-    settings_module = settings if settings else proj.name
-    settings_file = proj.project_path / proj.name / "settings" / f"{settings_module}.py"
+    settings_dir = proj.project_path / proj.name / "settings"
 
-    if not settings_file.exists():
-        typer.echo(f"❌ Settings file not found: {settings_file}", err=True)
-        typer.echo(
-            f"\nAvailable settings files in {proj.project_path / proj.name / 'settings'}:"
+    if settings:
+        # Single file requested via --settings
+        settings_file = settings_dir / f"{settings}.py"
+        if not settings_file.exists():
+            typer.echo(f"❌ Settings file not found: {settings_file}", err=True)
+            typer.echo(f"\nAvailable settings files in {settings_dir}:")
+            if settings_dir.exists():
+                for f in sorted(settings_dir.glob("*.py")):
+                    if f.name != "__init__.py":
+                        typer.echo(f"  • {f.stem}")
+            raise typer.Exit(code=1)
+        files_to_edit = [settings_file]
+    else:
+        # Open all settings files (excluding __init__.py)
+        if not settings_dir.exists():
+            typer.echo(f"❌ Settings directory not found: {settings_dir}", err=True)
+            raise typer.Exit(code=1)
+        files_to_edit = sorted(
+            f for f in settings_dir.glob("*.py") if f.name != "__init__.py"
         )
-        settings_dir = proj.project_path / proj.name / "settings"
-        if settings_dir.exists():
-            for file in settings_dir.glob("*.py"):
-                if file.name != "__init__.py":
-                    typer.echo(f"  • {file.stem}")
-        raise typer.Exit(code=1)
+        if not files_to_edit:
+            typer.echo(f"❌ No settings files found in {settings_dir}", err=True)
+            raise typer.Exit(code=1)
 
     # Get editor from environment variable
     editor = os.environ.get("EDITOR")
@@ -1782,12 +1794,7 @@ def edit_project(
         common_editors = ["vim", "nano", "vi"]
         for candidate in common_editors:
             try:
-                # Check if editor exists in PATH
-                subprocess.run(
-                    ["which", candidate],
-                    check=True,
-                    capture_output=True,
-                )
+                subprocess.run(["which", candidate], check=True, capture_output=True)
                 editor = candidate
                 break
             except subprocess.CalledProcessError:
@@ -1807,14 +1814,18 @@ def edit_project(
                 typer.echo("\nExample: export EDITOR=nano")
                 raise typer.Exit(1)
 
-    typer.echo(f"📝 Opening {settings_file} with {editor}...")
+    label = (
+        files_to_edit[0].name
+        if len(files_to_edit) == 1
+        else f"{len(files_to_edit)} settings files"
+    )
+    typer.echo(f"📝 Opening {label} with {editor}...")
 
     try:
-        # Open the editor
-        result = subprocess.run([editor, str(settings_file)])
+        result = subprocess.run([editor] + [str(f) for f in files_to_edit])
 
         if result.returncode == 0:
-            typer.echo("✅ Settings file saved")
+            typer.echo("✅ Settings files saved")
         else:
             typer.echo(
                 f"⚠️  Editor exited with code {result.returncode}",
