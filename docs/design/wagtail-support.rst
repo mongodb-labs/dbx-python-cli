@@ -8,28 +8,22 @@ Overview
 
 Wagtail is a Django-based CMS with its own migration history, admin URL patterns, and serialization assumptions. Several of those assumptions are incompatible with MongoDB out of the box. The template ships with a set of targeted patches and conventions that make Wagtail work with ``django-mongodb-backend`` without forking Wagtail itself.
 
-Empty Migration Directories
-----------------------------
+Migration Modules
+------------------
 
-**Decision: redirect all Wagtail app migrations to empty in-project directories**
+**Decision: configure ``MIGRATION_MODULES`` in settings and generate migrations with ``makemigrations``**
 
-Wagtail ships with its own migration files (``wagtail/migrations/0001_initial.py``, etc.). On MongoDB those migrations are not needed: the driver creates collections automatically on first insert. Running them would also fail because they include SQL-style ``ALTER TABLE`` assumptions.
-
-The ``WAGTAIL_MIGRATION_MODULES`` dict in the project's ``settings/wagtail.py`` redirects every Wagtail app to an empty package inside the project's own ``migrations/`` directory:
+Wagtail ships with its own migration files that include SQL-style assumptions incompatible with MongoDB. The project's ``settings/wagtail.py`` uses ``MIGRATION_MODULES`` to redirect each Wagtail app to an in-project package:
 
 .. code-block:: python
 
-   WAGTAIL_MIGRATION_MODULES = {
+   MIGRATION_MODULES = {
        "wagtailcore": "myproject.migrations.wagtailcore",
        "wagtailadmin": "myproject.migrations.wagtailadmin",
-       # ... one empty __init__.py per app
+       # ... one entry per Wagtail app
    }
 
-Each of those packages contains only an ``__init__.py``. Django sees zero migration files and skips the app during ``migrate``, while MongoDB creates the underlying collections on demand.
-
-**Why not ``MIGRATION_MODULES = {"wagtailcore": None}``?**
-
-Setting an app to ``None`` opts it into Django's syncdb path. When an app that inherits from a migration-framework app (e.g. ``wagtailcore``) is itself set to ``None``, Django raises ``InvalidBasesError: Cannot resolve bases for [<ModelState: 'home.HomePage'>]`` because it cannot reconcile the inheritance hierarchy across the syncdb/migration boundary. Empty directories avoid this entirely — both sides participate in the migration framework with zero files each, so no base resolution is attempted.
+Run ``manage.py makemigrations`` after configuring this to generate MongoDB-compatible migration files for each app. Django will use these in-project migrations instead of the ones bundled with Wagtail.
 
 No ``home`` App
 ---------------
