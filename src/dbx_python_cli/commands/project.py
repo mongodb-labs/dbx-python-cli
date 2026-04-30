@@ -1156,9 +1156,13 @@ def _add_frontend(
         shutil.copytree(src, app_path)
 
 
-def _drop_project_databases(proj, python_path: str, env: dict) -> None:
+def _drop_project_databases(proj, python_path: str) -> None:
     """Drop all MongoDB databases declared in the project's Django settings."""
     import json as _json
+
+    env = os.environ.copy()
+    env["DJANGO_SETTINGS_MODULE"] = f"{proj.name}.settings.{proj.name}"
+    env["PYTHONPATH"] = str(proj.project_path)
 
     script = "\n".join(
         [
@@ -1227,8 +1231,7 @@ def remove_project(
     # Drop MongoDB databases associated with the project (non-fatal)
     try:
         python_path, _ = get_django_python_path(proj, directory)
-        drop_env = setup_django_command_env(proj, None, include_dyld_fallback=False)
-        _drop_project_databases(proj, python_path, drop_env)
+        _drop_project_databases(proj, python_path)
     except Exception as e:
         typer.echo(f"⚠️  Could not drop databases: {e}", err=True)
 
