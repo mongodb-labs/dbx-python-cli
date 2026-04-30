@@ -25,14 +25,6 @@ Wagtail ships with its own migration files that include SQL-style assumptions in
 
 Run ``manage.py makemigrations`` after configuring this to generate MongoDB-compatible migration files for each app. Django will use these in-project migrations instead of the ones bundled with Wagtail.
 
-No ``home`` App
----------------
-
-**Decision: do not ship a custom ``HomePage`` model**
-
-Early versions of the template included a ``home`` app with a ``HomePage(Page)`` model. This triggered the ``InvalidBasesError`` described above. Rather than add migration plumbing for a trivial subclass, the template was simplified: the initial Wagtail root page and home page are created as plain ``wagtail.models.Page`` instances by ``_setup_wagtail_initial_data`` at first ``dbx project run``.
-
-This keeps the template lean and avoids a class of migration issues whenever Wagtail is upgraded.
 
 Custom App Configurations
 --------------------------
