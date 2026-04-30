@@ -1156,6 +1156,44 @@ def _add_frontend(
         shutil.copytree(src, app_path)
 
 
+def _drop_project_databases(proj, python_path: str, env: dict) -> None:
+    """Drop all MongoDB databases declared in the project's Django settings."""
+    import json as _json
+
+    script = "\n".join(
+        [
+            "import json, django, pymongo",
+            "django.setup()",
+            "from django.conf import settings",
+            "dropped = []",
+            "for cfg in settings.DATABASES.values():",
+            "    if 'django_mongodb_backend' in cfg.get('ENGINE', '') and cfg.get('NAME'):",
+            "        pymongo.MongoClient(cfg['HOST']).drop_database(cfg['NAME'])",
+            "        dropped.append(cfg['NAME'])",
+            "print(json.dumps(dropped))",
+        ]
+    )
+    result = subprocess.run(
+        [python_path, "-c", script],
+        cwd=proj.project_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.strip().splitlines()
+        msg = stderr[-1] if stderr else "unknown error"
+        typer.echo(f"⚠️  Database drop script failed: {msg}", err=True)
+        return
+    try:
+        dropped = _json.loads(result.stdout)
+    except ValueError:
+        return
+    for name in dropped:
+        typer.echo(f"🗑️  Dropped database '{name}'")
+
+
 @app.command("remove")
 def remove_project(
     name: str = typer.Argument(None, help="Project name (defaults to newest project)"),
@@ -1185,6 +1223,14 @@ def remove_project(
             f"❌ Project {proj.name} does not exist at {proj.project_path}.", err=True
         )
         return
+
+    # Drop MongoDB databases associated with the project (non-fatal)
+    try:
+        python_path, _ = get_django_python_path(proj, directory)
+        drop_env = setup_django_command_env(proj, None, include_dyld_fallback=False)
+        _drop_project_databases(proj, python_path, drop_env)
+    except Exception as e:
+        typer.echo(f"⚠️  Could not drop databases: {e}", err=True)
 
     # Try to uninstall the package from the current environment before
     # removing the project directory. Failures here are non-fatal so that
