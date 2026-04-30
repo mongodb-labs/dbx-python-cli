@@ -538,6 +538,134 @@ def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
     assert '"pymongocrypt"' not in deps_section
 
 
+def test_clone_repo_from_config_not_in_config(tmp_path):
+    """Returns None when repo name is not in any config group."""
+    from dbx_python_cli.commands.project import _clone_repo_from_config
+
+    config = {
+        "repo": {
+            "groups": {"mygroup": {"repos": ["https://github.com/org/other-repo.git"]}}
+        }
+    }
+    result = _clone_repo_from_config("medical-records", tmp_path, config, flat=False)
+    assert result is None
+
+
+def test_clone_repo_from_config_clones_when_in_config(tmp_path):
+    """Clones the repo and returns its path when it appears in a config group."""
+    from dbx_python_cli.commands.project import _clone_repo_from_config
+
+    config = {
+        "repo": {
+            "groups": {
+                "mygroup": {"repos": ["https://github.com/mongodb/medical-records.git"]}
+            }
+        }
+    }
+    repo_path = tmp_path / "mygroup" / "medical-records"
+
+    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        result = _clone_repo_from_config(
+            "medical-records", tmp_path, config, flat=False
+        )
+
+    assert result == repo_path
+    mock_run.assert_called_once_with(
+        [
+            "git",
+            "clone",
+            "https://github.com/mongodb/medical-records.git",
+            str(repo_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_clone_repo_from_config_clone_failure_returns_none(tmp_path):
+    """Returns None when git clone fails."""
+    import subprocess
+    from dbx_python_cli.commands.project import _clone_repo_from_config
+
+    config = {
+        "repo": {
+            "groups": {
+                "mygroup": {"repos": ["https://github.com/mongodb/medical-records.git"]}
+            }
+        }
+    }
+
+    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git clone")
+        result = _clone_repo_from_config(
+            "medical-records", tmp_path, config, flat=False
+        )
+
+    assert result is None
+
+
+def test_install_with_repos_auto_clones_from_config(tmp_path):
+    """When a repo is not cloned locally but is in config, it gets cloned then installed."""
+    from dbx_python_cli.commands.project import _install_with_repos
+
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "flat": False,
+            "groups": {
+                "mygroup": {"repos": ["https://github.com/mongodb/medical-records.git"]}
+            },
+        }
+    }
+    clone_path = tmp_path / "mygroup" / "medical-records"
+
+    with (
+        patch("dbx_python_cli.commands.project.get_config", return_value=config),
+        patch("dbx_python_cli.commands.project.get_base_dir", return_value=tmp_path),
+        patch("dbx_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch(
+            "dbx_python_cli.commands.project._clone_repo_from_config",
+            return_value=clone_path,
+        ) as mock_clone,
+        patch(
+            "dbx_python_cli.commands.project.install_package", return_value="success"
+        ) as mock_install,
+    ):
+        _install_with_repos(["medical-records"], "/usr/bin/python")
+
+    mock_clone.assert_called_once()
+    mock_install.assert_called_once_with(
+        clone_path,
+        "/usr/bin/python",
+        install_dir=None,
+        extras=None,
+        groups=None,
+        verbose=False,
+    )
+
+
+def test_install_with_repos_skips_when_not_in_config(tmp_path):
+    """Emits a warning and skips when repo is not local and not in config."""
+    from dbx_python_cli.commands.project import _install_with_repos
+
+    config = {"repo": {"base_dir": str(tmp_path), "flat": False, "groups": {}}}
+
+    with (
+        patch("dbx_python_cli.commands.project.get_config", return_value=config),
+        patch("dbx_python_cli.commands.project.get_base_dir", return_value=tmp_path),
+        patch("dbx_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch(
+            "dbx_python_cli.commands.project._clone_repo_from_config", return_value=None
+        ),
+        patch("dbx_python_cli.commands.project.install_package") as mock_install,
+    ):
+        _install_with_repos(["medical-records"], "/usr/bin/python")
+
+    mock_install.assert_not_called()
+
+
 def test_qe_with_medical_records_adds_app_to_installed_apps(tmp_path):
     """When --qe and --with medical-records are both used, medical_records must be in INSTALLED_APPS.
 

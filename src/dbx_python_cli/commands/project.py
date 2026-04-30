@@ -28,6 +28,7 @@ from dbx_python_cli.utils.repo import (
     get_base_dir,
     get_config,
     get_projects_dir,
+    get_python_version,
     is_flat_mode,
 )
 from dbx_python_cli.utils.venv import get_venv_info
@@ -348,6 +349,8 @@ def add_project(
         # Caller already determined the venv (e.g. from `dbx test django`); use it directly.
         python_path = python_path_override
     else:
+        config_python_version = get_python_version(config)
+        need_new_venv = False
         try:
             if directory is None and not use_base_dir_override:
                 # Using config-based base_dir/projects/name
@@ -367,14 +370,29 @@ def add_project(
                 # Check: activated venv only
                 python_path, venv_type = get_venv_info(None, None, base_path=None)
 
-            # Show which venv is being used
-            if venv_type == "group":
-                typer.echo(f"✅ Using group venv: {Path(python_path).parent.parent}\n")
-            elif venv_type == "base":
-                typer.echo(f"✅ Using base venv: {base_dir}/.venv\n")
-            elif venv_type == "venv":
-                typer.echo(f"✅ Using activated venv: {python_path}\n")
+            # If config pins a Python version, reject found venvs that don't match
+            if config_python_version and auto_install:
+                found_ver = _venv_python_version(python_path)
+                if found_ver and found_ver != config_python_version:
+                    typer.echo(
+                        f"⚠️  Found Python {found_ver} venv but config requires "
+                        f"{config_python_version} — creating project-specific venv.\n"
+                    )
+                    need_new_venv = True
+
+            if not need_new_venv:
+                if venv_type == "group":
+                    typer.echo(
+                        f"✅ Using group venv: {Path(python_path).parent.parent}\n"
+                    )
+                elif venv_type == "base":
+                    typer.echo(f"✅ Using base venv: {base_dir}/.venv\n")
+                elif venv_type == "venv":
+                    typer.echo(f"✅ Using activated venv: {python_path}\n")
         except typer.Exit:
+            need_new_venv = True
+
+        if need_new_venv:
             if not auto_install:
                 # When --no-install is given we only need django-admin to scaffold
                 # the project — no installation step runs, so a dedicated venv is
@@ -382,7 +400,7 @@ def add_project(
                 # will be available as long as Django is installed in this env.
                 python_path = sys.executable
             else:
-                # No venv found — create one automatically before continuing.
+                # No suitable venv found — create one with the configured Python version.
                 if directory is None and not use_base_dir_override:
                     venv_parent = projects_dir
                 elif use_base_dir_override:
@@ -390,9 +408,18 @@ def add_project(
                 else:
                     venv_parent = directory
                 typer.echo(
-                    f"⚙️  No virtual environment found. Creating one at {venv_parent / '.venv'}..."
+                    "⚙️  Creating virtual environment"
+                    + (
+                        f" (Python {config_python_version})"
+                        if config_python_version
+                        else ""
+                    )
+                    + f" at {venv_parent / '.venv'}..."
                 )
-                python_path = _create_venv(venv_parent / ".venv")
+                python_path = _create_venv(
+                    venv_parent / ".venv",
+                    python_version=config_python_version,
+                )
                 venv_type = "group"
 
     # Ensure Django is importable in the venv — install it if not.
@@ -605,22 +632,44 @@ def add_project(
             typer.echo(f"⚠️  Failed to install medical-records: {e}", err=True)
 
 
+def _venv_python_version(python_path: str) -> Optional[str]:
+    """Return the 'major.minor' Python version for a given executable, or None on error."""
+    result = subprocess.run(
+        [
+            python_path,
+            "-c",
+            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
 def _install_with_repos(
     repo_names: List[str], python_path: str, verbose: bool = False
 ) -> None:
     """Install local clones into the project venv by name."""
-    from dbx_python_cli.utils.repo import find_repo_by_name
+    from dbx_python_cli.utils.repo import find_repo_by_name, is_flat_mode
 
     config = get_config()
     base_dir = get_base_dir(config)
+    flat = is_flat_mode(config)
     for repo_name in repo_names:
         repo_info = find_repo_by_name(repo_name, base_dir, config)
         if not repo_info:
-            typer.echo(
-                f"⚠️  Clone '{repo_name}' not found locally — skipping.", err=True
+            clone_path = _clone_repo_from_config(
+                repo_name, base_dir, config, flat, verbose
             )
-            continue
-        clone_path = repo_info["path"]
+            if clone_path is None:
+                typer.echo(
+                    f"⚠️  Clone '{repo_name}' not found locally and not in repos config — skipping.",
+                    err=True,
+                )
+                continue
+        else:
+            clone_path = repo_info["path"]
         typer.echo(f"📦 Installing '{repo_name}' from local clone at {clone_path}...")
         result = install_package(
             clone_path,
@@ -636,12 +685,60 @@ def _install_with_repos(
             typer.echo(f"⚠️  Failed to install '{repo_name}'", err=True)
 
 
-def _create_venv(venv_path: Path) -> str:
+def _clone_repo_from_config(
+    repo_name: str,
+    base_dir: Path,
+    config: dict,
+    flat: bool,
+    verbose: bool = False,
+) -> Optional[Path]:
+    """Clone a repo by name if it appears in a config group. Returns the clone path, or None."""
+    from dbx_python_cli.utils.repo import get_group_dir, get_repo_groups
+
+    groups = get_repo_groups(config)
+    found_url = None
+    found_group = None
+
+    for group_name, group_config in groups.items():
+        for repo_url in group_config.get("repos", []):
+            if repo_url.split("/")[-1].replace(".git", "") == repo_name:
+                found_url = repo_url
+                found_group = group_name
+                break
+        if found_url:
+            break
+
+    if not found_url:
+        return None
+
+    group_dir = get_group_dir(base_dir, found_group, flat)
+    repo_path = group_dir / repo_name
+    group_dir.mkdir(parents=True, exist_ok=True)
+
+    typer.echo(f"  📥 Cloning '{repo_name}' from config (group: {found_group})...")
+    try:
+        subprocess.run(
+            ["git", "clone", found_url, str(repo_path)],
+            check=True,
+            capture_output=not verbose,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"❌ Failed to clone '{repo_name}': {e}", err=True)
+        return None
+
+    return repo_path
+
+
+def _create_venv(venv_path: Path, python_version: Optional[str] = None) -> str:
     """Create a venv with uv and return the python executable path."""
     import platform
 
+    cmd = ["uv", "venv", str(venv_path), "--no-python-downloads"]
+    if python_version:
+        cmd += ["--python", python_version]
     result = subprocess.run(
-        ["uv", "venv", str(venv_path), "--no-python-downloads"],
+        cmd,
         capture_output=True,
         text=True,
         check=False,
