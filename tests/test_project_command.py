@@ -576,3 +576,29 @@ def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
         content.index("dependencies") : content.index("[project.optional-dependencies]")
     ]
     assert '"pymongocrypt"' not in deps_section
+
+
+def test_qe_with_medical_records_adds_django_app_to_installed_apps(tmp_path):
+    """When --qe and --with medical-records are both used, medical_records.django must be in INSTALLED_APPS.
+
+    _enable_qe uncomments the QE import block in the project settings, which adds
+    QE_INSTALLED_APPS (containing medical_records.django) to INSTALLED_APPS.
+    """
+    from dbx_python_cli.commands.project import _enable_qe
+
+    settings_dir = tmp_path / "myproject" / "settings"
+    settings_dir.mkdir(parents=True)
+    settings_file = settings_dir / "myproject.py"
+    settings_file.write_text(
+        "# from .qe import *  # noqa\n"
+        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
+    )
+    qe_file = settings_dir / "qe.py"
+    qe_file.write_text('QE_INSTALLED_APPS = ["medical_records.django"]\n')
+
+    _enable_qe(tmp_path, "myproject")
+
+    settings_content = settings_file.read_text()
+    assert "from .qe import *  # noqa" in settings_content
+    assert "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405" in settings_content
+    assert '"medical_records.django"' in qe_file.read_text()
