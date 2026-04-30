@@ -41,6 +41,8 @@ The template includes a ``home`` app (mirroring what ``wagtail start`` generates
 
 ``dbx project run`` creates the Wagtail root page and a ``HomePage`` instance programmatically (not via a data migration), then points the default ``Site`` at that home page. The Wagtail admin is immediately usable on first run.
 
+The template also includes ``templates/base.html`` (following the ``wagtail start`` pattern) with the standard Wagtail blocks — ``content``, ``extra_css``, ``extra_js``, ``title``, ``body_class`` — and ``{% wagtailuserbar %}`` for the live preview toolbar.
+
 To add more page types, subclass ``Page`` in a new app or in ``home/models.py`` and run ``manage.py makemigrations``.
 
 Custom App Configurations
@@ -97,7 +99,7 @@ Flag-Based Enablement
 
 **Decision: Wagtail config is commented out by default, activated by ``--wagtail``**
 
-The project template always includes the Wagtail settings file and URL infrastructure, but the settings are commented out in ``<project_name>/settings/<project_name>.py``. Running ``dbx project add --wagtail`` calls ``_enable_wagtail()`` which uncomments the five relevant lines and appends Wagtail URL patterns to ``urls.py``.
+The project template always includes the Wagtail settings file and URL infrastructure, but the settings are commented out in ``<project_name>/settings/<project_name>.py``. Running ``dbx project add --wagtail`` calls ``_enable_wagtail()`` which uncomments the five relevant lines, removes the default ``HomeView`` root route from ``urls.py``, and appends the Wagtail URL patterns (``/cms/``, ``/documents/``, and the catch-all ``/``) so Wagtail serves the site root.
 
 This approach means:
 
