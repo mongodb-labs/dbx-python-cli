@@ -1089,11 +1089,12 @@ def _setup_wagtail_initial_data(
         "        from django.conf import settings as _s",
         "        from django.contrib.contenttypes.models import ContentType",
         "        from wagtail.models import Locale, Site",
+        f"        from {proj.name}.home.models import HomePage",
         "        lang = (getattr(_s, 'LANGUAGE_CODE', 'en') or 'en').split('-')[0][:2]",
         "        locale, _ = Locale.objects.get_or_create(language_code=lang)",
         "        page_ct, _ = ContentType.objects.get_or_create(app_label='wagtailcore', model='page')",
         "        root = Page.add_root(title='Root', slug='root', content_type=page_ct, locale=locale)",
-        "        home = root.add_child(instance=Page(title='Home', slug='home', content_type=page_ct, locale=locale))",
+        "        home = root.add_child(instance=HomePage(title='Home', slug='home', locale=locale))",
         "        print('wagtail_root_created')",
         "        if not Site.objects.exists():",
         "            Site.objects.create(hostname='localhost', root_page=home, is_default_site=True)",
@@ -1386,11 +1387,33 @@ def run_project(
     venv_bin = str(Path(python_path).parent)
     env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
 
-    # Run migrations before starting server
-    typer.echo(f"🗄️  Running migrations for project '{proj.name}'")
     migrate_env = setup_django_command_env(
         proj, ctx, settings=settings, include_dyld_fallback=False
     )
+
+    # Generate migrations for Wagtail apps (MIGRATION_MODULES redirects them to
+    # in-project packages; makemigrations populates those packages on first run
+    # and is a no-op on subsequent runs when nothing has changed).
+    has_wagtail = subprocess.run(
+        [python_path, "-c", "import wagtail"],
+        cwd=proj.project_path,
+        env=migrate_env,
+        check=False,
+        capture_output=True,
+    )
+    if has_wagtail.returncode == 0:
+        typer.echo("⚙️  Generating Wagtail migrations...")
+        subprocess.run(
+            [python_path, "-m", "django", "makemigrations"],
+            cwd=proj.project_path,
+            env=migrate_env,
+            check=False,
+            capture_output=not verbose,
+            text=True,
+        )
+
+    # Run migrations before starting server
+    typer.echo(f"🗄️  Running migrations for project '{proj.name}'")
     result = subprocess.run(
         [python_path, "-m", "django", "migrate"],
         cwd=proj.project_path,

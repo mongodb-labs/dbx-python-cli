@@ -23,8 +23,25 @@ Wagtail ships with its own migration files that include SQL-style assumptions in
        # ... one entry per Wagtail app
    }
 
-Run ``manage.py makemigrations`` after configuring this to generate MongoDB-compatible migration files for each app. Django will use these in-project migrations instead of the ones bundled with Wagtail.
+``dbx project run`` automatically runs ``manage.py makemigrations`` before ``migrate`` whenever Wagtail is installed. On first run this populates the empty in-project packages with MongoDB-compatible migration files; on subsequent runs it is a no-op.
 
+Home App
+---------
+
+**Decision: ship a ``home`` app with a ``HomePage(Page)`` model**
+
+The template includes a ``home`` app (mirroring what ``wagtail start`` generates) so the site has a concrete starting point for building out page types:
+
+.. code-block:: python
+
+   # home/models.py
+   class HomePage(Page):
+       body = RichTextField(blank=True)
+       content_panels = Page.content_panels + [FieldPanel("body")]
+
+``dbx project run`` creates the Wagtail root page and a ``HomePage`` instance programmatically (not via a data migration), then points the default ``Site`` at that home page. The Wagtail admin is immediately usable on first run.
+
+To add more page types, subclass ``Page`` in a new app or in ``home/models.py`` and run ``manage.py makemigrations``.
 
 Custom App Configurations
 --------------------------
