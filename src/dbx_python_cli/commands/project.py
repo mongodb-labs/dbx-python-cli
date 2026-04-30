@@ -1110,7 +1110,11 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
 
 
 def _enable_bakerydemo(project_path: Path, project_name: str) -> None:
-    """Uncomment the bakerydemo block in settings."""
+    """Uncomment the bakerydemo block in settings and drop the home app.
+
+    bakerydemo.base already provides a HomePage, so keeping the project's
+    home app in INSTALLED_APPS causes a reverse accessor clash on page_ptr.
+    """
     settings_file = project_path / project_name / "settings" / f"{project_name}.py"
     if settings_file.exists():
         content = settings_file.read_text()
@@ -1123,6 +1127,13 @@ def _enable_bakerydemo(project_path: Path, project_name: str) -> None:
             "MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405",
         )
         settings_file.write_text(content)
+
+    # Remove the project's home app — bakerydemo.base provides its own HomePage.
+    wagtail_settings = project_path / project_name / "settings" / "wagtail.py"
+    if wagtail_settings.exists():
+        content = wagtail_settings.read_text()
+        content = content.replace(f'    "{project_name}.home",\n', "")
+        wagtail_settings.write_text(content)
 
 
 def _enable_qe(project_path: Path, project_name: str) -> None:
