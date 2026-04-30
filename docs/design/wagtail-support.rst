@@ -74,22 +74,6 @@ A ``viewsets.populate()`` idempotency guard is also included: both the local cop
 
 **Maintenance note:** this file must be re-diffed against the upstream ``wagtail/admin/urls/__init__.py`` on each Wagtail upgrade.
 
-Initial Data Setup
-------------------
-
-**Decision: create root page and default site in code, not via migrations**
-
-Because all Wagtail migrations are empty, Wagtail's ``0001_initial`` data migration (which normally creates the root ``Page`` and default ``Site``) never runs. ``_setup_wagtail_initial_data()`` in ``project.py`` fills this gap by running a small inline Python script via the project's venv after ``migrate`` completes:
-
-.. code-block:: python
-
-   # Simplified
-   if not Page.objects.filter(depth=1).exists():
-       root = Page.add_root(title="Root", slug="root", ...)
-       home = root.add_child(instance=Page(title="Home", slug="home", ...))
-       Site.objects.create(hostname="localhost", root_page=home, is_default_site=True)
-
-This is called automatically by ``dbx project run`` before the development server starts, so the Wagtail admin is immediately usable.
 
 Flag-Based Enablement
 ---------------------
