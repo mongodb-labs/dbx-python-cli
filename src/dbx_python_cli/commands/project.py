@@ -16,6 +16,7 @@ except ImportError:
     import importlib_resources as resources
 
 from dbx_python_cli.commands.install import (
+    install_as_sys_path,
     install_frontend_if_exists,
     install_package,
 )
@@ -692,15 +693,28 @@ def _install_with_repos(
                 continue
         else:
             clone_path = repo_info["path"]
-        typer.echo(f"📦 Installing '{repo_name}' from local clone at {clone_path}...")
-        result = install_package(
-            clone_path,
-            python_path,
-            install_dir=None,
-            extras=None,
-            groups=None,
-            verbose=verbose,
-        )
+
+        # Check if this repo should be added to sys.path rather than pip-installed.
+        group_name = (repo_info or {}).get("group")
+        use_sys_path = group_name is not None and config.get("repo", {}).get(
+            "groups", {}
+        ).get(group_name, {}).get("sys_path", {}).get(repo_name, False)
+
+        if use_sys_path:
+            typer.echo(f"🐍 Adding '{repo_name}' to sys.path at {clone_path}...")
+            result = install_as_sys_path(clone_path, python_path, verbose=verbose)
+        else:
+            typer.echo(
+                f"📦 Installing '{repo_name}' from local clone at {clone_path}..."
+            )
+            result = install_package(
+                clone_path,
+                python_path,
+                install_dir=None,
+                extras=None,
+                groups=None,
+                verbose=verbose,
+            )
         if result == "success":
             typer.echo(f"✅ '{repo_name}' installed")
         elif result == "failed":

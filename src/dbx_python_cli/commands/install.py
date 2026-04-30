@@ -325,6 +325,34 @@ def install_package(
     return "success"
 
 
+def install_as_sys_path(
+    repo_path: Path, python_path: str, verbose: bool = False
+) -> str:
+    """Add repo_path to the venv's sys.path via a .pth file in site-packages.
+
+    Used for repos without a pyproject.toml/setup.py that just need to be importable.
+    Returns "success" or "failed".
+    """
+    result = subprocess.run(
+        [python_path, "-c", "import site; print(site.getsitepackages()[0])"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        typer.echo(f"⚠️  Could not determine site-packages for {python_path}", err=True)
+        return "failed"
+
+    site_packages = Path(result.stdout.strip())
+    pth_file = site_packages / f"{repo_path.name}.pth"
+    pth_file.write_text(str(repo_path) + "\n")
+
+    if verbose:
+        typer.echo(f"[verbose] Wrote {pth_file}")
+
+    return "success"
+
+
 @app.callback(
     invoke_without_command=True, context_settings={"allow_interspersed_args": True}
 )
