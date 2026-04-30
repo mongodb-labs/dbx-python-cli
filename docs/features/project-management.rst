@@ -232,9 +232,12 @@ Run a Django project's development server with the ``run`` command:
 
 This will:
 
-1. Start the Django development server using ``manage.py runserver``
-2. Automatically start the frontend development server if a ``frontend/`` directory exists
-3. Handle graceful shutdown of both servers on CTRL-C
+1. Run ``manage.py migrate`` against the default database
+2. Run ``manage.py migrate --database encrypted`` if an ``encrypted`` database is configured (e.g. QE projects)
+3. Create a Django superuser (``admin`` / ``admin``) if one does not already exist
+4. Start the Django development server using ``manage.py runserver``
+5. Automatically start the frontend development server if a ``frontend/`` directory exists
+6. Handle graceful shutdown of both servers on CTRL-C
 
 Managing Projects
 -----------------
@@ -254,6 +257,35 @@ Run Django management commands with the ``manage`` command:
 
    # Run with MongoDB URI
    dbx project manage myproject --mongodb-uri mongodb://localhost:27017 shell
+
+Editing Settings
+----------------
+
+Open the project's settings files in your default editor with the ``edit`` command:
+
+.. code-block:: bash
+
+   # Open all settings files for the newest project
+   dbx project edit
+
+   # Open all settings files for a specific project
+   dbx project edit myproject
+
+   # Open a single settings file by name
+   dbx project edit myproject --settings base
+   dbx project edit myproject -s qe
+
+By default all ``.py`` files in the project's ``settings/`` directory (excluding ``__init__.py``) are opened together in one editor invocation. Pass ``--settings <name>`` to open only that file.
+
+The editor is determined by the ``EDITOR`` environment variable. If ``EDITOR`` is not set, the command falls back to ``vim``, ``nano``, ``vi``, or ``open`` (macOS).
+
+.. code-block:: bash
+
+   # Use VS Code
+   EDITOR=code dbx project edit myproject
+
+   # Use a specific settings file
+   EDITOR=nano dbx project edit myproject -s qe
 
 Creating Superusers
 -------------------
@@ -318,8 +350,11 @@ Remove a project with the ``remove`` command:
 
 This will:
 
-1. Attempt to uninstall the project package from the current Python environment
-2. Remove the project directory from the filesystem
+1. Drop all MongoDB databases associated with the project (reads ``settings.DATABASES`` and drops every database backed by ``django_mongodb_backend``, including the encrypted database for QE projects)
+2. Attempt to uninstall the project package from the current Python environment
+3. Remove the project directory from the filesystem
+
+Database deletion is non-fatal — if the database cannot be reached the warning is printed and filesystem cleanup proceeds normally.
 
 .. note::
 
@@ -341,7 +376,7 @@ The ``--with`` flag installs one or more local clones (managed by ``dbx clone``)
    # Combine with other flags
    dbx project add myproject --wagtail --with medical-records
 
-Each ``--with`` value is looked up by name using the same discovery logic as ``dbx install`` (respecting group priority from your config). If a clone is not found locally a warning is printed and that repo is skipped — the project is still created successfully.
+Each ``--with`` value is looked up by name using the same discovery logic as ``dbx install`` (respecting group priority from your config). If the clone is not found locally but the repo name appears in your config groups, it is cloned automatically before installation. If it cannot be found or cloned, a warning is printed and that repo is skipped — the project is still created successfully.
 
 This is useful when you want to develop against a local fork or in-progress version of a library rather than the PyPI release. For a dependency already in ``pyproject.toml`` (e.g. ``django-mongodb-extensions``), specifying ``--with`` reinstalls it from the local clone, overriding the PyPI version.
 
@@ -359,6 +394,8 @@ Projects use a shared virtual environment in the ``projects/`` directory:
    dbx env list
 
 **Auto-creation**: If no virtual environment is found when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level (``base_dir/projects/.venv``) and Django is bootstrapped into it before project scaffolding begins. You do not need to run ``dbx env init`` manually before your first ``dbx project add``.
+
+**Python version**: The venv is always created using the Python version specified by ``python_version`` in your config (e.g. ``3.13``). If an existing group venv is found but its Python version does not match the configured version, a fresh project-specific venv is created with the correct version instead.
 
 .. note::
 
