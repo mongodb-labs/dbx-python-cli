@@ -1034,6 +1034,12 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
 
     urls_file = project_path / project_name / "urls.py"
     if urls_file.exists():
+        content = urls_file.read_text()
+        # Remove the HomeView import and root route — Wagtail's catch-all takes over
+        content = content.replace("from .views import HomeView\n", "")
+        content = content.replace(
+            '    path("", HomeView.as_view(), name="default_urlconf"),\n', ""
+        )
         wagtail_block = (
             "\n\n# Wagtail CMS\n"
             "from django.conf import settings\n"
@@ -1049,8 +1055,7 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
             '    path("", include(wagtail_urls)),\n'
             "] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)\n"
         )
-        with open(urls_file, "a") as f:
-            f.write(wagtail_block)
+        urls_file.write_text(content + wagtail_block)
 
 
 def _enable_qe(project_path: Path, project_name: str) -> None:
