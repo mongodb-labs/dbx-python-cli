@@ -1356,6 +1356,40 @@ def run_project(
         raise typer.Exit(code=result.returncode)
     typer.echo("✅ Migrations completed successfully")
 
+    # Migrate the encrypted database if the project has one configured (e.g. QE projects)
+    has_encrypted_db = subprocess.run(
+        [
+            python_path,
+            "-c",
+            "import django; django.setup(); from django.conf import settings; "
+            "exit(0 if 'encrypted' in settings.DATABASES else 1)",
+        ],
+        cwd=proj.project_path,
+        env=migrate_env,
+        check=False,
+        capture_output=True,
+    )
+    if has_encrypted_db.returncode == 0:
+        typer.echo("🔐 Running migrations for encrypted database")
+        enc_result = subprocess.run(
+            [python_path, "-m", "django", "migrate", "--database", "encrypted"],
+            cwd=proj.project_path,
+            env=migrate_env,
+            check=False,
+            capture_output=not verbose,
+            text=True,
+        )
+        if enc_result.returncode != 0:
+            typer.echo("⚠️  Encrypted database migration failed", err=True)
+            if enc_result.stderr:
+                lines = [
+                    ln for ln in enc_result.stderr.strip().splitlines() if ln.strip()
+                ]
+                for line in lines[-3:]:
+                    typer.echo(f"   {line}", err=True)
+        else:
+            typer.echo("✅ Encrypted database migrations completed successfully")
+
     # Create initial Wagtail data (root page + default site) if Wagtail is installed
     _setup_wagtail_initial_data(python_path, proj, migrate_env, verbose)
 
