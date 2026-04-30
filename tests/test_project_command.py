@@ -502,9 +502,7 @@ def test_enable_qe_activates_settings(tmp_path):
         "# from .qe import *  # noqa\n"
         "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
     )
-    (settings_dir / "qe.py").write_text(
-        'QE_INSTALLED_APPS = ["medical_records.medical_records_django"]\n'
-    )
+    (settings_dir / "qe.py").write_text('QE_INSTALLED_APPS = ["medical_records"]\n')
 
     _enable_qe(tmp_path, "myproject")
 
@@ -512,48 +510,6 @@ def test_enable_qe_activates_settings(tmp_path):
     assert "# from .qe import *" not in content
     assert "from .qe import *  # noqa" in content
     assert "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405" in content
-
-
-def test_enable_qe_uses_django_app_by_default(tmp_path):
-    """Test that _enable_qe leaves medical_records.medical_records_django when wagtail=False."""
-    from dbx_python_cli.commands.project import _enable_qe
-
-    settings_dir = tmp_path / "myproject" / "settings"
-    settings_dir.mkdir(parents=True)
-    (settings_dir / "myproject.py").write_text(
-        "# from .qe import *  # noqa\n"
-        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
-    )
-    qe_file = settings_dir / "qe.py"
-    qe_file.write_text(
-        'QE_INSTALLED_APPS = ["medical_records.medical_records_django"]\n'
-    )
-
-    _enable_qe(tmp_path, "myproject", wagtail=False)
-
-    assert '"medical_records.medical_records_django"' in qe_file.read_text()
-
-
-def test_enable_qe_uses_wagtail_app_when_stacked(tmp_path):
-    """Test that _enable_qe replaces app with medical_records.medical_records_wagtail when wagtail=True."""
-    from dbx_python_cli.commands.project import _enable_qe
-
-    settings_dir = tmp_path / "myproject" / "settings"
-    settings_dir.mkdir(parents=True)
-    (settings_dir / "myproject.py").write_text(
-        "# from .qe import *  # noqa\n"
-        "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
-    )
-    qe_file = settings_dir / "qe.py"
-    qe_file.write_text(
-        'QE_INSTALLED_APPS = ["medical_records.medical_records_django"]\n'
-    )
-
-    _enable_qe(tmp_path, "myproject", wagtail=True)
-
-    qe_content = qe_file.read_text()
-    assert '"medical_records.medical_records_wagtail"' in qe_content
-    assert '"medical_records.medical_records_django"' not in qe_content
 
 
 def test_create_pyproject_toml_includes_pymongocrypt_when_qe(tmp_path):
@@ -582,11 +538,11 @@ def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
     assert '"pymongocrypt"' not in deps_section
 
 
-def test_qe_with_medical_records_adds_django_app_to_installed_apps(tmp_path):
-    """When --qe and --with medical-records are both used, medical_records.medical_records_django must be in INSTALLED_APPS.
+def test_qe_with_medical_records_adds_app_to_installed_apps(tmp_path):
+    """When --qe and --with medical-records are both used, medical_records must be in INSTALLED_APPS.
 
     _enable_qe uncomments the QE import block in the project settings, which adds
-    QE_INSTALLED_APPS (containing medical_records.medical_records_django) to INSTALLED_APPS.
+    QE_INSTALLED_APPS (containing medical_records) to INSTALLED_APPS.
     """
     from dbx_python_cli.commands.project import _enable_qe
 
@@ -598,13 +554,11 @@ def test_qe_with_medical_records_adds_django_app_to_installed_apps(tmp_path):
         "# INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405\n"
     )
     qe_file = settings_dir / "qe.py"
-    qe_file.write_text(
-        'QE_INSTALLED_APPS = ["medical_records.medical_records_django"]\n'
-    )
+    qe_file.write_text('QE_INSTALLED_APPS = ["medical_records"]\n')
 
     _enable_qe(tmp_path, "myproject")
 
     settings_content = settings_file.read_text()
     assert "from .qe import *  # noqa" in settings_content
     assert "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405" in settings_content
-    assert '"medical_records.medical_records_django"' in qe_file.read_text()
+    assert '"medical_records"' in qe_file.read_text()

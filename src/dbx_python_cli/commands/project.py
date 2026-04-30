@@ -514,7 +514,7 @@ def add_project(
     if add_qe:
         typer.echo(f"🔐 Enabling Queryable Encryption for project '{name}'...")
         try:
-            _enable_qe(project_path, name, wagtail=add_wagtail)
+            _enable_qe(project_path, name)
         except Exception as e:
             typer.echo(
                 f"⚠️  Project created successfully, but QE setup failed: {e}",
@@ -956,8 +956,8 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
             f.write(wagtail_block)
 
 
-def _enable_qe(project_path: Path, project_name: str, wagtail: bool = False) -> None:
-    """Uncomment the QE block in settings and select the correct medical_records app."""
+def _enable_qe(project_path: Path, project_name: str) -> None:
+    """Uncomment the QE block in settings."""
     settings_file = project_path / project_name / "settings" / f"{project_name}.py"
     if settings_file.exists():
         content = settings_file.read_text()
@@ -968,16 +968,6 @@ def _enable_qe(project_path: Path, project_name: str, wagtail: bool = False) -> 
             "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405",
         )
         settings_file.write_text(content)
-
-    if wagtail:
-        qe_settings_file = project_path / project_name / "settings" / "qe.py"
-        if qe_settings_file.exists():
-            qe_content = qe_settings_file.read_text()
-            qe_content = qe_content.replace(
-                '"medical_records.medical_records_django"',
-                '"medical_records.medical_records_wagtail"',
-            )
-            qe_settings_file.write_text(qe_content)
 
 
 def _setup_wagtail_initial_data(
