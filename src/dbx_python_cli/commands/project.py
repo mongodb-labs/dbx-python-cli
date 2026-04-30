@@ -238,6 +238,12 @@ def add_project(
         "-q/-Q",
         help="Enable Queryable Encryption (default: False)",
     ),
+    add_bakerydemo: bool = typer.Option(
+        False,
+        "--bakerydemo/--no-bakerydemo",
+        "-b/-B",
+        help="Enable bakerydemo demo apps (requires --wagtail).",
+    ),
     auto_install: bool = typer.Option(
         True,
         "--install/--no-install",
@@ -292,6 +298,8 @@ def add_project(
         add_wagtail = False
     if not isinstance(add_qe, bool):
         add_qe = False
+    if not isinstance(add_bakerydemo, bool):
+        add_bakerydemo = False
     if not isinstance(auto_install, bool):
         auto_install = True
     if not isinstance(python_path_override, (str, type(None))):
@@ -536,6 +544,20 @@ def add_project(
                 f"⚠️  Project created successfully, but Wagtail setup failed: {e}",
                 err=True,
             )
+
+    # Enable bakerydemo demo apps if requested
+    if add_bakerydemo:
+        if not add_wagtail:
+            typer.echo("⚠️  --bakerydemo requires --wagtail", err=True)
+        else:
+            typer.echo(f"🧁 Enabling bakerydemo demo apps for project '{name}'...")
+            try:
+                _enable_bakerydemo(project_path, name)
+            except Exception as e:
+                typer.echo(
+                    f"⚠️  Project created successfully, but bakerydemo setup failed: {e}",
+                    err=True,
+                )
 
     # Enable Queryable Encryption if requested
     if add_qe:
@@ -1062,6 +1084,22 @@ def _enable_wagtail(project_path: Path, project_name: str) -> None:
             "] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)\n"
         )
         urls_file.write_text(content + wagtail_block)
+
+
+def _enable_bakerydemo(project_path: Path, project_name: str) -> None:
+    """Uncomment the bakerydemo block in settings."""
+    settings_file = project_path / project_name / "settings" / f"{project_name}.py"
+    if settings_file.exists():
+        content = settings_file.read_text()
+        content = content.replace(
+            "# from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES  # noqa\n"
+            "# INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS  # noqa: F405\n"
+            "# MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405",
+            "from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES  # noqa\n"
+            "INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS  # noqa: F405\n"
+            "MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405",
+        )
+        settings_file.write_text(content)
 
 
 def _enable_qe(project_path: Path, project_name: str) -> None:

@@ -52,3 +52,22 @@ WAGTAIL_MIGRATION_MODULES = {
     "wagtailusers": "{{ project_name }}.migrations.wagtailusers",
     "taggit": "{{ project_name }}.migrations.taggit",
 }
+
+BAKERYDEMO_INSTALLED_APPS = [
+    "bakerydemo.base",
+    "bakerydemo.blog",
+    "bakerydemo.breads",
+    "bakerydemo.locations",
+    "bakerydemo.people",
+    "bakerydemo.recipes",
+    "bakerydemo.search",
+]
+
+BAKERYDEMO_MIGRATION_MODULES = {
+    "base": "{{ project_name }}.migrations.bakerydemo_base",
+    "blog": "{{ project_name }}.migrations.bakerydemo_blog",
+    "breads": "{{ project_name }}.migrations.bakerydemo_breads",
+    "locations": "{{ project_name }}.migrations.bakerydemo_locations",
+    "people": "{{ project_name }}.migrations.bakerydemo_people",
+    "recipes": "{{ project_name }}.migrations.bakerydemo_recipes",
+}

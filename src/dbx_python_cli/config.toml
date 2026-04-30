@@ -188,11 +188,8 @@ libmongocrypt = [
 [repo.groups.wagtail]
 repos = [
     "git@github.com:wagtail/wagtail.git",
-    "git@github.com:aclark4life/bakerydemo.git",
+    "git@github.com:wagtail/bakerydemo.git",
 ]
-
-[repo.groups.wagtail.preferred_branch]
-bakerydemo = "mongodb"
 
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
