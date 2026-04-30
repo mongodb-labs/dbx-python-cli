@@ -191,6 +191,9 @@ repos = [
     "git@github.com:aclark4life/bakerydemo.git",
 ]
 
+[repo.groups.wagtail.preferred_branch]
+bakerydemo = "mongodb"
+
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
 
