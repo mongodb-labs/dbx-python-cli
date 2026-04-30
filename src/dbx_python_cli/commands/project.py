@@ -727,6 +727,12 @@ def _clone_repo_from_config(
         typer.echo(f"❌ Failed to clone '{repo_name}': {e}", err=True)
         return None
 
+    from dbx_python_cli.utils.repo import get_preferred_branch, switch_to_branch
+
+    preferred_branch = get_preferred_branch(config, found_group, repo_name)
+    if preferred_branch:
+        switch_to_branch(repo_path, preferred_branch, verbose)
+
     return repo_path
 
 
