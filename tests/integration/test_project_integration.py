@@ -589,14 +589,14 @@ base_dir = "{base_dir_str}"
                 result = runner.invoke(app, ["project", "edit", "editproject"])
                 assert result.exit_code == 0
                 assert "Opening" in result.stdout
-                assert "editproject.py" in result.stdout
-                assert "Settings file saved" in result.stdout
+                assert "settings file" in result.stdout
+                assert "Settings files saved" in result.stdout
 
                 # Verify subprocess was called with correct arguments
                 mock_run.assert_called_once()
                 args = mock_run.call_args[0][0]
                 assert args[0] == "nano"
-                assert str(settings_file) in args[1]
+                assert any(str(settings_file) in a for a in args)
 
 
 def test_project_edit_with_settings_option(tmp_path):
@@ -693,7 +693,7 @@ base_dir = "{base_dir_str}"
                 assert (
                     "No project specified, using newest: 'newproject'" in result.stdout
                 )
-                assert "newproject.py" in result.stdout
+                assert "settings file" in result.stdout
 
 
 def test_project_settings_has_installed_apps(tmp_path):

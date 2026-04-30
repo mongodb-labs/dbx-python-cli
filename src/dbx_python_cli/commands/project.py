@@ -300,9 +300,9 @@ def add_project(
         with_repos = []
 
     # Determine project directory and name
+    config = get_config()
     use_base_dir_override = False
     if directory is None:
-        config = get_config()
         if base_dir is None:
             # Use base_dir/projects/name as default when using config
             if name is None:
