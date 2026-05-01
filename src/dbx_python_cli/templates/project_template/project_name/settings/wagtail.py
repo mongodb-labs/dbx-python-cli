@@ -55,6 +55,7 @@ WAGTAIL_MIGRATION_MODULES = {
 
 BAKERYDEMO_INSTALLED_APPS = [
     "bakerydemo",  # root package — exposes bakerydemo/templates/ to app_directories loader
+    "wagtailfontawesomesvg",
     "bakerydemo.base",
     "bakerydemo.blog",
     "bakerydemo.breads",
