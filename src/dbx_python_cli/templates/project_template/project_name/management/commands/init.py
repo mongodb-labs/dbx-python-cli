@@ -100,8 +100,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Done"))
 
     def _seed_bakerydemo(self, home):
-        from bakerydemo.blog.models import BlogIndexPage
-        from bakerydemo.breads.models import BreadsIndexPage
+        from bakerydemo.blog.models import BlogIndexPage, BlogPage
+        from bakerydemo.breads.models import BreadPage, BreadsIndexPage
         from bakerydemo.locations.models import LocationsIndexPage
         from bakerydemo.people.models import PeopleIndexPage
         from bakerydemo.recipes.models import RecipeIndexPage
@@ -116,11 +116,50 @@ class Command(BaseCommand):
             self.stdout.write(f"  created: {title}")
             return page
 
+        def get_or_create_grandchild(parent, page_cls, title, slug, **kwargs):
+            existing = page_cls.objects.filter(slug=slug).first()
+            if existing:
+                self.stdout.write(f"    exists: {title}")
+                return existing
+            page = page_cls(title=title, slug=slug, **kwargs)
+            parent.add_child(instance=page)
+            self.stdout.write(f"    created: {title}")
+            return page
+
         breads = get_or_create_child(BreadsIndexPage, "Breads", "breads")
         blog = get_or_create_child(BlogIndexPage, "Blog", "blog")
         get_or_create_child(LocationsIndexPage, "Locations", "locations")
         get_or_create_child(PeopleIndexPage, "People", "people")
         get_or_create_child(RecipeIndexPage, "Recipes", "recipes")
+
+        get_or_create_grandchild(
+            breads,
+            BreadPage,
+            "Sourdough",
+            "sourdough",
+            introduction="A tangy, chewy loaf with a crisp crust.",
+        )
+        get_or_create_grandchild(
+            breads,
+            BreadPage,
+            "Baguette",
+            "baguette",
+            introduction="The classic French stick — light, airy, and golden.",
+        )
+        get_or_create_grandchild(
+            breads,
+            BreadPage,
+            "Rye Bread",
+            "rye-bread",
+            introduction="Dense and earthy, made with whole rye flour.",
+        )
+        get_or_create_grandchild(
+            blog,
+            BlogPage,
+            "Welcome to the Bakery",
+            "welcome-to-the-bakery",
+            introduction="Our story, our passion, and our bread.",
+        )
 
         home.refresh_from_db()
         changed = False
