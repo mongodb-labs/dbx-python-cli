@@ -106,3 +106,64 @@ This approach means:
 - Non-Wagtail projects pay no runtime cost for the Wagtail infrastructure sitting in the template.
 - The same project can be inspected or upgraded to Wagtail by editing a few lines, without re-scaffolding.
 - ``--qe`` can be stacked with ``--wagtail`` to produce a Wagtail site with Queryable Encryption in a single command.
+
+bakerydemo Integration
+-----------------------
+
+**Decision: support ``--bakerydemo`` as an opt-in layer on top of ``--wagtail``**
+
+`bakerydemo <https://github.com/wagtail/bakerydemo>`_ is the official Wagtail demo project. Passing ``--wagtail --bakerydemo`` to ``dbx project add`` wires bakerydemo's content apps into the generated project without forking or modifying bakerydemo itself.
+
+What ``--bakerydemo`` does
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``_enable_bakerydemo()`` makes two changes to the generated project:
+
+1. **Uncomments the bakerydemo settings block** in ``<project_name>/settings/<project_name>.py``:
+
+   .. code-block:: python
+
+      from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES
+      INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS
+      MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)
+
+2. **Removes the project's own home app** from ``WAGTAIL_INSTALLED_APPS`` in ``settings/wagtail.py``. bakerydemo's ``HomePage`` (in ``bakerydemo.base``) replaces the template's ``<project_name>.home.HomePage``; keeping both causes a reverse-accessor clash on ``page_ptr``.
+
+``BAKERYDEMO_INSTALLED_APPS`` in the template's ``settings/wagtail.py`` includes:
+
+- ``"bakerydemo"`` — the root package, required so Django's ``app_directories`` template loader can find ``bakerydemo/templates/`` (bakerydemo stores all templates centrally, not per-app)
+- ``"wagtailfontawesomesvg"`` — the Font Awesome SVG icon pack used by the bakerydemo admin theme; must be in ``INSTALLED_APPS`` or Wagtail's admin raises ``TemplateDoesNotExist`` for icon files
+- ``"bakerydemo.base"``, ``"bakerydemo.blog"``, ``"bakerydemo.breads"``, ``"bakerydemo.locations"``, ``"bakerydemo.people"``, ``"bakerydemo.recipes"``, ``"bakerydemo.search"``
+
+``BAKERYDEMO_MIGRATION_MODULES`` redirects each bakerydemo app to an in-project stub package under ``<project_name>/migrations/``, following the same pattern as the Wagtail core apps.
+
+Installing bakerydemo
+~~~~~~~~~~~~~~~~~~~~~
+
+bakerydemo is not published on PyPI. It must be available on ``sys.path`` at runtime. The recommended approach is to clone it as a tracked repo and install it via the ``sys_path`` mechanism:
+
+.. code-block:: bash
+
+   # Clone bakerydemo as a tracked repo
+   dbx clone bakerydemo
+
+   # Create the project and link bakerydemo via sys.path (.pth file in the venv)
+   dbx project add myproject --wagtail --bakerydemo --with bakerydemo
+
+The ``--with bakerydemo`` flag calls ``install_as_sys_path()``, which writes a ``.pth`` file into the venv's ``site-packages/`` directory pointing at the cloned source tree. Django then imports bakerydemo directly from the clone without requiring a ``pip install``. Changes to the clone are reflected immediately without reinstalling.
+
+MongoDB Seeding
+~~~~~~~~~~~~~~~
+
+bakerydemo ships a ``load_initial_data`` management command that loads a PostgreSQL-format fixture (integer PKs). This fixture is incompatible with MongoDB's ObjectId primary keys.
+
+When ``manage.py init`` detects that both bakerydemo is installed and the active database engine is MongoDB, it seeds content programmatically instead:
+
+- **Index pages** — ``BreadsIndexPage``, ``BlogIndexPage``, ``LocationsIndexPage``, ``PeopleIndexPage``, ``RecipeIndexPage`` as children of the home page
+- **Sample breads** — Sourdough, Baguette, and Rye Bread as children of ``BreadsIndexPage``
+- **Sample blog post** — "Welcome to the Bakery" as a child of ``BlogIndexPage``
+- **Featured sections** — wires ``featured_section_1`` (Breads) and ``featured_section_2`` (Blog) on the home page
+
+All seeding is idempotent — objects are looked up by slug before creation. Re-running ``init`` after content already exists skips creation and exits cleanly.
+
+For SQL backends (PostgreSQL, SQLite), ``manage.py init`` delegates to ``load_initial_data`` as normal.

@@ -59,6 +59,9 @@ Create a new Django project with the ``add`` command:
    # Enable Wagtail CMS
    dbx project add myproject --wagtail
 
+   # Enable Wagtail with the official bakerydemo content apps
+   dbx project add myproject --wagtail --bakerydemo
+
    # Enable Queryable Encryption
    dbx project add myproject --qe
 
@@ -257,12 +260,14 @@ Run a Django project's development server with the ``run`` command:
 
 This will:
 
-1. Run ``manage.py migrate`` against the default database
-2. Run ``manage.py migrate --database encrypted`` if an ``encrypted`` database is configured (e.g. QE projects)
-3. Create a Django superuser (``admin`` / ``admin``) if one does not already exist
-4. Start the Django development server using ``manage.py runserver``
-5. Automatically start the frontend development server if a ``frontend/`` directory exists
-6. Handle graceful shutdown of both servers on CTRL-C
+1. Run ``manage.py makemigrations`` (Wagtail projects only — populates the in-project migration stubs on first run)
+2. Run ``manage.py migrate`` against the default database
+3. Run ``manage.py migrate --database encrypted`` if an ``encrypted`` database is configured (e.g. QE projects)
+4. Create a Django superuser (``admin`` / ``admin``) if one does not already exist
+5. Run ``manage.py init`` (Wagtail projects only — creates the root page, home page, and default site; see :ref:`wagtail-init`)
+6. Start the Django development server using ``manage.py runserver``
+7. Automatically start the frontend development server if a ``frontend/`` directory exists
+8. Handle graceful shutdown of both servers on CTRL-C
 
 Managing Projects
 -----------------
