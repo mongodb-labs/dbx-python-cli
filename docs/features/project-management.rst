@@ -123,7 +123,7 @@ The ``dbx install`` command now supports frontend installation for both projects
 
 .. _wagtail-init:
 
-Wagtail Initialisation
+Wagtail Initialization
 ----------------------
 
 After running ``migrate`` on a Wagtail project, run the ``init`` management command once to create the Wagtail page tree and default site:
