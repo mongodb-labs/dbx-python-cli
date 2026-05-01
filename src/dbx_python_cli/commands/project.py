@@ -21,6 +21,7 @@ from dbx_python_cli.commands.install import (
     install_package,
 )
 from dbx_python_cli.utils.project import (
+    _get_config_repo_names,
     get_django_python_path,
     resolve_project_path,
     setup_django_command_env,
@@ -1319,6 +1320,15 @@ def remove_project(
         )
         return
 
+    # Refuse to remove directories that are tracked repos in config
+    _config = get_config()
+    if proj.name in _get_config_repo_names(_config):
+        typer.echo(
+            f"❌ '{proj.name}' is a tracked repo in config — use 'dbx repo' commands instead.",
+            err=True,
+        )
+        return
+
     # Drop MongoDB databases associated with the project (non-fatal)
     try:
         python_path, _ = get_django_python_path(proj, directory)
@@ -1420,6 +1430,16 @@ def run_project(
 
     # Resolve project path and get venv
     proj = resolve_project_path(name, directory)
+
+    # Refuse to run directories that are tracked repos in config
+    _config = get_config()
+    if proj.name in _get_config_repo_names(_config):
+        typer.echo(
+            f"❌ '{proj.name}' is a tracked repo in config — use 'dbx repo' commands instead.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     python_path, venv_type = get_django_python_path(proj, directory)
 
     # Always sync project dependencies before starting to ensure all declared

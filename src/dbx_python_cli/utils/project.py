@@ -23,7 +23,18 @@ from dbx_python_cli.utils.repo import (
 from dbx_python_cli.utils.venv import get_venv_info
 
 
-def get_newest_project(projects_dir: Path) -> tuple[str, Path]:
+def _get_config_repo_names(config: dict) -> set:
+    """Return repo names declared in config groups (derived from URLs, not filesystem scan)."""
+    names = set()
+    for group_cfg in config.get("repo", {}).get("groups", {}).values():
+        for url in group_cfg.get("repos", []):
+            names.add(url.rstrip("/").split("/")[-1].replace(".git", ""))
+    return names
+
+
+def get_newest_project(
+    projects_dir: Path, exclude_names: Optional[set] = None
+) -> tuple[str, Path]:
     """
     Get the newest project from the projects directory.
 
@@ -38,10 +49,10 @@ def get_newest_project(projects_dir: Path) -> tuple[str, Path]:
         typer.echo("\nCreate a project using: dbx project add <name>")
         raise typer.Exit(code=1)
 
-    # Find all projects (directories with pyproject.toml)
+    exclude = exclude_names or set()
     projects = []
     for item in projects_dir.iterdir():
-        if item.is_dir() and (item / "manage.py").exists():
+        if item.is_dir() and item.name not in exclude and (item / "manage.py").exists():
             projects.append(item)
 
     if not projects:
@@ -103,9 +114,12 @@ def resolve_project_path(
         base_dir = get_base_dir(config)
         projects_dir = get_projects_dir(base_dir, is_flat_mode(config))
 
-        # If no name provided, find the newest project
+        # If no name provided, find the newest project (exclude tracked repos)
         if name is None:
-            name, project_path = get_newest_project(projects_dir)
+            tracked_repos = _get_config_repo_names(config)
+            name, project_path = get_newest_project(
+                projects_dir, exclude_names=tracked_repos
+            )
             typer.echo(f"ℹ️  No project specified, using newest: '{name}'")
         else:
             project_path = projects_dir / name
