@@ -39,7 +39,7 @@ The template includes a ``home`` app (mirroring what ``wagtail start`` generates
        body = RichTextField(blank=True)
        content_panels = Page.content_panels + [FieldPanel("body")]
 
-``dbx project run`` creates the Wagtail root page and a ``HomePage`` instance programmatically (not via a data migration), then points the default ``Site`` at that home page. The Wagtail admin is immediately usable on first run.
+The generated project includes a ``manage.py init`` command that creates the Wagtail root page and a ``HomePage`` instance programmatically (not via a data migration), then points the default ``Site`` at that home page. Run it once after ``migrate`` to make the Wagtail admin immediately usable. See :ref:`wagtail-init` for details.
 
 The template also includes ``templates/base.html`` (following the ``wagtail start`` pattern) with the standard Wagtail blocks — ``content``, ``extra_css``, ``extra_js``, ``title``, ``body_class`` — and ``{% wagtailuserbar %}`` for the live preview toolbar.
 

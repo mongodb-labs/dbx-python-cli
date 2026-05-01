@@ -5,16 +5,16 @@ Wagtail's data migrations (root page, default site) live in wagtail's own
 migration package and are not replicated when MIGRATION_MODULES redirects to
 empty stub packages, so this command creates them programmatically.
 
+Only relevant for Wagtail projects — exits cleanly on non-Wagtail installs.
+
 Usage:
-    python manage.py bootstrap
+    python manage.py init
 """
 
 import importlib
 
 from django.apps import apps
-from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
-from wagtail.models import Locale, Page, Site
 
 
 def _get_home_page_class():
@@ -32,9 +32,16 @@ def _get_home_page_class():
 
 
 class Command(BaseCommand):
-    help = "Bootstrap Wagtail root page, home page, and default site."
+    help = "Create the Wagtail root page, home page, and default site."
 
     def handle(self, **options):
+        try:
+            from django.contrib.contenttypes.models import ContentType
+            from wagtail.models import Locale, Page, Site
+        except ImportError:
+            self.stdout.write("Wagtail is not installed — nothing to do.")
+            return
+
         from django.conf import settings
 
         lang = (getattr(settings, "LANGUAGE_CODE", "en") or "en").split("-")[0][:2]
@@ -80,4 +87,4 @@ class Command(BaseCommand):
             )
             self.stdout.write("Created default site at localhost:8000")
 
-        self.stdout.write(self.style.SUCCESS("Bootstrap complete"))
+        self.stdout.write(self.style.SUCCESS("Done"))

@@ -121,6 +121,31 @@ This will:
 
 The ``dbx install`` command now supports frontend installation for both projects and regular repositories. If a ``frontend/`` directory is detected with a ``package.json`` file, npm dependencies will be installed automatically after the Python package installation completes.
 
+.. _wagtail-init:
+
+Wagtail Initialisation
+----------------------
+
+After running ``migrate`` on a Wagtail project, run the ``init`` management command once to create the Wagtail page tree and default site:
+
+.. code-block:: bash
+
+   dbx project manage <project_name> init
+
+This is necessary because ``MIGRATION_MODULES`` redirects Wagtail's migrations to in-project stub packages, so Wagtail's own data migrations — which normally create the root ``Page`` and default ``Site`` — never run. The ``init`` command recreates them programmatically.
+
+What it creates:
+
+- **Root page** (depth 1) — the treebeard root required by Wagtail, never served directly.
+- **Home page** (depth 2) — a live ``HomePage`` instance pointed at ``/``.
+
+  - For projects created with ``--bakerydemo``: uses ``bakerydemo.base.models.HomePage``.
+  - For all other Wagtail projects: uses the project's own ``<project_name>.home.models.HomePage``.
+
+- **Default site** — creates or updates the Wagtail ``Site`` record to point at the home page on ``localhost:8000``.
+
+The command is idempotent: re-running it after the pages already exist updates the site record to point at the existing home page and exits cleanly. On non-Wagtail projects it prints a message and exits without error.
+
 Switching Between MongoDB and PostgreSQL
 -----------------------------------------
 
