@@ -87,4 +87,51 @@ class Command(BaseCommand):
             )
             self.stdout.write("Created default site at localhost:8000")
 
+        if apps.is_installed("bakerydemo.base"):
+            engine = settings.DATABASES.get("default", {}).get("ENGINE", "")
+            if "mongodb" in engine:
+                self._seed_bakerydemo(home)
+            else:
+                from django.core.management import call_command
+
+                self.stdout.write("Loading bakerydemo fixture data...")
+                call_command("load_initial_data")
+
         self.stdout.write(self.style.SUCCESS("Done"))
+
+    def _seed_bakerydemo(self, home):
+        from bakerydemo.blog.models import BlogIndexPage
+        from bakerydemo.breads.models import BreadsIndexPage
+        from bakerydemo.locations.models import LocationsIndexPage
+        from bakerydemo.people.models import PeopleIndexPage
+        from bakerydemo.recipes.models import RecipeIndexPage
+
+        def get_or_create_child(page_cls, title, slug):
+            existing = page_cls.objects.filter(slug=slug).first()
+            if existing:
+                self.stdout.write(f"  exists: {title}")
+                return existing
+            page = page_cls(title=title, slug=slug)
+            home.add_child(instance=page)
+            self.stdout.write(f"  created: {title}")
+            return page
+
+        breads = get_or_create_child(BreadsIndexPage, "Breads", "breads")
+        blog = get_or_create_child(BlogIndexPage, "Blog", "blog")
+        get_or_create_child(LocationsIndexPage, "Locations", "locations")
+        get_or_create_child(PeopleIndexPage, "People", "people")
+        get_or_create_child(RecipeIndexPage, "Recipes", "recipes")
+
+        home.refresh_from_db()
+        changed = False
+        if home.featured_section_1 is None:
+            home.featured_section_1 = breads
+            home.featured_section_1_title = "Breads"
+            changed = True
+        if home.featured_section_2 is None:
+            home.featured_section_2 = blog
+            home.featured_section_2_title = "Blog"
+            changed = True
+        if changed:
+            home.save()
+            self.stdout.write("Updated homepage featured sections")
