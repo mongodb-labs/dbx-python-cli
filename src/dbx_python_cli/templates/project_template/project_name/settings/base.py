@@ -23,6 +23,7 @@ DEBUG = True
 SECRET_KEY = "your-secret-key"
 
 INSTALLED_APPS = [
+    "{{ project_name }}",
     "{{ project_name }}.settings.apps.django.CustomAdminConfig",
     "{{ project_name }}.settings.apps.django.CustomAuthConfig",
     "{{ project_name }}.settings.apps.django.CustomContentTypesConfig",
