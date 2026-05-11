@@ -190,6 +190,7 @@ libmongocrypt = [
 repos = [
     "git@github.com:wagtail/wagtail.git",
     "git@github.com:wagtail/bakerydemo.git",
+    "git@github.com:mongodb-labs/wagtail-mongodb-project.git",
 ]
 
 [repo.groups.wagtail.sys_path]
