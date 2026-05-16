@@ -211,6 +211,13 @@ project_name = "mongo-orchestration"
 [evergreen.ai-ml-pipeline-testing]
 project_name = "ai-ml-pipeline-testing"
 
+[repo.groups.demo]
+repos = [
+    "git@github.com:aclark4life/mflix.git",
+    "git@github.com:aclark4life/polls.git",
+    "git@github.com:aclark4life/medical-records.git",
+]
+
 [repo.groups.django-3p]
 # Python version for the group's virtual environment
 python_version = "3.13"
