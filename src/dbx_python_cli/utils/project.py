@@ -332,8 +332,16 @@ def setup_django_command_env(
         verbose=True,
     )
 
-    # Default to project_name.py settings if not specified
+    # Default to project_name.py settings if not specified; fall back to dev/base
+    # for projects that use a different convention (e.g. wagtail-mongodb-project).
     settings_module = settings if settings else ctx.name
+    if not (
+        ctx.project_path / ctx.name / "settings" / f"{settings_module}.py"
+    ).exists():
+        for fallback in ("dev", "base"):
+            if (ctx.project_path / ctx.name / "settings" / f"{fallback}.py").exists():
+                settings_module = fallback
+                break
     env["DJANGO_SETTINGS_MODULE"] = f"{ctx.name}.settings.{settings_module}"
     env["PYTHONPATH"] = str(ctx.project_path) + os.pathsep + env.get("PYTHONPATH", "")
     typer.echo(f"🔧 Using DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")

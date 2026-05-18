@@ -1577,17 +1577,26 @@ def run_project(
         else:
             typer.echo("✅ Encrypted database migrations completed successfully")
 
-    # Create initial Wagtail data (root page + default site) if Wagtail is installed.
-    # manage.py init is idempotent and exits cleanly on non-Wagtail projects.
-    typer.echo("⚙️  Running manage.py init...")
-    subprocess.run(
-        [python_path, "-m", "django", "init"],
-        cwd=proj.project_path,
-        env=migrate_env,
-        check=False,
-        capture_output=not verbose,
-        text=True,
+    # Create initial Wagtail data (root page + default site) if the project
+    # ships an `init` management command (wagtail-mongodb-project convention).
+    init_cmd = next(
+        (
+            p
+            for p in proj.project_path.rglob("management/commands/init.py")
+            if "__pycache__" not in str(p)
+        ),
+        None,
     )
+    if init_cmd:
+        typer.echo("⚙️  Running manage.py init...")
+        subprocess.run(
+            [python_path, "-m", "django", "init"],
+            cwd=proj.project_path,
+            env=migrate_env,
+            check=False,
+            capture_output=not verbose,
+            text=True,
+        )
 
     # Create superuser (non-fatal if already exists)
     su_email = os.getenv("PROJECT_EMAIL", "admin@example.com")
