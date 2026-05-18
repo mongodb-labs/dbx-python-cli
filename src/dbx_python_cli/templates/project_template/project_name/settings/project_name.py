@@ -31,17 +31,3 @@ INSTALLED_APPS += [  # noqa: F405
 # Uncomment the two lines below to enable Queryable Encryption settings.
 # from .qe import *  # noqa
 # INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405
-
-# Wagtail CMS Configuration
-# Uncomment the four lines below to enable Wagtail settings.
-# from .wagtail import *  # noqa
-# INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405
-# MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405
-# MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405
-
-# Bakerydemo Demo Apps
-# Uncomment the three lines below to enable bakerydemo apps (requires Wagtail).
-# Requires: pip install bakerydemo
-# from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES  # noqa
-# INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS  # noqa: F405
-# MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405

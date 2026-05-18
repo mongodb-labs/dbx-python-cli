@@ -244,7 +244,7 @@ def add_project(
         False,
         "--bakerydemo/--no-bakerydemo",
         "-b/-B",
-        help="Enable bakerydemo demo apps (requires --wagtail).",
+        help="Clone and install bakerydemo into the project venv (requires --wagtail).",
     ),
     auto_install: bool = typer.Option(
         True,
@@ -266,8 +266,9 @@ def add_project(
     """
     Create a new Django project using bundled templates.
     Frontend is added by default. Use --no-frontend to skip frontend creation.
-    Use --wagtail to enable Wagtail CMS. Use --qe to enable Queryable Encryption.
-    Flags can be stacked: --qe --wagtail enables a Wagtail site with QE.
+    Use --wagtail to create a Wagtail project from wagtail-mongodb-project.
+    Use --bakerydemo (with --wagtail) to clone and install bakerydemo into the venv.
+    Use --qe to enable Queryable Encryption.
 
     Projects are created in base_dir/projects/ by default.
     If no name is provided, a random name is generated.
@@ -277,9 +278,8 @@ def add_project(
         dbx project add                          # Create with random name (includes frontend)
         dbx project add myproject                # Create with explicit name (includes frontend)
         dbx project add myproject --no-frontend  # Create without frontend
-        dbx project add myproject --wagtail      # Create with Wagtail CMS enabled
+        dbx project add myproject --wagtail      # Create Wagtail project from wagtail-mongodb-project
         dbx project add myproject --qe           # Create with Queryable Encryption enabled
-        dbx project add myproject --qe --wagtail # Create with QE + Wagtail
         dbx project add -d ~/custom/path         # Create with random name in custom directory
         dbx project add myproject -d ~/custom/path        # Create in custom directory
         dbx project add myproject --base-dir ~/path/to/myproject  # Create directly at path
@@ -444,9 +444,46 @@ def add_project(
         if django_check.returncode != 0:
             _bootstrap_venv(python_path)
 
-    with resources.path(
-        "dbx_python_cli.templates", "project_template"
-    ) as template_path:
+    if add_wagtail:
+        from contextlib import nullcontext
+
+        from dbx_python_cli.utils.repo import (
+            find_repo_by_name,
+            is_flat_mode as _is_flat,
+        )
+
+        _wt_config = get_config()
+        _wt_base_dir = get_base_dir(_wt_config) if base_dir is None else base_dir
+        wt_repo = (
+            find_repo_by_name("wagtail-mongodb-project", _wt_base_dir, _wt_config)
+            if _wt_base_dir is not None
+            else None
+        )
+        if wt_repo is None and _wt_base_dir is not None:
+            clone_result = _clone_repo_from_config(
+                "wagtail-mongodb-project",
+                _wt_base_dir,
+                _wt_config,
+                _is_flat(_wt_config),
+                False,
+            )
+            if clone_result is not None:
+                wt_repo = find_repo_by_name(
+                    "wagtail-mongodb-project", _wt_base_dir, _wt_config
+                )
+        if wt_repo is None:
+            typer.echo(
+                "❌ wagtail-mongodb-project not found. Add it to your repo groups or clone it.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        template_ctx = nullcontext(Path(wt_repo["path"]))
+        extra_name_args: list = []
+    else:
+        template_ctx = resources.path("dbx_python_cli.templates", "project_template")
+        extra_name_args = ["--name", "justfile"]
+
+    with template_ctx as template_path:
         # Use python -m django to ensure we use the correct venv's Django
         cmd = [
             python_path,
@@ -455,8 +492,7 @@ def add_project(
             "startproject",
             "--template",
             str(template_path),
-            "--name",
-            "justfile",
+            *extra_name_args,
             name,
         ]
 
@@ -535,31 +571,6 @@ def add_project(
     _create_pyproject_toml(
         project_path, name, settings_path, wagtail=add_wagtail, qe=add_qe
     )
-
-    # Enable Wagtail CMS if requested
-    if add_wagtail:
-        typer.echo(f"🌿 Enabling Wagtail CMS for project '{name}'...")
-        try:
-            _enable_wagtail(project_path, name)
-        except Exception as e:
-            typer.echo(
-                f"⚠️  Project created successfully, but Wagtail setup failed: {e}",
-                err=True,
-            )
-
-    # Enable bakerydemo demo apps if requested
-    if add_bakerydemo:
-        if not add_wagtail:
-            typer.echo("⚠️  --bakerydemo requires --wagtail", err=True)
-        else:
-            typer.echo(f"🧁 Enabling bakerydemo demo apps for project '{name}'...")
-            try:
-                _enable_bakerydemo(project_path, name)
-            except Exception as e:
-                typer.echo(
-                    f"⚠️  Project created successfully, but bakerydemo setup failed: {e}",
-                    err=True,
-                )
 
     # Enable Queryable Encryption if requested
     if add_qe:
@@ -678,6 +689,23 @@ def add_project(
 
         # 4. Validate env vars at the end so the user sees what's missing
         validate_qe_env(config, base_dir=base_dir, fatal=False)
+
+    if add_wagtail:
+        typer.echo("🌿 Installing wagtail...")
+        try:
+            _install_with_repos(["wagtail"], python_path)
+        except Exception as e:
+            typer.echo(f"⚠️  wagtail install failed: {e}", err=True)
+
+    if add_bakerydemo:
+        if not add_wagtail:
+            typer.echo("⚠️  --bakerydemo requires --wagtail", err=True)
+        else:
+            typer.echo("🧁 Installing bakerydemo...")
+            try:
+                _install_with_repos(["bakerydemo"], python_path)
+            except Exception as e:
+                typer.echo(f"⚠️  bakerydemo install failed: {e}", err=True)
 
 
 def _venv_python_version(python_path: str) -> Optional[str]:
@@ -1164,76 +1192,6 @@ packages = ["{project_name}"]
         )
     except Exception as e:
         typer.echo(f"⚠️  Failed to create pyproject.toml: {e}", err=True)
-
-
-def _enable_wagtail(project_path: Path, project_name: str) -> None:
-    """Uncomment the Wagtail block in settings and append Wagtail URL patterns."""
-    settings_file = project_path / project_name / "settings" / f"{project_name}.py"
-    if settings_file.exists():
-        content = settings_file.read_text()
-        content = content.replace(
-            "# from .wagtail import *  # noqa\n"
-            "# INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405\n"
-            "# MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405\n"
-            "# MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405",
-            "from .wagtail import *  # noqa\n"
-            "INSTALLED_APPS += WAGTAIL_INSTALLED_APPS  # noqa: F405\n"
-            "MIDDLEWARE += WAGTAIL_MIDDLEWARE  # noqa: F405\n"
-            "MIGRATION_MODULES.update(WAGTAIL_MIGRATION_MODULES)  # noqa: F405",
-        )
-        settings_file.write_text(content)
-
-    urls_file = project_path / project_name / "urls.py"
-    if urls_file.exists():
-        content = urls_file.read_text()
-        # Remove the HomeView import and root route — Wagtail's catch-all takes over
-        content = content.replace("from .views import HomeView\n", "")
-        content = content.replace(
-            '    path("", HomeView.as_view(), name="default_urlconf"),\n', ""
-        )
-        wagtail_block = (
-            "\n\n# Wagtail CMS\n"
-            "from django.conf import settings\n"
-            "from django.conf.urls.static import static\n"
-            "from django.urls import include\n"
-            "from wagtail import urls as wagtail_urls\n"
-            f"from {project_name}.wagtail_urls import admin as wagtailadmin_urls\n"
-            f"from {project_name}.wagtail_urls import documents as wagtaildocs_urls\n"
-            "\n"
-            "urlpatterns += [\n"
-            '    path("cms/", include(wagtailadmin_urls)),\n'
-            '    path("documents/", include(wagtaildocs_urls)),\n'
-            '    path("", include(wagtail_urls)),\n'
-            "] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)\n"
-        )
-        urls_file.write_text(content + wagtail_block)
-
-
-def _enable_bakerydemo(project_path: Path, project_name: str) -> None:
-    """Uncomment the bakerydemo block in settings and drop the home app.
-
-    bakerydemo.base already provides a HomePage, so keeping the project's
-    home app in INSTALLED_APPS causes a reverse accessor clash on page_ptr.
-    """
-    settings_file = project_path / project_name / "settings" / f"{project_name}.py"
-    if settings_file.exists():
-        content = settings_file.read_text()
-        content = content.replace(
-            "# from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES  # noqa\n"
-            "# INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS  # noqa: F405\n"
-            "# MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405",
-            "from .wagtail import BAKERYDEMO_INSTALLED_APPS, BAKERYDEMO_MIGRATION_MODULES  # noqa\n"
-            "INSTALLED_APPS += BAKERYDEMO_INSTALLED_APPS  # noqa: F405\n"
-            "MIGRATION_MODULES.update(BAKERYDEMO_MIGRATION_MODULES)  # noqa: F405",
-        )
-        settings_file.write_text(content)
-
-    # Remove the project's home app — bakerydemo.base provides its own HomePage.
-    wagtail_settings = project_path / project_name / "settings" / "wagtail.py"
-    if wagtail_settings.exists():
-        content = wagtail_settings.read_text()
-        content = content.replace(f'    "{project_name}.home",\n', "")
-        wagtail_settings.write_text(content)
 
 
 def _enable_qe(project_path: Path, project_name: str) -> None:
