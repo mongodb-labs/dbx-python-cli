@@ -1496,17 +1496,14 @@ def run_project(
         proj, ctx, settings=settings, include_dyld_fallback=False
     )
 
-    # Generate migrations for Wagtail apps (MIGRATION_MODULES redirects them to
-    # in-project packages; makemigrations populates those packages on first run
-    # and is a no-op on subsequent runs when nothing has changed).
-    has_wagtail = subprocess.run(
-        [python_path, "-c", "import wagtail"],
-        cwd=proj.project_path,
-        env=migrate_env,
-        check=False,
-        capture_output=True,
-    )
-    if has_wagtail.returncode == 0:
+    # Generate migrations for Wagtail apps only when this project declares
+    # wagtail as a dependency (requirements.txt or wagtail_urls/ presence),
+    # not just because wagtail happens to be installed in the shared venv.
+    _req_txt = proj.project_path / "requirements.txt"
+    _project_uses_wagtail = (
+        _req_txt.exists() and "wagtail" in _req_txt.read_text()
+    ) or any(True for _ in proj.project_path.rglob("wagtail_urls") if _.is_dir())
+    if _project_uses_wagtail:
         typer.echo("⚙️  Generating Wagtail migrations...")
         subprocess.run(
             [python_path, "-m", "django", "makemigrations"],
