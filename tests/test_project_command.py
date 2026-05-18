@@ -690,3 +690,152 @@ def test_qe_with_medical_records_adds_app_to_installed_apps(tmp_path):
     assert "from .qe import *  # noqa" in settings_content
     assert "INSTALLED_APPS += QE_INSTALLED_APPS  # noqa: F405" in settings_content
     assert '"medical_records"' in qe_file.read_text()
+
+
+def test_apply_libmongocrypt_env_skips_existing_keys():
+    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+
+    env = {"PYMONGOCRYPT_LIB": "/already/set"}
+    config = {"project": {"default_env": {"PYMONGOCRYPT_LIB": "/other"}}}
+    apply_libmongocrypt_env(env, config)
+    assert env["PYMONGOCRYPT_LIB"] == "/already/set"
+
+
+def test_apply_libmongocrypt_env_requires_file_to_exist(tmp_path):
+    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+
+    env = {}
+    config = {
+        "project": {"default_env": {"PYMONGOCRYPT_LIB": str(tmp_path / "nope.dylib")}}
+    }
+    apply_libmongocrypt_env(env, config)
+    assert "PYMONGOCRYPT_LIB" not in env
+
+
+def test_apply_libmongocrypt_env_auto_derives_from_clone(tmp_path):
+    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+
+    artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
+    artifact.parent.mkdir(parents=True)
+    artifact.touch()
+    env = {}
+    apply_libmongocrypt_env(env, {"project": {}}, base_dir=tmp_path)
+    assert env["PYMONGOCRYPT_LIB"] == str(artifact)
+
+
+def test_apply_libmongocrypt_env_omits_dyld_fallback_when_disabled(tmp_path):
+    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+
+    env = {}
+    config = {
+        "project": {
+            "default_env": {
+                "DYLD_FALLBACK_LIBRARY_PATH": "/some/dir",
+                "DYLD_LIBRARY_PATH": "/other/dir",
+            }
+        }
+    }
+    apply_libmongocrypt_env(env, config, include_dyld_fallback=False)
+    assert "DYLD_FALLBACK_LIBRARY_PATH" not in env
+    assert env["DYLD_LIBRARY_PATH"] == "/other/dir"
+
+
+def test_validate_qe_env_reports_missing_vars():
+    from dbx_python_cli.utils.project import validate_qe_env
+
+    problems = validate_qe_env({"project": {"default_env": {}}})
+    assert any("PYMONGOCRYPT_LIB" in p for p in problems)
+    assert any("CRYPT_SHARED_LIB_PATH" in p for p in problems)
+
+
+def test_validate_qe_env_fatal_raises():
+    from dbx_python_cli.utils.project import validate_qe_env
+
+    with pytest.raises(typer.Exit):
+        validate_qe_env({"project": {"default_env": {}}}, fatal=True)
+
+
+def test_validate_qe_env_accepts_auto_derived_pymongocrypt(tmp_path):
+    from dbx_python_cli.utils.project import validate_qe_env
+
+    artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
+    artifact.parent.mkdir(parents=True)
+    artifact.touch()
+    problems = validate_qe_env({"project": {"default_env": {}}}, base_dir=tmp_path)
+    # PYMONGOCRYPT_LIB satisfied via auto-derivation; CRYPT_SHARED_LIB_PATH still missing
+    assert not any("PYMONGOCRYPT_LIB" in p for p in problems)
+    assert any("CRYPT_SHARED_LIB_PATH" in p for p in problems)
+
+
+def test_ensure_package_installed_prefers_clone(tmp_path):
+    """Generalized _ensure_package_installed uses find_repo_by_name + install_dirs."""
+    from dbx_python_cli.commands.project import _ensure_package_installed
+
+    clone = tmp_path / "mypkg"
+    clone.mkdir()
+    (clone / "pyproject.toml").write_text("")
+    repo_info = {"name": "mypkg", "path": clone, "group": "g"}
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "flat": True,
+            "groups": {"g": {"repos": ["https://x/mypkg.git"]}},
+        }
+    }
+    with (
+        patch("dbx_python_cli.commands.project.get_config", return_value=config),
+        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=repo_info),
+        patch("dbx_python_cli.commands.project.subprocess.run") as mock_run,
+    ):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # import check
+            MagicMock(returncode=0),  # uv pip install -e clone
+        ]
+        result = _ensure_package_installed("mypkg", "/python", tmp_path)
+    assert result == "clone"
+    cmd = mock_run.call_args_list[-1][0][0]
+    assert "-e" in cmd and str(clone) in cmd
+
+
+def test_ensure_package_installed_required_failure_exits(tmp_path):
+    from dbx_python_cli.commands.project import _ensure_package_installed
+
+    config = {"repo": {"base_dir": str(tmp_path), "flat": True, "groups": {}}}
+    with (
+        patch("dbx_python_cli.commands.project.get_config", return_value=config),
+        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=None),
+        patch("dbx_python_cli.commands.project.subprocess.run") as mock_run,
+    ):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # import check
+            MagicMock(returncode=1, stderr="boom"),  # pypi install
+        ]
+        with pytest.raises(typer.Exit):
+            _ensure_package_installed("mypkg", "/python", tmp_path, required=True)
+
+
+def test_ensure_libmongocrypt_built_skips_when_artifact_exists(tmp_path):
+    from dbx_python_cli.commands.project import _ensure_libmongocrypt_built
+
+    artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
+    artifact.parent.mkdir(parents=True)
+    artifact.touch()
+    repo_info = {
+        "name": "libmongocrypt",
+        "path": tmp_path / "libmongocrypt",
+        "group": "pymongocrypt",
+    }
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "flat": True,
+            "groups": {"pymongocrypt": {"repos": ["https://x/libmongocrypt.git"]}},
+        }
+    }
+    with (
+        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=repo_info),
+        patch("dbx_python_cli.commands.install.run_build_commands") as mock_build,
+    ):
+        result = _ensure_libmongocrypt_built(tmp_path, config)
+    assert result == artifact
+    mock_build.assert_not_called()

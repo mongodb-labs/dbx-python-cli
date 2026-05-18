@@ -730,3 +730,124 @@ base_dir = "{base_dir_str}"
         assert "INSTALLED_APPS" in settings_content
         assert "INSTALLED_APPS += [  # noqa: F405" in settings_content
         assert "# Add your project-specific apps here" in settings_content
+
+
+def test_project_add_qe_installs_pymongocrypt_and_medical_records(tmp_path):
+    """--qe triggers libmongocrypt build, pymongocrypt install, and medical-records install."""
+    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "config.toml"
+
+    base_dir = tmp_path / "repos"
+    base_dir_str = str(base_dir).replace("\\", "/")
+
+    config_content = f"""[repo]
+base_dir = "{base_dir_str}"
+
+[repo.groups.pymongocrypt]
+repos = ["git@github.com:mongodb/libmongocrypt.git"]
+
+[repo.groups.pymongocrypt.install_dirs]
+libmongocrypt = ["bindings/python/"]
+
+[repo.groups.django]
+repos = ["git@github.com:aclark4life/medical-records.git"]
+"""
+    config_path.write_text(config_content)
+
+    artifact = base_dir / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
+
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path,
+        patch(
+            "dbx_python_cli.commands.project._ensure_libmongocrypt_built",
+            return_value=artifact,
+        ) as mock_build,
+        patch(
+            "dbx_python_cli.commands.project._ensure_package_installed",
+            return_value="clone",
+        ) as mock_install,
+        patch(
+            "dbx_python_cli.utils.project.validate_qe_env",
+            return_value=[],
+        ),
+    ):
+        mock_get_path.return_value = config_path
+
+        result = runner.invoke(
+            app,
+            [
+                "project",
+                "add",
+                "--no-install",
+                "--no-frontend",
+                "--qe",
+                "qeproject",
+            ],
+        )
+        assert result.exit_code == 0, (
+            f"Exit code was {result.exit_code}, output: {result.output}"
+        )
+
+        mock_build.assert_called_once()
+
+        called_with = [c.args[0] for c in mock_install.call_args_list]
+        assert "pymongocrypt" in called_with
+        assert "medical_records" in called_with
+
+        medical_call = next(
+            c for c in mock_install.call_args_list if c.args[0] == "medical_records"
+        )
+        assert medical_call.kwargs.get("required") is True
+
+
+def test_project_add_qe_fails_when_medical_records_install_fails(tmp_path):
+    """If medical-records cannot be installed, --qe aborts the project creation."""
+    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "config.toml"
+
+    base_dir = tmp_path / "repos"
+    base_dir_str = str(base_dir).replace("\\", "/")
+
+    config_content = f"""[repo]
+base_dir = "{base_dir_str}"
+"""
+    config_path.write_text(config_content)
+
+    import typer as _typer
+
+    def _install_side_effect(import_name, *args, **kwargs):
+        if import_name == "medical_records" and kwargs.get("required"):
+            raise _typer.Exit(1)
+        return "clone"
+
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path,
+        patch(
+            "dbx_python_cli.commands.project._ensure_libmongocrypt_built",
+            return_value=None,
+        ),
+        patch(
+            "dbx_python_cli.commands.project._ensure_package_installed",
+            side_effect=_install_side_effect,
+        ),
+        patch(
+            "dbx_python_cli.utils.project.validate_qe_env",
+            return_value=[],
+        ),
+    ):
+        mock_get_path.return_value = config_path
+
+        result = runner.invoke(
+            app,
+            [
+                "project",
+                "add",
+                "--no-install",
+                "--no-frontend",
+                "--qe",
+                "qefail",
+            ],
+        )
+        assert result.exit_code != 0

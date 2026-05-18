@@ -21,6 +21,7 @@ from dbx_python_cli.utils.repo import (
     get_test_runner_args,
     is_flat_mode,
 )
+from dbx_python_cli.utils.project import apply_libmongocrypt_env
 from dbx_python_cli.utils.venv import get_venv_info
 from dbx_python_cli.commands.project import add_project
 from dbx_python_cli.commands.mongodb import ensure_mongodb, parse_mongodb_host_port
@@ -330,9 +331,6 @@ def test_callback(
                     typer.echo(f"[verbose]   {key}={value}")
                 typer.echo()
 
-        # Check for default environment variables from project config
-        default_env = config.get("project", {}).get("default_env", {})
-
         # Get CLI overrides from context
         backend_override = ctx.obj.get("mongodb_backend") if ctx.obj else None
         edition_override = ctx.obj.get("mongodb_edition") if ctx.obj else None
@@ -355,26 +353,8 @@ def test_callback(
                 if verbose:
                     typer.echo(f"[verbose] Could not parse MONGODB_URI: {e}")
 
-        # Check for libmongocrypt environment variables from project config
-        for var in [
-            "PYMONGOCRYPT_LIB",
-            "DYLD_LIBRARY_PATH",
-            "DYLD_FALLBACK_LIBRARY_PATH",
-            "LD_LIBRARY_PATH",
-            "CRYPT_SHARED_LIB_PATH",
-        ]:
-            if var not in test_env and var in default_env:
-                value = os.path.expanduser(default_env[var])
-                # For library file paths, check if the file exists
-                if var in ["PYMONGOCRYPT_LIB", "CRYPT_SHARED_LIB_PATH"]:
-                    if Path(value).exists():
-                        test_env[var] = value
-                        typer.echo(f"🔧 Using {var} from config: {value}")
-                    # Skip warning - user may not need QE
-                else:
-                    # For library directory paths, set them even if directory doesn't exist yet
-                    test_env[var] = value
-                    typer.echo(f"🔧 Using {var} from config: {value}")
+        # Apply libmongocrypt environment variables from project config
+        apply_libmongocrypt_env(test_env, config, base_dir=base_dir, verbose=True)
 
         # Set DRIVERS_EVERGREEN_TOOLS path based on layout mode
         if "DRIVERS_EVERGREEN_TOOLS" not in test_env:

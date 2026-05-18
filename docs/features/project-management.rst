@@ -457,8 +457,8 @@ Project commands automatically set environment variables from your ``~/.config/d
    # PYMONGOCRYPT_LIB = "~/Developer/mongodb/django/libmongocrypt/cmake-build/libmongocrypt.so"     # Linux
    # DYLD_LIBRARY_PATH = "~/Developer/mongodb/django/libmongocrypt/cmake-build"  # macOS (alternative)
    # LD_LIBRARY_PATH = "~/Developer/mongodb/django/libmongocrypt/cmake-build"    # Linux (alternative)
-   CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.2.2/lib/mongo_crypt_v1.dylib"  # macOS
-   # CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-linux-x86_64-enterprise-8.2.2/lib/mongo_crypt_v1.so"     # Linux
+   CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.3.2/lib/mongo_crypt_v1.dylib"  # macOS
+   # CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-linux-x86_64-enterprise-8.3.2/lib/mongo_crypt_v1.so"     # Linux
 
 These environment variables are automatically used by the ``run``, ``manage``, ``migrate``, and ``su`` commands. You can override them using command-line flags:
 
@@ -529,6 +529,28 @@ The default ``DJANGO_SETTINGS_MODULE`` in the generated ``pyproject.toml`` uses 
 
 Queryable Encryption Support
 -----------------------------
+
+Automatic Setup with ``--qe``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When you run ``dbx project add --qe``, the CLI now:
+
+1. Clones ``libmongocrypt`` from the ``pymongocrypt`` group if it is not
+   already present at ``base_dir/libmongocrypt``.
+2. Builds it via the ``build_commands`` configured for that group
+   (``cmake .. && make`` by default). This can take several minutes.
+3. Installs ``pymongocrypt`` from ``base_dir/libmongocrypt/bindings/python``
+   if available, otherwise from PyPI.
+4. Installs ``medical-records`` from a local clone (preferred) or from PyPI.
+   This is **required** — a failure aborts project creation.
+5. Validates ``PYMONGOCRYPT_LIB`` and ``CRYPT_SHARED_LIB_PATH`` and emits
+   warnings if either is missing or points at a non-existent file. The
+   ``crypt_shared`` library must be downloaded manually from
+   https://www.mongodb.com/try/download/enterprise.
+
+At ``dbx project run`` / ``migrate`` time, when an ``encrypted`` database is
+configured in settings, missing QE env vars become a fatal error so the
+problem surfaces before Django tries to connect.
 
 Projects include commented configuration for MongoDB Queryable Encryption (QE) in the main settings file. To enable QE:
 

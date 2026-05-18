@@ -8,6 +8,7 @@ from pathlib import Path
 import typer
 
 from dbx_python_cli.commands.mongodb import ensure_mongodb, parse_mongodb_host_port
+from dbx_python_cli.utils.project import apply_libmongocrypt_env
 from dbx_python_cli.utils.repo import (
     find_all_repos,
     find_all_repos_by_name,
@@ -217,22 +218,7 @@ def _run_just_in_repo(
                 typer.echo(f"[verbose] Could not parse MONGODB_URI: {e}")
 
     # Apply libmongocrypt environment variables from project config
-    config = get_config()
-    default_env = config.get("project", {}).get("default_env", {})
-    for var in [
-        "PYMONGOCRYPT_LIB",
-        "DYLD_LIBRARY_PATH",
-        "DYLD_FALLBACK_LIBRARY_PATH",
-        "LD_LIBRARY_PATH",
-        "CRYPT_SHARED_LIB_PATH",
-    ]:
-        if var not in just_env and var in default_env:
-            value = os.path.expanduser(default_env[var])
-            if var in ["PYMONGOCRYPT_LIB", "CRYPT_SHARED_LIB_PATH"]:
-                if Path(value).exists():
-                    just_env[var] = value
-            else:
-                just_env[var] = value
+    apply_libmongocrypt_env(just_env, config, base_dir=base_dir)
 
     # Set DRIVERS_EVERGREEN_TOOLS path based on layout mode
     if "DRIVERS_EVERGREEN_TOOLS" not in just_env:

@@ -648,12 +648,36 @@ def add_project(
             typer.echo(f"⚠️  --with install failed: {e}", err=True)
 
     if add_qe:
-        try:
-            _ensure_package_installed(
-                "medical_records", python_path, get_base_dir(get_config())
+        from dbx_python_cli.utils.project import validate_qe_env
+
+        config = get_config()
+        base_dir = get_base_dir(config)
+
+        # 1. Ensure libmongocrypt is cloned + built (provides PYMONGOCRYPT_LIB target)
+        typer.echo("🔐 Setting up libmongocrypt for Queryable Encryption...")
+        lib_path = _ensure_libmongocrypt_built(base_dir, config)
+        if lib_path is None:
+            typer.echo(
+                "⚠️  libmongocrypt not available. QE will not work at runtime "
+                "until you build it manually (see `dbx install libmongocrypt`).",
+                err=True,
             )
-        except Exception as e:
-            typer.echo(f"⚠️  Failed to install medical-records: {e}", err=True)
+
+        # 2. Install pymongocrypt (prefers clone at libmongocrypt/bindings/python)
+        pmc_result = _ensure_package_installed(
+            "pymongocrypt", python_path, base_dir, required=False
+        )
+        if pmc_result == "failed":
+            typer.echo("❌ pymongocrypt install failed (required for --qe)", err=True)
+            raise typer.Exit(1)
+
+        # 3. Install medical-records (REQUIRED — listed in QE_INSTALLED_APPS)
+        _ensure_package_installed(
+            "medical_records", python_path, base_dir, required=True
+        )
+
+        # 4. Validate env vars at the end so the user sees what's missing
+        validate_qe_env(config, base_dir=base_dir, fatal=False)
 
 
 def _venv_python_version(python_path: str) -> Optional[str]:
@@ -934,50 +958,57 @@ def _ensure_package_installed(
     python_path: str,
     base_dir,
     verbose: bool = False,
-) -> None:
+    *,
+    required: bool = False,
+) -> str:
     """Ensure a package is installed, preferring a local clone over PyPI.
 
-    Checks if already importable; if not, looks for a local clone at
-    base_dir/<repo-name> (flat layout) or base_dir/django/<repo-name>
-    (group layout), then falls back to installing from PyPI.
+    Uses find_repo_by_name to locate a clone in any configured group,
+    respecting group priority and install_dirs (e.g. pymongocrypt lives
+    at libmongocrypt/bindings/python). Falls back to PyPI.
+
+    Returns "skipped" | "clone" | "pypi" | "failed". When required=True
+    and the result is "failed", raises typer.Exit(1).
     """
+    from dbx_python_cli.utils.repo import find_repo_by_name, get_install_dirs
+
     check = subprocess.run(
         [python_path, "-c", f"import {import_name}"],
         capture_output=True,
         cwd="/tmp",
     )
     if check.returncode == 0:
-        return
+        return "skipped"
 
     repo_name = import_name.replace("_", "-")
+    config = get_config()
+    repo_info = (
+        find_repo_by_name(repo_name, base_dir, config) if base_dir is not None else None
+    )
 
-    if base_dir is not None:
-        for clone_path in [
-            Path(base_dir) / repo_name,
-            Path(base_dir) / "django" / repo_name,
-        ]:
-            if clone_path.exists() and (
-                (clone_path / "pyproject.toml").exists()
-                or (clone_path / "setup.py").exists()
-            ):
-                typer.echo(
-                    f"📦 Installing {repo_name} from local clone at {clone_path}..."
-                )
-                subprocess.run(
-                    [
-                        "uv",
-                        "pip",
-                        "install",
-                        "--reinstall",
-                        "--python",
-                        python_path,
-                        "-e",
-                        str(clone_path),
-                    ],
-                    capture_output=not verbose,
-                    check=False,
-                )
-                return
+    if repo_info:
+        clone_path = Path(repo_info["path"])
+        install_dirs = get_install_dirs(config, repo_info["group"], repo_name) or [""]
+        first = install_dirs[0]
+        target = clone_path / first if first else clone_path
+        if (target / "pyproject.toml").exists() or (target / "setup.py").exists():
+            typer.echo(f"📦 Installing {repo_name} from local clone at {target}...")
+            result = subprocess.run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--reinstall",
+                    "--python",
+                    python_path,
+                    "-e",
+                    str(target),
+                ],
+                capture_output=not verbose,
+                check=False,
+            )
+            if result.returncode == 0:
+                return "clone"
 
     # Use --reinstall to override any stale editable installs pointing to a
     # deleted source directory (uv skips reinstall otherwise, leaving a broken .pth).
@@ -988,10 +1019,64 @@ def _ensure_package_installed(
         text=True,
         check=False,
     )
-    if result.returncode != 0:
-        typer.echo(f"⚠️  Failed to install {repo_name} from PyPI:", err=True)
-        if result.stderr:
-            typer.echo(result.stderr.strip(), err=True)
+    if result.returncode == 0:
+        return "pypi"
+    typer.echo(f"⚠️  Failed to install {repo_name} from PyPI:", err=True)
+    if result.stderr:
+        typer.echo(result.stderr.strip(), err=True)
+    if required:
+        raise typer.Exit(1)
+    return "failed"
+
+
+def _ensure_libmongocrypt_built(
+    base_dir: Path, config: dict, verbose: bool = False
+) -> Optional[Path]:
+    """Ensure libmongocrypt is cloned AND built (cmake-build artifact exists).
+
+    Returns the path to the built shared library, or None on failure.
+    """
+    from dbx_python_cli.commands.install import run_build_commands
+    from dbx_python_cli.utils.repo import (
+        find_repo_by_name,
+        get_build_commands,
+        is_flat_mode,
+    )
+
+    repo_info = find_repo_by_name("libmongocrypt", base_dir, config)
+    if repo_info:
+        clone_path = Path(repo_info["path"])
+    else:
+        clone_path = _clone_repo_from_config(
+            "libmongocrypt", base_dir, config, is_flat_mode(config), verbose
+        )
+        if clone_path is None:
+            typer.echo("⚠️  libmongocrypt not in config; cannot auto-build.", err=True)
+            return None
+
+    for suffix in ("libmongocrypt.dylib", "libmongocrypt.so"):
+        artifact = clone_path / "cmake-build" / suffix
+        if artifact.exists():
+            return artifact
+
+    group = repo_info["group"] if repo_info else "pymongocrypt"
+    build_cmds = get_build_commands(config, group, "libmongocrypt")
+    if not build_cmds:
+        typer.echo("⚠️  No build_commands configured for libmongocrypt.", err=True)
+        return None
+
+    typer.echo(
+        f"🔨 Building libmongocrypt at {clone_path} (this can take a few minutes)..."
+    )
+    if not run_build_commands(clone_path, build_cmds, verbose=verbose):
+        typer.echo("❌ libmongocrypt build failed", err=True)
+        return None
+
+    for suffix in ("libmongocrypt.dylib", "libmongocrypt.so"):
+        artifact = clone_path / "cmake-build" / suffix
+        if artifact.exists():
+            return artifact
+    return None
 
 
 def _create_pyproject_toml(
@@ -1497,6 +1582,9 @@ def run_project(
         capture_output=True,
     )
     if has_encrypted_db.returncode == 0:
+        from dbx_python_cli.utils.project import validate_qe_env
+
+        validate_qe_env(get_config(), base_dir=proj.base_dir, fatal=True)
         typer.echo("🔐 Running migrations for encrypted database")
         enc_result = subprocess.run(
             [python_path, "-m", "django", "migrate", "--database", "encrypted"],
@@ -1855,6 +1943,12 @@ def migrate_project(
     # Resolve project path and get venv
     proj = resolve_project_path(name, directory)
     python_path, venv_type = get_django_python_path(proj, directory)
+
+    # If migrating the encrypted database, validate QE env vars up front
+    if database == "encrypted":
+        from dbx_python_cli.utils.project import validate_qe_env
+
+        validate_qe_env(get_config(), base_dir=proj.base_dir, fatal=True)
 
     # Set up environment (without DYLD_FALLBACK_LIBRARY_PATH for migrate command)
     env = setup_django_command_env(

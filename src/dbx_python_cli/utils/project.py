@@ -23,6 +23,101 @@ from dbx_python_cli.utils.repo import (
 from dbx_python_cli.utils.venv import get_venv_info
 
 
+LIBMONGOCRYPT_VARS = (
+    "PYMONGOCRYPT_LIB",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    "LD_LIBRARY_PATH",
+    "CRYPT_SHARED_LIB_PATH",
+)
+_LIBMONGOCRYPT_FILE_VARS = ("PYMONGOCRYPT_LIB", "CRYPT_SHARED_LIB_PATH")
+
+
+def apply_libmongocrypt_env(
+    env: dict,
+    config: dict,
+    *,
+    include_dyld_fallback: bool = True,
+    base_dir: Optional[Path] = None,
+    verbose: bool = False,
+) -> dict:
+    """Merge libmongocrypt env vars from [project.default_env] into env.
+
+    Existing keys in env are never overwritten. File-style vars
+    (PYMONGOCRYPT_LIB, CRYPT_SHARED_LIB_PATH) are only set if the file
+    exists; directory-style vars are set as-is. If PYMONGOCRYPT_LIB is
+    missing from config but a libmongocrypt clone is built at
+    base_dir/libmongocrypt/cmake-build/libmongocrypt.{dylib,so}, it is
+    auto-populated. CRYPT_SHARED_LIB_PATH is never auto-derived.
+    """
+    default_env = config.get("project", {}).get("default_env", {})
+    vars_to_check = [
+        v
+        for v in LIBMONGOCRYPT_VARS
+        if include_dyld_fallback or v != "DYLD_FALLBACK_LIBRARY_PATH"
+    ]
+    for var in vars_to_check:
+        if var in env:
+            continue
+        if var in default_env:
+            value = os.path.expanduser(default_env[var])
+            if var in _LIBMONGOCRYPT_FILE_VARS:
+                if Path(value).exists():
+                    env[var] = value
+                    if verbose:
+                        typer.echo(f"🔧 Using {var} from config: {value}")
+            else:
+                env[var] = value
+                if verbose:
+                    typer.echo(f"🔧 Using {var} from config: {value}")
+    if "PYMONGOCRYPT_LIB" not in env and base_dir is not None:
+        for suffix in ("libmongocrypt.dylib", "libmongocrypt.so"):
+            candidate = Path(base_dir) / "libmongocrypt" / "cmake-build" / suffix
+            if candidate.exists():
+                env["PYMONGOCRYPT_LIB"] = str(candidate)
+                typer.echo(f"🔧 Auto-detected PYMONGOCRYPT_LIB: {candidate}")
+                break
+    return env
+
+
+def validate_qe_env(
+    config: dict,
+    *,
+    base_dir: Optional[Path] = None,
+    fatal: bool = False,
+) -> list:
+    """Return list of problems with QE env vars; optionally raise typer.Exit(1)."""
+    default_env = config.get("project", {}).get("default_env", {})
+    problems: list = []
+    for var in _LIBMONGOCRYPT_FILE_VARS:
+        if var not in default_env:
+            if (
+                var == "PYMONGOCRYPT_LIB"
+                and base_dir is not None
+                and any(
+                    (Path(base_dir) / "libmongocrypt" / "cmake-build" / s).exists()
+                    for s in ("libmongocrypt.dylib", "libmongocrypt.so")
+                )
+            ):
+                continue
+            problems.append(f"{var} not set in [project.default_env]")
+            continue
+        path = Path(os.path.expanduser(default_env[var]))
+        if not path.exists():
+            problems.append(f"{var} points at {path} but it does not exist")
+    if problems:
+        for p in problems:
+            typer.echo(f"⚠️  QE env: {p}", err=True)
+        if fatal:
+            typer.echo(
+                "❌ Queryable Encryption requires PYMONGOCRYPT_LIB and CRYPT_SHARED_LIB_PATH.\n"
+                "   Configure them in ~/.config/dbx-python-cli/config.toml under [project.default_env].",
+                err=True,
+            )
+            raise typer.Exit(1)
+    return problems
+
+
 def _get_config_repo_names(config: dict) -> set:
     """Return repo names declared in config groups (derived from URLs, not filesystem scan)."""
     names = set()
@@ -227,32 +322,15 @@ def setup_django_command_env(
 
     # Check for default environment variables from config
     config = get_config()
-    default_env = config.get("project", {}).get("default_env", {})
-
-    # Build list of library path variables to check
-    library_vars = [
-        "PYMONGOCRYPT_LIB",
-        "DYLD_LIBRARY_PATH",
-        "LD_LIBRARY_PATH",
-        "CRYPT_SHARED_LIB_PATH",
-    ]
-    if include_dyld_fallback:
-        library_vars.insert(2, "DYLD_FALLBACK_LIBRARY_PATH")
 
     # Set library paths for libmongocrypt (Queryable Encryption support)
-    for var in library_vars:
-        if var not in env and var in default_env:
-            value = os.path.expanduser(default_env[var])
-            # For library file paths, check if the file exists
-            if var in ["PYMONGOCRYPT_LIB", "CRYPT_SHARED_LIB_PATH"]:
-                if Path(value).exists():
-                    env[var] = value
-                    typer.echo(f"🔧 Using {var} from config: {value}")
-                # Skip warning - user may not need QE
-            else:
-                # For library directory paths, set them even if directory doesn't exist yet
-                env[var] = value
-                typer.echo(f"🔧 Using {var} from config: {value}")
+    apply_libmongocrypt_env(
+        env,
+        config,
+        include_dyld_fallback=include_dyld_fallback,
+        base_dir=ctx.base_dir,
+        verbose=True,
+    )
 
     # Default to project_name.py settings if not specified
     settings_module = settings if settings else ctx.name
