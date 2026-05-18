@@ -706,6 +706,73 @@ def add_project(
                 _install_with_repos(["bakerydemo"], python_path)
             except Exception as e:
                 typer.echo(f"⚠️  bakerydemo install failed: {e}", err=True)
+            else:
+                typer.echo("🧁 Configuring bakerydemo in project settings...")
+                try:
+                    _configure_bakerydemo(project_path, name)
+                except Exception as e:
+                    typer.echo(f"⚠️  bakerydemo configuration failed: {e}", err=True)
+
+
+def _configure_bakerydemo(project_path: Path, name: str) -> None:
+    """Add bakerydemo apps to INSTALLED_APPS and create migration stubs."""
+    settings_file = project_path / name / "settings" / "base.py"
+    if not settings_file.exists():
+        settings_file = project_path / name / "settings" / f"{name}.py"
+    if not settings_file.exists():
+        typer.echo(
+            "⚠️  Could not find settings file for bakerydemo configuration", err=True
+        )
+        return
+
+    content = settings_file.read_text()
+
+    bakerydemo_apps = (
+        '    "bakerydemo.base",\n'
+        '    "bakerydemo.blog",\n'
+        '    "bakerydemo.breads",\n'
+        '    "bakerydemo.locations",\n'
+        '    "bakerydemo.people",\n'
+        '    "bakerydemo.recipes",\n'
+        '    "bakerydemo.search",\n'
+    )
+    # Replace the template "home" app with bakerydemo apps
+    if '    "home",\n' in content:
+        content = content.replace('    "home",\n', bakerydemo_apps)
+    # Remove template "search" app (bakerydemo.search replaces it)
+    content = content.replace('    "search",\n', "")
+
+    bakerydemo_migration_entries = (
+        '    "base": "mongo_migrations.bakerydemo_base",\n'
+        '    "blog": "mongo_migrations.bakerydemo_blog",\n'
+        '    "breads": "mongo_migrations.bakerydemo_breads",\n'
+        '    "locations": "mongo_migrations.bakerydemo_locations",\n'
+        '    "people": "mongo_migrations.bakerydemo_people",\n'
+        '    "recipes": "mongo_migrations.bakerydemo_recipes",\n'
+        '    "search": "mongo_migrations.bakerydemo_search",\n'
+    )
+    if "MIGRATION_MODULES = {" in content:
+        content = content.replace(
+            "MIGRATION_MODULES = {\n",
+            "MIGRATION_MODULES = {\n" + bakerydemo_migration_entries,
+        )
+
+    settings_file.write_text(content)
+
+    mongo_migrations_dir = project_path / "mongo_migrations"
+    if mongo_migrations_dir.exists():
+        for app_label in (
+            "base",
+            "blog",
+            "breads",
+            "locations",
+            "people",
+            "recipes",
+            "search",
+        ):
+            stub_dir = mongo_migrations_dir / f"bakerydemo_{app_label}"
+            stub_dir.mkdir(exist_ok=True)
+            (stub_dir / "__init__.py").touch()
 
 
 def _venv_python_version(python_path: str) -> Optional[str]:
