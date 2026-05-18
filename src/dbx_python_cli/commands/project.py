@@ -742,6 +742,11 @@ def _configure_bakerydemo(project_path: Path, name: str) -> None:
     bakerydemo_apps = (
         '    "bakerydemo",\n'
         '    "wagtailfontawesomesvg",\n'
+        '    "wagtail.contrib.settings",\n'
+        '    "wagtail.contrib.routable_page",\n'
+        '    "wagtail.contrib.table_block",\n'
+        '    "wagtail.contrib.typed_table_block",\n'
+        '    "wagtail.contrib.search_promotions",\n'
         '    "bakerydemo.base",\n'
         '    "bakerydemo.blog",\n'
         '    "bakerydemo.breads",\n'
@@ -759,6 +764,7 @@ def _configure_bakerydemo(project_path: Path, name: str) -> None:
     content = content.replace('    "search",\n', "")
 
     bakerydemo_migration_entries = (
+        '    "wagtailsearchpromotions": "mongo_migrations.wagtailsearchpromotions",\n'
         '    "base": "mongo_migrations.bakerydemo_base",\n'
         '    "blog": "mongo_migrations.bakerydemo_blog",\n'
         '    "breads": "mongo_migrations.bakerydemo_breads",\n'
@@ -777,16 +783,17 @@ def _configure_bakerydemo(project_path: Path, name: str) -> None:
 
     mongo_migrations_dir = project_path / "mongo_migrations"
     if mongo_migrations_dir.exists():
-        for app_label in (
-            "base",
-            "blog",
-            "breads",
-            "locations",
-            "people",
-            "recipes",
-            "search",
+        for stub_name in (
+            "wagtailsearchpromotions",
+            "bakerydemo_base",
+            "bakerydemo_blog",
+            "bakerydemo_breads",
+            "bakerydemo_locations",
+            "bakerydemo_people",
+            "bakerydemo_recipes",
+            "bakerydemo_search",
         ):
-            stub_dir = mongo_migrations_dir / f"bakerydemo_{app_label}"
+            stub_dir = mongo_migrations_dir / stub_name
             stub_dir.mkdir(exist_ok=True)
             (stub_dir / "__init__.py").touch()
 
