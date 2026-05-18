@@ -965,12 +965,18 @@ def _ensure_package_installed(
 
     Uses find_repo_by_name to locate a clone in any configured group,
     respecting group priority and install_dirs (e.g. pymongocrypt lives
-    at libmongocrypt/bindings/python). Falls back to PyPI.
+    at libmongocrypt/bindings/python). If no clone is found but the repo
+    appears in config, auto-clones it (same pattern as _ensure_libmongocrypt_built).
+    Falls back to PyPI.
 
     Returns "skipped" | "clone" | "pypi" | "failed". When required=True
     and the result is "failed", raises typer.Exit(1).
     """
-    from dbx_python_cli.utils.repo import find_repo_by_name, get_install_dirs
+    from dbx_python_cli.utils.repo import (
+        find_repo_by_name,
+        get_install_dirs,
+        is_flat_mode,
+    )
 
     check = subprocess.run(
         [python_path, "-c", f"import {import_name}"],
@@ -985,6 +991,14 @@ def _ensure_package_installed(
     repo_info = (
         find_repo_by_name(repo_name, base_dir, config) if base_dir is not None else None
     )
+
+    # If not found locally, try auto-cloning from config before falling back to PyPI.
+    if repo_info is None and base_dir is not None:
+        clone_path = _clone_repo_from_config(
+            repo_name, base_dir, config, is_flat_mode(config), verbose
+        )
+        if clone_path is not None:
+            repo_info = find_repo_by_name(repo_name, base_dir, config)
 
     if repo_info:
         clone_path = Path(repo_info["path"])
