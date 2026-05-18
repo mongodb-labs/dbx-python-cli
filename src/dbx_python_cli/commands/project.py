@@ -736,11 +736,13 @@ def _configure_bakerydemo(project_path: Path, name: str) -> None:
         '    "bakerydemo.recipes",\n'
         '    "bakerydemo.search",\n'
     )
-    # Replace the template "home" app with bakerydemo apps
-    if '    "home",\n' in content:
-        content = content.replace('    "home",\n', bakerydemo_apps)
-    # Remove template "search" app (bakerydemo.search replaces it)
-    content = content.replace('    "search",\n', "")
+    # Keep "home" (provides the init management command); replace "search" with
+    # bakerydemo apps (bakerydemo.search has the same app label so "search" must go)
+    if '    "search",\n' in content:
+        content = content.replace('    "search",\n', bakerydemo_apps)
+    elif '    "home",\n' in content:
+        # Fallback: insert after "home" when "search" is absent
+        content = content.replace('    "home",\n', '    "home",\n' + bakerydemo_apps)
 
     bakerydemo_migration_entries = (
         '    "base": "mongo_migrations.bakerydemo_base",\n'
