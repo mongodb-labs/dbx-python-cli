@@ -704,6 +704,18 @@ def add_project(
             typer.echo("🧁 Installing bakerydemo...")
             try:
                 _install_with_repos(["bakerydemo"], python_path)
+                subprocess.run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        python_path,
+                        "wagtail-font-awesome-svg",
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
             except Exception as e:
                 typer.echo(f"⚠️  bakerydemo install failed: {e}", err=True)
             else:
@@ -728,6 +740,8 @@ def _configure_bakerydemo(project_path: Path, name: str) -> None:
     content = settings_file.read_text()
 
     bakerydemo_apps = (
+        '    "bakerydemo",\n'
+        '    "wagtailfontawesomesvg",\n'
         '    "bakerydemo.base",\n'
         '    "bakerydemo.blog",\n'
         '    "bakerydemo.breads",\n'
