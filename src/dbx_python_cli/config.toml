@@ -227,5 +227,4 @@ repos = [
     "git@github.com:encode/django-rest-framework.git",
     "git@github.com:jazzband/django-taggit.git",
     "git@github.com:jazzband/django-debug-toolbar.git",
-    "git@github.com:wagtail/wagtail.git",
 ]
