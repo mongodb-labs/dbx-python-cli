@@ -169,7 +169,7 @@ django = "mongodb-6.0.x"
 
 [repo.groups.pymongocrypt]
 repos = [
-    "git@github.com:mongodb/libmongocrypt.git",
+    "git@github.com:aclark4life/libmongocrypt.git",
 ]
 
 # Install directories: specify install directories for repos where the package is not at the root
