@@ -1,6 +1,8 @@
 """Spec command for managing spec syncs with the MongoDB specifications repository."""
 
+import filecmp
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -259,8 +261,311 @@ def spec_sync(
 
 
 # ---------------------------------------------------------------------------
-# dbx spec list
+# dbx spec status helpers
 # ---------------------------------------------------------------------------
+
+
+def _join_continuations(text: str) -> list[str]:
+    """Merge shell line-continuations into single logical lines."""
+    lines: list[str] = []
+    buf = ""
+    for line in text.splitlines():
+        if line.rstrip().endswith("\\"):
+            buf += line.rstrip()[:-1] + " "
+        else:
+            lines.append(buf + line)
+            buf = ""
+    if buf:
+        lines.append(buf)
+    return lines
+
+
+def _parse_resync_script(script_path: Path) -> dict[str, list[tuple[str, str]]]:
+    """Parse resync-specs.sh and return {canonical_name: [(specs_src, driver_dst), ...]}.
+
+    The canonical name is the first label in each case branch (before any ``|``).
+    Paths have trailing slashes stripped.
+    """
+    try:
+        text = script_path.read_text()
+    except OSError:
+        return {}
+
+    spec_map: dict[str, list[tuple[str, str]]] = {}
+    logical_lines = _join_continuations(text)
+
+    in_for = False
+    current_canonical: str | None = None
+    current_calls: list[tuple[str, str]] = []
+
+    for line in logical_lines:
+        stripped = line.strip()
+
+        # Enter the 'for spec in "$@"' loop
+        if 'for spec in "$@"' in line:
+            in_for = True
+            continue
+
+        if not in_for:
+            continue
+
+        # Case label: "  auth)" or "  bson-binary-vector|bson_binary_vector)"
+        # Must end with ) but not be 'case ...' or '*)'
+        if (
+            stripped.endswith(")")
+            and not stripped.startswith("case ")
+            and not stripped.startswith("*")
+            and not stripped.startswith("#")
+        ):
+            labels_str = stripped.rstrip(")")
+            current_canonical = labels_str.split("|")[0]
+            current_calls = []
+            continue
+
+        # End of case block
+        if stripped == ";;":
+            if current_canonical and current_calls:
+                spec_map[current_canonical] = current_calls
+            current_canonical = None
+            current_calls = []
+            continue
+
+        # cpjson call inside a block
+        if current_canonical and stripped.startswith("cpjson "):
+            parts = stripped.split()
+            if len(parts) >= 3:
+                src = parts[1].rstrip("/")
+                dst = parts[2].rstrip("/")
+                current_calls.append((src, dst))
+
+    return spec_map
+
+
+def _get_current_branch(repo_path: Path) -> str:
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() or "HEAD (detached)"
+
+
+def _find_recent_resync_commits(repo_path: Path, n: int = 5) -> list[str]:
+    """Return up to *n* recent commits whose subject mentions 'resync'."""
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            "--oneline",
+            "--max-count=100",
+            "--grep=resync",
+            "--regexp-ignore-case",
+        ],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+    return lines[:n]
+
+
+def _commit_relative_date(repo_path: Path, commit_sha: str) -> str:
+    """Return a human-readable relative date for a commit (e.g. '3 days ago')."""
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%ar", commit_sha],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() or "unknown"
+
+
+def _spec_is_stale(
+    specs_source: Path,
+    driver_test: Path,
+    mappings: list[tuple[str, str]],
+) -> tuple[bool, str]:
+    """Check staleness for a spec's cpjson mappings.
+
+    Returns ``(is_stale, reason_string)``.  Only JSON files are compared
+    (matching what resync-specs.sh copies).
+    """
+    for spec_dir, driver_dir in mappings:
+        src = specs_source / spec_dir
+        dst = driver_test / driver_dir
+
+        if not src.exists():
+            continue  # specs repo doesn't have this dir; skip
+
+        if not dst.exists():
+            return True, f"test dir '{driver_dir}' missing in driver repo"
+
+        src_files = {f.relative_to(src): f for f in src.rglob("*.json")}
+        dst_files = {f.relative_to(dst): f for f in dst.rglob("*.json")}
+
+        new_in_src = src_files.keys() - dst_files.keys()
+        if new_in_src:
+            return True, f"{len(new_in_src)} new file(s) in specs not in driver"
+
+        for rel, src_file in src_files.items():
+            if rel in dst_files and not filecmp.cmp(
+                str(src_file), str(dst_files[rel]), shallow=False
+            ):
+                return True, f"content differs: {rel}"
+
+    return False, ""
+
+
+# ---------------------------------------------------------------------------
+# dbx spec status
+# ---------------------------------------------------------------------------
+
+
+@app.command("status")
+def spec_status(
+    ctx: typer.Context,
+    repo_name: str = typer.Option(
+        "mongo-python-driver",
+        "--repo",
+        "-r",
+        help="Driver repository to inspect",
+    ),
+    specs_dir: str = typer.Option(
+        None,
+        "--specs-dir",
+        help="Path to the MongoDB specifications repo (overrides auto-detection)",
+    ),
+):
+    """Show which specs are out of date and suggest sync commands.
+
+    Compares JSON test files in the driver repo against the specifications
+    repository and lists any specs whose files differ.  Also checks whether
+    the current branch looks like a spec-resync branch and whether a recent
+    resync commit exists.
+
+    Usage::
+
+        dbx spec status
+        dbx spec status -r django-mongodb-backend
+        dbx spec status --specs-dir ~/my-specs
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    config = get_config()
+    base_dir = get_base_dir(config)
+
+    driver_repo = _get_driver_repo(repo_name, base_dir, config)
+    driver_path: Path = driver_repo["path"]
+    driver_test = driver_path / "test"
+
+    if specs_dir:
+        mdb_specs = Path(specs_dir).expanduser().resolve()
+    else:
+        mdb_specs = _find_specs_dir(config, base_dir)
+        if not mdb_specs:
+            typer.echo(
+                "❌ Error: Could not find the 'specifications' repository", err=True
+            )
+            typer.echo("\nClone it with: dbx clone specifications")
+            typer.echo("Or specify the path with: --specs-dir <path>")
+            raise typer.Exit(1)
+
+    if not mdb_specs.exists():
+        typer.echo(
+            f"❌ Error: Specifications directory not found: {mdb_specs}", err=True
+        )
+        raise typer.Exit(1)
+
+    specs_source = mdb_specs / "source"
+    if not specs_source.exists():
+        specs_source = mdb_specs  # some layouts skip the 'source' subdir
+
+    script = driver_path / ".evergreen" / "resync-specs.sh"
+    if not script.exists():
+        typer.echo(f"❌ Error: resync-specs.sh not found at {script}", err=True)
+        raise typer.Exit(1)
+
+    # --- Header ------------------------------------------------------------ #
+    branch = _get_current_branch(driver_path)
+    branch_looks_spec = bool(re.search(r"resync|spec", branch, re.IGNORECASE))
+    branch_icon = "✓" if branch_looks_spec else "⚠"
+    typer.echo(f"\n📊 Spec Status — {repo_name}\n")
+    typer.echo(f"  🌿 Branch: {branch} {branch_icon}")
+    if not branch_looks_spec:
+        typer.echo(
+            "     ⚠  Branch name does not look like a spec-resync branch.",
+            err=True,
+        )
+
+    recent = _find_recent_resync_commits(driver_path)
+    if recent:
+        sha = recent[0].split()[0]
+        age = _commit_relative_date(driver_path, sha)
+        typer.echo(f"  🕐 Last resync commit: {recent[0]} ({age})")
+        if verbose and len(recent) > 1:
+            for c in recent[1:]:
+                typer.echo(f"              also: {c}")
+    else:
+        typer.echo("  ⚠  No resync commit found on this branch.", err=True)
+
+    # --- Parse spec map ---------------------------------------------------- #
+    spec_map = _parse_resync_script(script)
+    if not spec_map:
+        typer.echo("\n⚠  Could not parse resync-specs.sh — no spec mappings found.")
+        raise typer.Exit(1)
+
+    typer.echo(f"\n  Checking {len(spec_map)} spec(s) against {specs_source}...\n")
+
+    stale: list[tuple[str, str]] = []  # (spec_name, reason)
+    up_to_date: list[str] = []
+    skipped: list[str] = []
+
+    for spec_name, mappings in sorted(spec_map.items()):
+        # Check that at least one source dir actually exists; skip if not
+        any_src_exists = any((specs_source / src).exists() for src, _ in mappings)
+        if not any_src_exists:
+            skipped.append(spec_name)
+            if verbose:
+                typer.echo(f"  [skip] {spec_name} — source dir not found in specs repo")
+            continue
+
+        is_stale, reason = _spec_is_stale(specs_source, driver_test, mappings)
+        if is_stale:
+            stale.append((spec_name, reason))
+        else:
+            up_to_date.append(spec_name)
+
+    # --- Output ------------------------------------------------------------ #
+    if stale:
+        typer.echo(f"  ❌ Stale ({len(stale)}) — suggest syncing:\n")
+        for i, (name, reason) in enumerate(stale):
+            is_last = i == len(stale) - 1
+            prefix = "  └──" if is_last else "  ├──"
+            reason_str = f"  [{reason}]" if verbose else ""
+            typer.echo(f"{prefix} dbx spec sync {name}{reason_str}")
+    else:
+        typer.echo("  ✅ All checked specs are up to date.")
+
+    if up_to_date:
+        typer.echo(f"\n  ✅ Up to date ({len(up_to_date)}): " + ", ".join(up_to_date))
+
+    if skipped:
+        typer.echo(
+            f"\n  ⚠  Skipped ({len(skipped)}, source dir not found): "
+            + ", ".join(skipped)
+        )
+
+    # --- Patches ----------------------------------------------------------- #
+    _show_patch_summary(driver_repo, verbose)
+
+    # --- Suggested command block ------------------------------------------- #
+    if stale:
+        spec_names = " ".join(name for name, _ in stale)
+        typer.echo("\n  💡 To sync all stale specs at once:")
+        typer.echo(f"     dbx spec sync {spec_names}\n")
 
 
 @app.command("list")

@@ -395,3 +395,359 @@ def test_patch_apply_runs_git(mock_config_with_patches):
     assert "git" in called_cmd
     assert "apply" in called_cmd
     assert "-R" in called_cmd
+
+
+# ---------------------------------------------------------------------------
+# dbx spec status — unit helpers
+# ---------------------------------------------------------------------------
+
+SAMPLE_RESYNC_SCRIPT = """\
+#!/bin/bash
+set -eu
+PYMONGO=$(dirname "$(cd "$(dirname "$0")"; pwd)")
+SPECS=${MDB_SPECS:-~/Work/specifications}
+
+for spec in "$@"
+do
+  case "$spec" in
+    auth)
+      cpjson auth/tests auth
+      ;;
+    bson-binary-vector|bson_binary_vector)
+      cpjson bson-binary-vector/tests bson_binary_vector
+      ;;
+    sdam|SDAM|server-discovery-and-monitoring)
+      cpjson server-discovery-and-monitoring/tests/errors \\
+      discovery_and_monitoring/errors
+      cpjson server-discovery-and-monitoring/tests/rs \\
+      discovery_and_monitoring/rs
+      ;;
+    crud|CRUD)
+      cpjson crud/tests crud
+      ;;
+    *)
+      echo "Unknown spec"; exit 1
+      ;;
+  esac
+done
+"""
+
+
+def test_parse_resync_script_basic(tmp_path):
+    from dbx_python_cli.commands.spec import _parse_resync_script
+
+    script = tmp_path / "resync-specs.sh"
+    script.write_text(SAMPLE_RESYNC_SCRIPT)
+    result = _parse_resync_script(script)
+
+    assert "auth" in result
+    assert result["auth"] == [("auth/tests", "auth")]
+
+    assert "bson-binary-vector" in result
+    assert result["bson-binary-vector"] == [
+        ("bson-binary-vector/tests", "bson_binary_vector")
+    ]
+
+    assert "crud" in result
+    assert result["crud"] == [("crud/tests", "crud")]
+
+
+def test_parse_resync_script_multiline_cpjson(tmp_path):
+    """cpjson calls split across lines via backslash continuations are joined."""
+    from dbx_python_cli.commands.spec import _parse_resync_script
+
+    script = tmp_path / "resync-specs.sh"
+    script.write_text(SAMPLE_RESYNC_SCRIPT)
+    result = _parse_resync_script(script)
+
+    assert "sdam" in result
+    assert (
+        "server-discovery-and-monitoring/tests/errors",
+        "discovery_and_monitoring/errors",
+    ) in result["sdam"]
+    assert (
+        "server-discovery-and-monitoring/tests/rs",
+        "discovery_and_monitoring/rs",
+    ) in result["sdam"]
+
+
+def test_parse_resync_script_skips_default_case(tmp_path):
+    from dbx_python_cli.commands.spec import _parse_resync_script
+
+    script = tmp_path / "resync-specs.sh"
+    script.write_text(SAMPLE_RESYNC_SCRIPT)
+    result = _parse_resync_script(script)
+
+    # '*' default case should not appear
+    assert "*" not in result
+
+
+def test_parse_resync_script_missing_file(tmp_path):
+    from dbx_python_cli.commands.spec import _parse_resync_script
+
+    result = _parse_resync_script(tmp_path / "nonexistent.sh")
+    assert result == {}
+
+
+def test_spec_is_stale_missing_dst(tmp_path):
+    from dbx_python_cli.commands.spec import _spec_is_stale
+
+    src_dir = tmp_path / "specs" / "auth" / "tests"
+    src_dir.mkdir(parents=True)
+    (src_dir / "foo.json").write_text('{"a": 1}')
+
+    driver_test = tmp_path / "driver" / "test"
+    driver_test.mkdir(parents=True)
+    # auth dir intentionally NOT created in driver
+
+    stale, reason = _spec_is_stale(
+        tmp_path / "specs",
+        driver_test,
+        [("auth/tests", "auth")],
+    )
+    assert stale is True
+    assert "missing" in reason
+
+
+def test_spec_is_stale_content_differs(tmp_path):
+    from dbx_python_cli.commands.spec import _spec_is_stale
+
+    src_dir = tmp_path / "specs" / "crud" / "tests"
+    src_dir.mkdir(parents=True)
+    (src_dir / "foo.json").write_text('{"new": true}')
+
+    dst_dir = tmp_path / "driver" / "test" / "crud"
+    dst_dir.mkdir(parents=True)
+    (dst_dir / "foo.json").write_text('{"old": true}')
+
+    stale, reason = _spec_is_stale(
+        tmp_path / "specs",
+        tmp_path / "driver" / "test",
+        [("crud/tests", "crud")],
+    )
+    assert stale is True
+    assert "differs" in reason
+
+
+def test_spec_is_stale_up_to_date(tmp_path):
+    from dbx_python_cli.commands.spec import _spec_is_stale
+
+    content = '{"same": true}'
+    src_dir = tmp_path / "specs" / "auth" / "tests"
+    src_dir.mkdir(parents=True)
+    (src_dir / "foo.json").write_text(content)
+
+    dst_dir = tmp_path / "driver" / "test" / "auth"
+    dst_dir.mkdir(parents=True)
+    (dst_dir / "foo.json").write_text(content)
+
+    stale, _ = _spec_is_stale(
+        tmp_path / "specs",
+        tmp_path / "driver" / "test",
+        [("auth/tests", "auth")],
+    )
+    assert stale is False
+
+
+def test_spec_is_stale_new_file_in_src(tmp_path):
+    from dbx_python_cli.commands.spec import _spec_is_stale
+
+    src_dir = tmp_path / "specs" / "crud" / "tests"
+    src_dir.mkdir(parents=True)
+    (src_dir / "existing.json").write_text('{"x": 1}')
+    (src_dir / "new-file.json").write_text('{"y": 2}')
+
+    dst_dir = tmp_path / "driver" / "test" / "crud"
+    dst_dir.mkdir(parents=True)
+    (dst_dir / "existing.json").write_text('{"x": 1}')
+    # new-file.json intentionally absent from driver
+
+    stale, reason = _spec_is_stale(
+        tmp_path / "specs",
+        tmp_path / "driver" / "test",
+        [("crud/tests", "crud")],
+    )
+    assert stale is True
+    assert "new file" in reason
+
+
+def test_spec_is_stale_src_missing_skips(tmp_path):
+    """If the source directory doesn't exist, skip and report not stale."""
+    from dbx_python_cli.commands.spec import _spec_is_stale
+
+    driver_test = tmp_path / "driver" / "test"
+    driver_test.mkdir(parents=True)
+
+    stale, _ = _spec_is_stale(
+        tmp_path / "specs",  # source dir does not exist
+        driver_test,
+        [("nonexistent-spec/tests", "nonexistent")],
+    )
+    assert stale is False
+
+
+# ---------------------------------------------------------------------------
+# dbx spec status — integration (CLI)
+# ---------------------------------------------------------------------------
+
+
+def _make_status_repos(tmp_path, content_same=True):
+    """Build a minimal repo layout for spec status tests.
+
+    Returns (repos_dir, config_path).
+    """
+    repos_dir = tmp_path / "repos"
+    repos_dir.mkdir()
+
+    # Driver repo
+    driver = repos_dir / "mongo-python-driver"
+    driver.mkdir()
+    (driver / ".git").mkdir()
+    ev_dir = driver / ".evergreen"
+    ev_dir.mkdir()
+    resync = ev_dir / "resync-specs.sh"
+    resync.write_text(SAMPLE_RESYNC_SCRIPT)
+    resync.chmod(0o755)
+    (ev_dir / "spec-patch").mkdir()
+
+    # Driver test dir
+    test_dir = driver / "test"
+    auth_dst = test_dir / "auth"
+    auth_dst.mkdir(parents=True)
+    auth_json = '{"spec": "auth"}' if content_same else '{"spec": "old"}'
+    (auth_dst / "auth.json").write_text(auth_json)
+
+    # Specs repo
+    specs = repos_dir / "specifications"
+    specs.mkdir()
+    (specs / ".git").mkdir()
+    src_auth = specs / "source" / "auth" / "tests"
+    src_auth.mkdir(parents=True)
+    (src_auth / "auth.json").write_text('{"spec": "auth"}')
+
+    # Config
+    cfg_dir = tmp_path / ".config" / "dbx-python-cli"
+    cfg_dir.mkdir(parents=True)
+    cfg = cfg_dir / "config.toml"
+    repos_str = str(repos_dir).replace("\\", "/")
+    cfg.write_text(f"""
+[repo]
+base_dir = "{repos_str}"
+flat = true
+
+[repo.groups.pymongo]
+repos = [
+    "https://github.com/mongodb/mongo-python-driver.git",
+    "https://github.com/mongodb/specifications.git",
+]
+""")
+    return repos_dir, cfg
+
+
+def test_spec_status_all_up_to_date(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc1234 resync: auth (2 days ago)"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="2 days ago",
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "All checked specs are up to date" in result.output
+
+
+def test_spec_status_stale_spec(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=False)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc1234 resync: auth"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="5 days ago",
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "dbx spec sync auth" in result.output
+
+
+def test_spec_status_no_resync_commit(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="some-unrelated-branch",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=[],
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "No resync commit" in result.output
+    assert "does not look like a spec-resync branch" in result.output
+
+
+def test_spec_status_branch_icon(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-2026-05",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resync all"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "✓" in result.output
+
+
+def test_spec_status_suggests_combined_command(tmp_path):
+    """When multiple specs are stale the footer lists them in one command."""
+    _, cfg = _make_status_repos(tmp_path, content_same=False)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resync"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "dbx spec sync" in result.output
+    assert "To sync all stale specs at once" in result.output

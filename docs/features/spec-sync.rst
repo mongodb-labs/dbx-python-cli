@@ -57,6 +57,8 @@ How It Improves on the Manual Workflow
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
 | Remove a resolved patch        | ``rm .evergreen/spec-patch/PYTHON-XXXX.patch``| ``dbx spec patch remove PYTHON-XXXX``        |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
+| Check which specs need syncing  | Manually diff repo directories               | ``dbx spec status``                          |
++--------------------------------+-----------------------------------------------+----------------------------------------------+
 | Apply all patches              | ``git apply -R --allow-empty ...``            | ``dbx spec patch apply``                     |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
 
@@ -149,7 +151,65 @@ Lists available spec directories from the local ``specifications`` repository.
 
 Use the spec names from this output as arguments to ``dbx spec sync``.
 
-dbx spec patch list
+dbx spec status
+~~~~~~~~~~~~~~~
+
+Compares JSON spec files in the driver repo against the local ``specifications`` repository and reports which specs are out of date, then suggests the exact ``dbx spec sync`` commands to run.  Also checks whether the current branch looks like a spec-resync branch and whether a recent resync commit exists.
+
+.. code-block:: bash
+
+   # Check status for the default driver repo (mongo-python-driver)
+   dbx spec status
+
+   # Check a different driver repo
+   dbx spec status -r django-mongodb-backend
+
+   # Use a custom path for the specifications repo
+   dbx spec status --specs-dir ~/my-specs
+
+**Example output:**
+
+.. code-block:: text
+
+   📊 Spec Status — mongo-python-driver
+
+     🌿 Branch: spec-resync-05-18-2026 ✓
+     🕐 Last resync commit: 36dffed resyncing specs 05-18-2026 (3 days ago)
+
+     Checking 35 spec(s) against ~/Developer/mongodb/specifications/source...
+
+     ❌ Stale (3) — suggest syncing:
+
+     ├── dbx spec sync crud
+     ├── dbx spec sync sessions
+     └── dbx spec sync transactions
+
+     ✅ Up to date (32): auth, bson-binary-vector, bson-corpus, ...
+
+   📋 2 active patch(es) in mongo-python-driver:
+     • PYTHON-1234 (3 file(s))
+     • PYTHON-5678 (1 file(s))
+
+     Run 'dbx spec patch apply' to apply them.
+
+     💡 To sync all stale specs at once:
+        dbx spec sync crud sessions transactions
+
+**Notes:**
+
+- Only ``.json`` files are compared (YAML files are excluded by ``resync-specs.sh`` by default).
+- Run ``make`` in ``specifications/source`` first if you want to ensure the JSON files are freshly generated from YAML.
+- A ``⚠`` next to the branch name means the branch does not contain "resync" or "spec" in its name.
+- If no resync commit is found on the branch, a warning is shown — this may indicate you're on the wrong branch.
+
+**Options:**
+
+.. code-block:: text
+
+   -r, --repo       Driver repository to inspect [default: mongo-python-driver]
+   --specs-dir      Path to the MongoDB specifications repo (overrides auto-detection)
+
+
 ~~~~~~~~~~~~~~~~~~~
 
 Lists all active patch files and the test files each one affects. Add ``-v`` to see the individual filenames.
