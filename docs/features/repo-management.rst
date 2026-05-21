@@ -248,6 +248,49 @@ Because ``mongo-python-driver`` ends up physically inside each group directory
 (e.g. ``pymongo/mongo-python-driver``), ``dbx install -g pymongo`` and
 ``dbx test mongo-python-driver`` all work without any extra flags.
 
+Flat Layout
+~~~~~~~~~~~
+
+By default dbx uses a two-level directory layout (``base_dir/<group>/<repo>``).
+Setting ``flat = true`` collapses this so all repositories live directly under
+``base_dir``:
+
+.. code-block:: toml
+
+   [repo]
+   base_dir = "~/Developer/mongodb"
+   flat = true
+
+   [repo.groups.pymongo]
+   repos = [
+       "git@github.com:mongodb/mongo-python-driver.git",
+       "git@github.com:mongodb/specifications.git",
+   ]
+
+   [repo.groups.django]
+   repos = [
+       "git@github.com:mongodb-labs/django-mongodb-backend.git",
+   ]
+
+Resulting layout:
+
+.. code-block:: text
+
+   ~/Developer/mongodb/
+   ├── mongo-python-driver/
+   ├── specifications/
+   └── django-mongodb-backend/
+
+In flat mode:
+
+- Group membership is resolved from the config rather than directory structure.
+- ``dbx list`` shows a tree grouped by config group (same visual style as
+  grouped mode).
+- ``dbx clone -g pymongo`` clones directly into ``base_dir`` instead of
+  ``base_dir/pymongo/``.
+- A single shared ``.venv`` is used across all groups.
+- All other commands (``-g``, install, test, etc.) continue to work normally.
+
 **Configuration:**
 
 Repository groups are defined in ``~/.config/dbx-python-cli/config.toml``. The default base directory for cloning is ``~/Developer/dbx-repos``, which can be customized.

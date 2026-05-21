@@ -173,13 +173,46 @@ Typical directory structure after setup:
    │   └── another_project/
    ├── pymongo/                      # Group directory
    │   ├── .venv/                    # Group-level virtual environment
-   │   ├── mongo-python-driver/     # Cloned from global group
+   │   ├── mongo-python-driver/     # Repository
    │   ├── specifications/          # Repository
    │   └── drivers-evergreen-tools/ # Repository
    └── langchain/                    # Another group
        ├── .venv/                    # Separate venv for this group
-       ├── mongo-python-driver/     # Cloned from global group
-       └── langchain-mongodb/       # Repository
+       └── langchain-mongodb/        # Repository
+
+Flat Layout
+~~~~~~~~~~~
+
+Setting ``flat = true`` in ``[repo]`` switches to a flat layout where all repositories
+live directly under ``base_dir`` instead of in per-group subdirectories:
+
+.. code-block:: toml
+
+   [repo]
+   base_dir = "~/Developer/mongodb"
+   flat = true
+
+   [repo.groups.pymongo]
+   repos = [
+       "git@github.com:mongodb/mongo-python-driver.git",
+   ]
+
+   [repo.groups.django]
+   repos = [
+       "git@github.com:mongodb-labs/django-mongodb-backend.git",
+   ]
+
+.. code-block:: text
+
+   ~/Developer/mongodb/              # base_dir (also group root)
+   ├── .venv/                        # Shared venv across all groups
+   ├── mongo-python-driver/          # pymongo group repo
+   └── django-mongodb-backend/       # django group repo
+
+In flat mode ``dbx list`` still shows repos grouped by their config group in a
+tree view, and all group-aware commands (``-g``, install, test) continue to work
+normally — group membership is resolved from the config rather than the directory
+structure.
 
 Design Philosophy
 -----------------
