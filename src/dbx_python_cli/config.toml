@@ -91,29 +91,27 @@ flat = true
 editor = "vii"
 
 [repo.groups.global]
-repos = [
-    "git@github.com:mongodb/mongo-python-driver.git",
-]
-
-# Environment variables for test runs
-# You can use {base_dir} placeholder; {group} resolves to "global" for repos in this group
-[repo.groups.global.test_env]
-mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/drivers-evergreen-tools", USE_ACTIVE_VENV = "1", COVERAGE = "1" }
-
-# Default extras to install automatically
-[repo.groups.global.install_extras]
-mongo-python-driver = ["test"]
+repos = []
 
 [repo.groups.pymongo]
 # Python version for the group's virtual environment
 python_version = "3.13"
 repos = [
+    "git@github.com:mongodb/mongo-python-driver.git",
     "git@github.com:mongodb/specifications.git",
     "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
     "git@github.com:mongodb-labs/drivers-github-tools.git",
     "git@github.com:mongodb-labs/mongo-arrow.git",
     "git@github.com:mongodb/mongo-orchestration.git",
 ]
+
+# Environment variables for test runs
+[repo.groups.pymongo.test_env]
+mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/drivers-evergreen-tools", USE_ACTIVE_VENV = "1", COVERAGE = "1" }
+
+# Default extras to install automatically
+[repo.groups.pymongo.install_extras]
+mongo-python-driver = ["test"]
 
 # Build commands: specify commands to run before installing (e.g., rust builds)
 # Note: Rust build only works when the rust branch is checked out
