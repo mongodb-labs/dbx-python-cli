@@ -384,6 +384,27 @@ def _commit_relative_date(repo_path: Path, commit_sha: str) -> str:
     return result.stdout.strip() or "unknown"
 
 
+def _commit_spec_dirs(repo_path: Path, commit_sha: str) -> list[str]:
+    """Return sorted unique top-level test subdirectory names changed in a commit.
+
+    Runs ``git diff-tree`` on the commit and extracts the first path component
+    under ``test/``, giving the spec directory names that were actually modified.
+    """
+    result = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "-r", "--name-only", commit_sha],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    dirs: set[str] = set()
+    for line in result.stdout.splitlines():
+        parts = line.strip().split("/")
+        if len(parts) >= 2 and parts[0] == "test":
+            dirs.add(parts[1])
+    return sorted(dirs)
+
+
 def _spec_is_stale(
     specs_source: Path,
     driver_test: Path,
@@ -505,9 +526,16 @@ def spec_status(
         sha = recent[0].split()[0]
         age = _commit_relative_date(driver_path, sha)
         typer.echo(f"  🕐 Last resync commit: {recent[0]} ({age})")
+        spec_dirs = _commit_spec_dirs(driver_path, sha)
+        if spec_dirs:
+            typer.echo(f"     Specs touched: {', '.join(spec_dirs)}")
         if verbose and len(recent) > 1:
             for c in recent[1:]:
-                typer.echo(f"              also: {c}")
+                c_sha = c.split()[0]
+                c_age = _commit_relative_date(driver_path, c_sha)
+                c_dirs = _commit_spec_dirs(driver_path, c_sha)
+                dirs_str = f" — {', '.join(c_dirs)}" if c_dirs else ""
+                typer.echo(f"              also: {c} ({c_age}){dirs_str}")
     else:
         typer.echo("  ⚠  No resync commit found on this branch.", err=True)
 

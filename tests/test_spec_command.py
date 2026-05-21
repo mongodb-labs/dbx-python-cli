@@ -751,3 +751,62 @@ def test_spec_status_suggests_combined_command(tmp_path):
     assert result.exit_code == 0
     assert "dbx spec sync" in result.output
     assert "To sync all stale specs at once" in result.output
+
+
+def test_commit_spec_dirs(tmp_path):
+    """_commit_spec_dirs extracts unique test subdirs from a real git commit."""
+    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from unittest.mock import patch, MagicMock
+
+    mock_result = MagicMock()
+    mock_result.stdout = (
+        "test/crud/foo.json\n"
+        "test/crud/bar.json\n"
+        "test/sessions/baz.json\n"
+        ".evergreen/resync-specs.sh\n"  # non-test file should be ignored
+        "test/auth/qux.json\n"
+    )
+
+    with patch("subprocess.run", return_value=mock_result):
+        dirs = _commit_spec_dirs(tmp_path, "abc1234")
+
+    assert dirs == ["auth", "crud", "sessions"]
+
+
+def test_commit_spec_dirs_no_test_files(tmp_path):
+    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from unittest.mock import patch, MagicMock
+
+    mock_result = MagicMock()
+    mock_result.stdout = ".evergreen/resync-specs.sh\n"
+
+    with patch("subprocess.run", return_value=mock_result):
+        dirs = _commit_spec_dirs(tmp_path, "abc1234")
+
+    assert dirs == []
+
+
+def test_spec_status_shows_specs_touched(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc1234 resyncing specs 05-18-2026"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="3 days ago",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            return_value=["auth", "crud", "sessions"],
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "Specs touched: auth, crud, sessions" in result.output
