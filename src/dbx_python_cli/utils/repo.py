@@ -748,19 +748,11 @@ def list_repos(base_dir, format_style="default", config=None):
     if not repos and not available_repos:
         return None
 
-    # Flat mode: render a plain list (no group-subdir tree)
+    # Flat mode: render a tree grouped by config group
     if config and is_flat_mode(config):
-        # Collect all repo names: cloned + available from config
         cloned_names = {r["name"] for r in repos}
-        all_available_names = set()
-        for names in available_repos.values():
-            all_available_names.update(names)
-        all_names = sorted(cloned_names | all_available_names)
 
-        if not all_names:
-            return None
-
-        # Build repo → [group, ...] mapping from config (non-global groups only)
+        # Build repo → groups mapping from config (non-global groups only)
         repo_to_groups = defaultdict(list)
         for gname, gconfig in groups.items():
             if gname in global_group_names:
@@ -769,27 +761,49 @@ def list_repos(base_dir, format_style="default", config=None):
                 rname = extract_repo_name_from_url(url)
                 repo_to_groups[rname].append(gname)
 
+        # Cloned repos that belong to no config group are rendered ungrouped at the end
+        ungrouped_cloned = sorted(r for r in cloned_names if not repo_to_groups.get(r))
+
+        all_groups = set(available_repos.keys()) - global_group_names
+        if not all_groups and not ungrouped_cloned:
+            return None
+
         lines = []
-        for i, repo_name in enumerate(all_names):
-            is_last = i == len(all_names) - 1
-            prefix = "└──" if is_last else "├──"
-            group_list = repo_to_groups.get(repo_name, [])
-            group_label = (
-                " " + typer.style(f"[{', '.join(group_list)}]", fg=typer.colors.CYAN)
-                if group_list
-                else ""
-            )
-            if config:
-                if repo_name in cloned_names and repo_name in all_available_names:
+        sorted_groups = sorted(all_groups)
+        total_sections = len(sorted_groups) + (1 if ungrouped_cloned else 0)
+        for i, group in enumerate(sorted_groups):
+            is_last_group = i == total_sections - 1
+            group_prefix = "└──" if is_last_group else "├──"
+            group_label = typer.style(f"{group}/", fg=typer.colors.CYAN, bold=True)
+            lines.append(f"{group_prefix} {group_label}")
+
+            available_in_group = set(available_repos.get(group, []))
+            cloned_in_group = {
+                r for r in cloned_names if group in repo_to_groups.get(r, [])
+            }
+            all_repos_in_group = sorted(available_in_group | cloned_in_group)
+
+            for j, repo_name in enumerate(all_repos_in_group):
+                is_last_repo = j == len(all_repos_in_group) - 1
+                continuation = "    " if is_last_group else "│   "
+                repo_prefix = "└──" if is_last_repo else "├──"
+                is_cloned = repo_name in cloned_names
+                is_available = repo_name in available_in_group
+                if is_cloned and is_available:
                     status = typer.style("✓", fg=typer.colors.GREEN)
-                elif repo_name in cloned_names:
+                elif is_cloned:
                     status = typer.style("?", fg=typer.colors.MAGENTA)
                 else:
                     status = typer.style("○", fg=typer.colors.YELLOW)
-                lines.append(f"{prefix} {status} {repo_name}{group_label}")
-            else:
-                lines.append(f"{prefix} {repo_name}{group_label}")
-        return "\n".join(lines)
+                lines.append(f"{continuation}{repo_prefix} {status} {repo_name}")
+
+        for k, repo_name in enumerate(ungrouped_cloned):
+            is_last = k == len(ungrouped_cloned) - 1
+            prefix = "└──" if is_last else "├──"
+            status = typer.style("?", fg=typer.colors.MAGENTA)
+            lines.append(f"{prefix} {status} {repo_name}")
+
+        return "\n".join(lines) if lines else None
 
     if format_style == "tree":
         # Tree format with group as parent
