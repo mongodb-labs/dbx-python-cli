@@ -1,7 +1,7 @@
 Repository Management
 =====================
 
-The ``dbx clone``, ``dbx sync``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
+The ``dbx clone``, ``dbx sync``, ``dbx swap``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
 
 Initialize Configuration
 ------------------------
@@ -201,6 +201,38 @@ This command will:
 - The ``--force`` flag uses ``--force-with-lease`` for safety (won't overwrite others' changes)
 - If there are rebase conflicts, you'll need to resolve them manually
 - Works with any repository that has an ``upstream`` remote, not just forks
+
+Swap Origin and Upstream
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After setting up a fork workflow, you may occasionally need to swap your ``origin`` and ``upstream``
+remotes — for example, if you initially cloned the upstream repo directly and later created a fork.
+
+.. code-block:: bash
+
+   # Swap remotes for a specific repository
+   dbx swap mongo-python-driver
+
+   # Swap by navigating to the repo directory
+   cd ~/Developer/mongodb/pymongo/mongo-python-driver
+   dbx swap .
+
+   # Swap all repositories in a group
+   dbx swap -g pymongo
+
+   # Preview what would change without making modifications
+   dbx swap mongo-python-driver --dry-run
+   dbx swap -g pymongo --dry-run
+
+After swapping, what was ``origin`` becomes ``upstream`` and vice versa. This is useful when:
+
+- You cloned a repo directly and then forked it — swap so your fork is ``origin``
+- You want to point ``origin`` back to the canonical repo and ``upstream`` to your fork
+
+**Notes:**
+
+- Both ``origin`` and ``upstream`` remotes must already be configured; the command will fail if either is missing
+- Use ``--dry-run`` first to verify the swap looks correct before applying it
 
 **Available Groups (Default):**
 
