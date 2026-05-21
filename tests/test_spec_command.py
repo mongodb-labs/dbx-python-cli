@@ -750,7 +750,7 @@ def test_spec_status_suggests_combined_command(tmp_path):
         result = runner.invoke(app, ["spec", "status"])
     assert result.exit_code == 0
     assert "dbx spec sync" in result.output
-    assert "To sync all stale specs at once" in result.output
+    assert "Sync remaining specs" in result.output
 
 
 def test_commit_spec_dirs(tmp_path):
@@ -810,3 +810,84 @@ def test_spec_status_shows_specs_touched(tmp_path):
         result = runner.invoke(app, ["spec", "status"])
     assert result.exit_code == 0
     assert "Specs touched: auth, crud, sessions" in result.output
+
+
+def test_commit_spec_dirs_requires_subdir(tmp_path):
+    """Files directly in test/ (no subdir) should not appear in the result."""
+    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from unittest.mock import patch, MagicMock
+
+    mock_result = MagicMock()
+    mock_result.stdout = (
+        "test/test_database.py\n"  # file directly in test/ — should be skipped
+        "test/crud/foo.json\n"  # proper spec subdir — should be included
+    )
+
+    with patch("subprocess.run", return_value=mock_result):
+        dirs = _commit_spec_dirs(tmp_path, "abc1234")
+
+    assert "test_database.py" not in dirs
+    assert "crud" in dirs
+
+
+def test_spec_status_shows_pr_summary(tmp_path):
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc1234 resyncing specs"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            return_value=["auth", "crud"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._branch_summary",
+            return_value=(["auth", "crud", "sessions"], 3),
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "PR summary" in result.output
+    assert "3 commits ahead of main" in result.output
+    assert "Specs synced so far: auth, crud, sessions" in result.output
+
+
+def test_spec_status_verify_section_no_stale(tmp_path):
+    """When nothing is stale, shows 'Nothing outstanding' message."""
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resyncing specs"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            return_value=["auth"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._branch_summary",
+            return_value=(["auth"], 1),
+        ),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+    assert result.exit_code == 0
+    assert "Nothing outstanding" in result.output

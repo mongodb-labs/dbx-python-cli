@@ -400,9 +400,33 @@ def _commit_spec_dirs(repo_path: Path, commit_sha: str) -> list[str]:
     dirs: set[str] = set()
     for line in result.stdout.splitlines():
         parts = line.strip().split("/")
-        if len(parts) >= 2 and parts[0] == "test":
+        # Require test/<subdir>/<file> — excludes files sitting directly in test/
+        if len(parts) >= 3 and parts[0] == "test":
             dirs.add(parts[1])
     return sorted(dirs)
+
+
+def _branch_summary(repo_path: Path) -> tuple[list[str], int]:
+    """Return (sorted spec dirs touched, commit count) for commits on this branch vs main.
+
+    Tries ``origin/main``, ``upstream/main``, ``main`` in that order as the base.
+    Returns ([], 0) if none can be resolved.
+    """
+    for base in ("origin/main", "upstream/main", "main", "master"):
+        result = subprocess.run(
+            ["git", "log", "--format=%H", f"{base}..HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            shas = result.stdout.strip().splitlines()
+            all_dirs: set[str] = set()
+            for sha in shas:
+                all_dirs.update(_commit_spec_dirs(repo_path, sha.strip()))
+            return sorted(all_dirs), len(shas)
+    return [], 0
 
 
 def _spec_is_stale(
@@ -539,6 +563,18 @@ def spec_status(
     else:
         typer.echo("  ⚠  No resync commit found on this branch.", err=True)
 
+    # --- Branch summary (what this PR has done so far) --------------------- #
+    branch_dirs, branch_commit_count = _branch_summary(driver_path)
+    if branch_commit_count:
+        commit_word = "commit" if branch_commit_count == 1 else "commits"
+        typer.echo(
+            f"\n  📝 PR summary ({branch_commit_count} {commit_word} ahead of main):"
+        )
+        if branch_dirs:
+            typer.echo(f"     Specs synced so far: {', '.join(branch_dirs)}")
+        else:
+            typer.echo("     No test/ files changed yet on this branch.")
+
     # --- Parse spec map ---------------------------------------------------- #
     spec_map = _parse_resync_script(script)
     if not spec_map:
@@ -568,7 +604,7 @@ def spec_status(
 
     # --- Output ------------------------------------------------------------ #
     if stale:
-        typer.echo(f"  ❌ Stale ({len(stale)}) — suggest syncing:\n")
+        typer.echo(f"  ❌ Still needs syncing ({len(stale)}):\n")
         for i, (name, reason) in enumerate(stale):
             is_last = i == len(stale) - 1
             prefix = "  └──" if is_last else "  ├──"
@@ -587,13 +623,30 @@ def spec_status(
         )
 
     # --- Patches ----------------------------------------------------------- #
-    _show_patch_summary(driver_repo, verbose)
+    patch_count = _show_patch_summary(driver_repo, verbose)
 
-    # --- Suggested command block ------------------------------------------- #
+    # --- What to do next --------------------------------------------------- #
+    typer.echo("\n  🔍 To verify locally:\n")
+    step = 1
     if stale:
         spec_names = " ".join(name for name, _ in stale)
-        typer.echo("\n  💡 To sync all stale specs at once:")
-        typer.echo(f"     dbx spec sync {spec_names}\n")
+        typer.echo(f"     {step}. Sync remaining specs:")
+        typer.echo(f"        dbx spec sync {spec_names}")
+        step += 1
+    if patch_count:
+        typer.echo(f"     {step}. Re-apply patches after syncing:")
+        typer.echo("        dbx spec patch apply")
+        step += 1
+    if branch_dirs:
+        test_dirs = " ".join(f"test/{d}/" for d in branch_dirs[:5])
+        ellipsis = " ..." if len(branch_dirs) > 5 else ""
+        typer.echo(f"     {step}. Run tests for synced specs:")
+        typer.echo(f"        python -m pytest {test_dirs}{ellipsis}")
+        step += 1
+    if not stale and not patch_count:
+        typer.echo("     ✅ Nothing outstanding — branch looks complete.\n")
+    else:
+        typer.echo("")
 
 
 @app.command("list")
