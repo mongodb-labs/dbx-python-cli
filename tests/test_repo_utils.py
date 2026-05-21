@@ -536,3 +536,123 @@ def test_find_repo_by_name_no_priority_config(tmp_path):
     assert repo is not None
     # Should return one of them (order not guaranteed without priority)
     assert repo["name"] == "mongo-python-driver"
+
+
+# ---------------------------------------------------------------------------
+# list_repos flat mode tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def flat_repos_dir(tmp_path):
+    """Create a flat-layout repos directory with repos from two groups."""
+    base = tmp_path / "repos"
+    base.mkdir()
+    for name in ["django", "django-mongodb-backend", "mongo-python-driver"]:
+        repo = base / name
+        repo.mkdir()
+        (repo / ".git").mkdir()
+    return base
+
+
+def _flat_config(base_dir):
+    return {
+        "repo": {
+            "base_dir": str(base_dir),
+            "flat": True,
+            "global_groups": [],
+            "groups": {
+                "django": {
+                    "repos": [
+                        "git@github.com:mongodb-forks/django.git",
+                        "git@github.com:mongodb-labs/django-mongodb-backend.git",
+                    ]
+                },
+                "pymongo": {
+                    "repos": ["git@github.com:mongodb/mongo-python-driver.git"]
+                },
+            },
+        }
+    }
+
+
+def test_list_repos_flat_shows_group_headers(flat_repos_dir):
+    """Flat mode renders group names as tree headers."""
+    config = _flat_config(flat_repos_dir)
+    result = list_repos(flat_repos_dir, config=config)
+
+    assert result is not None
+    assert "django/" in result
+    assert "pymongo/" in result
+
+
+def test_list_repos_flat_repos_under_correct_group(flat_repos_dir):
+    """Repos appear under their config group in flat mode."""
+    config = _flat_config(flat_repos_dir)
+    result = list_repos(flat_repos_dir, config=config)
+
+    assert result is not None
+    lines = result.splitlines()
+    django_idx = next(i for i, line in enumerate(lines) if "django/" in line)
+    pymongo_idx = next(i for i, line in enumerate(lines) if "pymongo/" in line)
+
+    # django-mongodb-backend should appear between the django/ header and pymongo/ header
+    dmb_idx = next(
+        i for i, line in enumerate(lines) if "django-mongodb-backend" in line
+    )
+    mpd_idx = next(i for i, line in enumerate(lines) if "mongo-python-driver" in line)
+
+    assert django_idx < dmb_idx < pymongo_idx
+    assert mpd_idx > pymongo_idx
+
+
+def test_list_repos_flat_cloned_status(flat_repos_dir):
+    """Cloned repos show ✓, available-only repos show ○ in flat mode."""
+    config = _flat_config(flat_repos_dir)
+    # Add a repo to config that isn't cloned
+    config["repo"]["groups"]["pymongo"]["repos"].append(
+        "git@github.com:mongodb/specifications.git"
+    )
+    result = list_repos(flat_repos_dir, config=config)
+
+    assert result is not None
+    assert "✓" in result  # cloned repos
+    assert "○" in result  # specifications not cloned
+
+
+def test_list_repos_flat_unknown_repo(flat_repos_dir):
+    """Repos cloned but not in config show ? and appear ungrouped."""
+    base = flat_repos_dir
+    mystery = base / "mystery-repo"
+    mystery.mkdir()
+    (mystery / ".git").mkdir()
+
+    config = _flat_config(base)
+    result = list_repos(base, config=config)
+
+    assert result is not None
+    assert "mystery-repo" in result
+    assert "?" in result
+
+
+def test_list_repos_flat_empty_base(tmp_path):
+    """Flat mode with no cloned repos but config groups returns a tree."""
+    base = tmp_path / "repos"
+    base.mkdir()
+    config = _flat_config(base)
+    result = list_repos(base, config=config)
+
+    assert result is not None
+    assert "django/" in result
+    assert "pymongo/" in result
+    assert "○" in result  # all available, none cloned
+
+
+def test_list_repos_flat_tree_characters(flat_repos_dir):
+    """Flat mode output uses tree-drawing characters."""
+    config = _flat_config(flat_repos_dir)
+    result = list_repos(flat_repos_dir, config=config)
+
+    assert result is not None
+    assert "├──" in result or "└──" in result
+    assert "│" in result or "    " in result
