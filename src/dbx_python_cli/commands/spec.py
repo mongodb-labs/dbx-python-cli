@@ -74,8 +74,28 @@ def _list_patches(patch_dir: Path) -> list[Path]:
     return sorted(patch_dir.glob("*.patch"))
 
 
+def _patch_dir_map(patch_dir: Path) -> dict[str, list[str]]:
+    """Return {test_subdir: [ticket, ...]} for all active patches.
+
+    Reads each .patch file, extracts the ``test/<subdir>/`` paths from diff
+    headers, and builds a reverse map so callers can quickly find which
+    patches touch a given spec directory.
+    """
+    result: dict[str, list[str]] = {}
+    for patch_path in _list_patches(patch_dir):
+        ticket = patch_path.stem
+        for file_path in _parse_patch_files(patch_path):
+            parts = file_path.split("/")
+            if len(parts) >= 3 and parts[0] == "test":
+                subdir = parts[1]
+                result.setdefault(subdir, [])
+                if ticket not in result[subdir]:
+                    result[subdir].append(ticket)
+    return result
+
+
 def _show_patch_summary(driver_repo, verbose: bool = False) -> int:
-    """Print a summary of active patches. Returns the patch count."""
+    """Print a summary of active patches with the spec dirs each covers. Returns patch count."""
     patch_dir = _get_patch_dir(driver_repo)
     patches = _list_patches(patch_dir)
     if not patches:
@@ -84,13 +104,24 @@ def _show_patch_summary(driver_repo, verbose: bool = False) -> int:
     for p in patches:
         ticket = p.stem
         files = _parse_patch_files(p)
+        subdirs = sorted(
+            {
+                parts[1]
+                for f in files
+                for parts in [f.split("/")]
+                if len(parts) >= 3 and parts[0] == "test"
+            }
+        )
+        dirs_str = f"  → {', '.join(subdirs)}" if subdirs else ""
         if verbose:
-            typer.echo(f"  • {ticket} ({len(files)} file(s)):")
+            typer.echo(f"  • {ticket} ({len(files)} file(s)){dirs_str}:")
             for f in files:
                 typer.echo(f"      {f}")
         else:
-            typer.echo(f"  • {ticket} ({len(files)} file(s))")
-    typer.echo("\n  Run 'dbx spec patch apply' to apply them.")
+            typer.echo(f"  • {ticket} ({len(files)} file(s)){dirs_str}")
+    typer.echo(
+        "\n  ⚠  After syncing any of the above spec dirs, run: dbx spec patch apply"
+    )
     return len(patches)
 
 
@@ -602,6 +633,20 @@ def spec_status(
         else:
             up_to_date.append(spec_name)
 
+    # --- Build patch→dir map before output --------------------------------- #
+    patch_dir_lookup = _patch_dir_map(_get_patch_dir(driver_repo))
+    # reverse: spec_driver_dir → patch tickets that cover it
+    dir_to_patches: dict[str, list[str]] = patch_dir_lookup
+
+    # For each spec_name, collect the driver dirs it maps to
+    def _patches_for_spec(spec_name: str) -> list[str]:
+        tickets: list[str] = []
+        for _, driver_dir in spec_map.get(spec_name, []):
+            for t in dir_to_patches.get(driver_dir, []):
+                if t not in tickets:
+                    tickets.append(t)
+        return tickets
+
     # --- Output ------------------------------------------------------------ #
     if stale:
         typer.echo(f"  ❌ Still needs syncing ({len(stale)}):\n")
@@ -609,7 +654,13 @@ def spec_status(
             is_last = i == len(stale) - 1
             prefix = "  └──" if is_last else "  ├──"
             reason_str = f"  [{reason}]" if verbose else ""
-            typer.echo(f"{prefix} dbx spec sync {name}{reason_str}")
+            tickets = _patches_for_spec(name)
+            patch_str = f"  🩹 {', '.join(tickets)}" if tickets else ""
+            typer.echo(f"{prefix} dbx spec sync {name}{reason_str}{patch_str}")
+        if any(_patches_for_spec(n) for n, _ in stale):
+            typer.echo(
+                "\n  🩹 = has an active patch — re-run 'dbx spec patch apply' after syncing"
+            )
     else:
         typer.echo("  ✅ All checked specs are up to date.")
 
@@ -634,7 +685,7 @@ def spec_status(
         typer.echo(f"        dbx spec sync {spec_names}")
         step += 1
     if patch_count:
-        typer.echo(f"     {step}. Re-apply patches after syncing:")
+        typer.echo(f"     {step}. Re-apply patches (removes unimplemented tests):")
         typer.echo("        dbx spec patch apply")
         step += 1
     if branch_dirs:

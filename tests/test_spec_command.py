@@ -891,3 +891,66 @@ def test_spec_status_verify_section_no_stale(tmp_path):
         result = runner.invoke(app, ["spec", "status"])
     assert result.exit_code == 0
     assert "Nothing outstanding" in result.output
+
+
+def test_patch_dir_map(tmp_path):
+    """_patch_dir_map returns a dir→tickets reverse map from patch files."""
+    from dbx_python_cli.commands.spec import _patch_dir_map
+
+    patch_dir = tmp_path / "spec-patch"
+    patch_dir.mkdir()
+    (patch_dir / "PYTHON-1234.patch").write_text(
+        "diff --git a/test/crud/foo.json b/test/crud/foo.json\n"
+        "diff --git a/test/unified-test-format/bar.json b/test/unified-test-format/bar.json\n"
+    )
+    (patch_dir / "PYTHON-5678.patch").write_text(
+        "diff --git a/test/crud/baz.json b/test/crud/baz.json\n"
+    )
+
+    result = _patch_dir_map(patch_dir)
+
+    assert "crud" in result
+    assert "PYTHON-1234" in result["crud"]
+    assert "PYTHON-5678" in result["crud"]
+    assert "unified-test-format" in result
+    assert result["unified-test-format"] == ["PYTHON-1234"]
+
+
+def test_spec_status_annotates_patches(tmp_path):
+    """Stale specs that have an active patch should show the ticket."""
+    _, cfg = _make_status_repos(tmp_path, content_same=False)
+
+    # Add a patch covering the auth test dir
+    patch_dir = tmp_path / "repos" / "mongo-python-driver" / ".evergreen" / "spec-patch"
+    (patch_dir / "PYTHON-9999.patch").write_text(
+        "diff --git a/test/auth/auth.json b/test/auth/auth.json\n"
+        "index abc..def 100644\n"
+        "--- a/test/auth/auth.json\n"
+        "+++ b/test/auth/auth.json\n"
+        "@@ -1 +1 @@\n"
+        "-old\n"
+        "+new\n"
+    )
+
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resyncing"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+
+    assert result.exit_code == 0
+    assert "PYTHON-9999" in result.output
+    assert "🩹" in result.output
