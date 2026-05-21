@@ -98,6 +98,7 @@ repos = []
 python_version = "3.13"
 repos = [
     "git@github.com:mongodb/mongo-python-driver.git",
+    "git@github.com:mongodb/libmongocrypt.git",
     "git@github.com:mongodb/specifications.git",
     "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
     "git@github.com:mongodb-labs/drivers-github-tools.git",
@@ -119,6 +120,18 @@ mongo-python-driver = ["test"]
 # mongo-python-driver = [
 #     "cd bson/_rbson && maturin build --release",
 # ]
+
+[repo.groups.pymongo.install_dirs]
+libmongocrypt = [
+    "bindings/python/",
+]
+
+[repo.groups.pymongo.build_commands]
+libmongocrypt = [
+    "mkdir -p cmake-build",
+    "cd cmake-build && cmake ..",
+    "cd cmake-build && make",
+]
 
 [repo.groups.langchain]
 repos = [
@@ -164,25 +177,6 @@ django = "mongodb-6.0.x"
 
 # Environment variables for test runs
 [repo.groups.django.test_env]
-
-[repo.groups.pymongocrypt]
-repos = [
-    "git@github.com:mongodb/libmongocrypt.git",
-]
-
-# Install directories: specify install directories for repos where the package is not at the root
-[repo.groups.pymongocrypt.install_dirs]
-libmongocrypt = [
-    "bindings/python/",
-]
-
-# Build commands: specify commands to run before installing (e.g., cmake builds)
-[repo.groups.pymongocrypt.build_commands]
-libmongocrypt = [
-    "mkdir -p cmake-build",
-    "cd cmake-build && cmake ..",
-    "cd cmake-build && make",
-]
 
 [repo.groups.wagtail]
 repos = [
