@@ -100,10 +100,7 @@ repos = [
     "git@github.com:mongodb/mongo-python-driver.git",
     "git@github.com:mongodb/libmongocrypt.git",
     "git@github.com:mongodb/specifications.git",
-    "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
-    "git@github.com:mongodb-labs/drivers-github-tools.git",
     "git@github.com:mongodb-labs/mongo-arrow.git",
-    "git@github.com:mongodb/mongo-orchestration.git",
 ]
 
 # Environment variables for test runs
@@ -136,7 +133,6 @@ libmongocrypt = [
 [repo.groups.langchain]
 repos = [
     "git@github.com:mongodb-labs/pymongo-search-utils.git",
-    "git@github.com:mongodb-labs/ai-ml-pipeline-testing.git",
     "git@github.com:langchain-ai/langchain-mongodb.git",
 ]
 
@@ -151,6 +147,14 @@ langchain-mongodb = [
 # Default dependency groups to install automatically (e.g., always install dev group)
 [repo.groups.langchain.install_groups]
 langchain-mongodb = ["dev"]
+
+[repo.groups.ci]
+repos = [
+    "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
+    "git@github.com:mongodb-labs/drivers-github-tools.git",
+    "git@github.com:mongodb/mongo-orchestration.git",
+    "git@github.com:mongodb-labs/ai-ml-pipeline-testing.git",
+]
 
 [repo.groups.django]
 # Python version for the group's virtual environment (requires Python >= 3.12 for django-mongodb-backend)
