@@ -760,10 +760,25 @@ def list_repos(base_dir, format_style="default", config=None):
         if not all_names:
             return None
 
+        # Build repo → [group, ...] mapping from config (non-global groups only)
+        repo_to_groups = defaultdict(list)
+        for gname, gconfig in groups.items():
+            if gname in global_group_names:
+                continue
+            for url in gconfig.get("repos", []):
+                rname = extract_repo_name_from_url(url)
+                repo_to_groups[rname].append(gname)
+
         lines = []
         for i, repo_name in enumerate(all_names):
             is_last = i == len(all_names) - 1
             prefix = "└──" if is_last else "├──"
+            group_list = repo_to_groups.get(repo_name, [])
+            group_label = (
+                " " + typer.style(f"[{', '.join(group_list)}]", fg=typer.colors.CYAN)
+                if group_list
+                else ""
+            )
             if config:
                 if repo_name in cloned_names and repo_name in all_available_names:
                     status = typer.style("✓", fg=typer.colors.GREEN)
@@ -771,9 +786,9 @@ def list_repos(base_dir, format_style="default", config=None):
                     status = typer.style("?", fg=typer.colors.MAGENTA)
                 else:
                     status = typer.style("○", fg=typer.colors.YELLOW)
-                lines.append(f"{prefix} {status} {repo_name}")
+                lines.append(f"{prefix} {status} {repo_name}{group_label}")
             else:
-                lines.append(f"{prefix} {repo_name}")
+                lines.append(f"{prefix} {repo_name}{group_label}")
         return "\n".join(lines)
 
     if format_style == "tree":
