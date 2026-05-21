@@ -126,12 +126,36 @@ def _show_patch_summary(driver_repo, verbose: bool = False) -> int:
 
 
 def _apply_patches(driver_repo, verbose: bool = False) -> bool:
-    """Run git apply -R on all patch files. Returns True on success."""
+    """Run git apply -R on all patch files. Returns True on success.
+
+    Checks applicability first and gives a clear error if patches appear to be
+    already applied (i.e. the test files have already been modified).
+    """
     patch_dir = _get_patch_dir(driver_repo)
     patches = _list_patches(patch_dir)
     if not patches:
         typer.echo("  No patches to apply.")
         return True
+
+    # Dry-run first so we can give a helpful error instead of a raw git failure
+    check_result = subprocess.run(
+        ["git", "apply", "-R", "--check", "--allow-empty", *[str(p) for p in patches]],
+        cwd=str(driver_repo["path"]),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if check_result.returncode != 0:
+        typer.echo(
+            "❌ Patches cannot be applied — they may already be applied.", err=True
+        )
+        typer.echo(
+            "   Run 'dbx spec sync <spec> --apply-patches' to reset and re-apply in one shot.",
+            err=True,
+        )
+        if verbose:
+            typer.echo(check_result.stderr.strip(), err=True)
+        return False
 
     cmd = [
         "git",
@@ -659,7 +683,7 @@ def spec_status(
             typer.echo(f"{prefix} dbx spec sync {name}{reason_str}{patch_str}")
         if any(_patches_for_spec(n) for n, _ in stale):
             typer.echo(
-                "\n  🩹 = has an active patch — re-run 'dbx spec patch apply' after syncing"
+                "\n  🩹 = has an active patch — use --apply-patches to sync + patch in one shot"
             )
     else:
         typer.echo("  ✅ All checked specs are up to date.")
@@ -681,12 +705,33 @@ def spec_status(
     step = 1
     if stale:
         spec_names = " ".join(name for name, _ in stale)
-        typer.echo(f"     {step}. Sync remaining specs:")
-        typer.echo(f"        dbx spec sync {spec_names}")
+        any_patched = any(_patches_for_spec(n) for n, _ in stale)
+        if any_patched and patch_count:
+            # --apply-patches is idempotent: sync resets files, then patches apply fresh
+            typer.echo(
+                f"     {step}. Sync and re-apply patches in one shot (recommended):"
+            )
+            typer.echo(f"        dbx spec sync {spec_names} --apply-patches")
+            typer.echo(
+                "        # equivalent to sync + 'dbx spec patch apply', but always safe to re-run"
+            )
+        else:
+            typer.echo(f"     {step}. Sync remaining specs:")
+            typer.echo(f"        dbx spec sync {spec_names}")
         step += 1
-    if patch_count:
+        if patch_count and not any_patched:
+            typer.echo(f"     {step}. Re-apply patches (removes unimplemented tests):")
+            typer.echo("        dbx spec patch apply")
+            typer.echo(
+                "        # ⚠  not idempotent — run sync first if patches are already applied"
+            )
+            step += 1
+    elif patch_count:
         typer.echo(f"     {step}. Re-apply patches (removes unimplemented tests):")
         typer.echo("        dbx spec patch apply")
+        typer.echo(
+            "        # ⚠  not idempotent — run sync first if patches are already applied"
+        )
         step += 1
     if branch_dirs:
         test_dirs = " ".join(f"test/{d}/" for d in branch_dirs[:5])
