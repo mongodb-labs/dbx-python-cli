@@ -128,15 +128,14 @@ Example configuration:
    [repo]
    base_dir = "~/Developer/mongodb"
    # fork_user = "your-github-username"  # Optional
-   global_groups = ["global"]  # cloned into every group automatically
+   global_groups = ["global"]  # repos cloned into every group automatically
 
    [repo.groups.global]
-   repos = [
-       "git@github.com:mongodb/mongo-python-driver.git",
-   ]
+   repos = []  # add repos here to share them across all groups
 
    [repo.groups.pymongo]
    repos = [
+       "git@github.com:mongodb/mongo-python-driver.git",
        "git@github.com:mongodb/specifications.git",
    ]
 
@@ -156,8 +155,7 @@ Repositories are organized into groups. Each group:
 
 Groups listed under ``global_groups`` are special: their repositories are
 automatically injected into every other group when cloning, so a single repo
-(like ``mongo-python-driver``) can be shared across all groups without
-maintaining multiple config entries.
+can be shared across all groups without maintaining multiple config entries.
 
 Directory Structure
 -------------------

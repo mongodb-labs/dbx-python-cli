@@ -204,10 +204,14 @@ This command will:
 
 **Available Groups (Default):**
 
-- ``global`` - Repos cloned into every group automatically (e.g. ``mongo-python-driver``)
-- ``pymongo`` - MongoDB Python driver support repositories (Specifications, drivers-evergreen-tools)
+- ``global`` - Reserved for repos shared across all groups (currently empty)
+- ``pymongo`` - MongoDB Python driver and related repositories
 - ``langchain`` - LangChain framework repositories
-- ``django`` - Django web framework repositories (Django, django-mongodb-backend)
+- ``django`` - Django and MongoDB backend repositories
+- ``django-thirdparty`` - Third-party Django packages
+- ``ci`` - CI tooling (drivers-evergreen-tools, drivers-github-tools, mongo-orchestration, ai-ml-pipeline-testing)
+- ``wagtail`` - Wagtail CMS repositories
+- ``demo`` - Demo applications
 
 Global Groups
 ~~~~~~~~~~~~~
@@ -235,18 +239,18 @@ Global groups are declared with ``global_groups`` under ``[repo]``:
 
    [repo.groups.global]
    repos = [
-       "git@github.com:mongodb/mongo-python-driver.git",
+       "git@github.com:your-org/shared-tools.git",
    ]
 
    [repo.groups.pymongo]
    repos = [
+       "git@github.com:mongodb/mongo-python-driver.git",
        "git@github.com:mongodb/specifications.git",
-       "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
    ]
 
-Because ``mongo-python-driver`` ends up physically inside each group directory
-(e.g. ``pymongo/mongo-python-driver``), ``dbx install -g pymongo`` and
-``dbx test mongo-python-driver`` all work without any extra flags.
+Because repos in the global group end up physically inside each target group
+directory, ``dbx install -g pymongo`` and ``dbx test shared-tools`` all work
+without any extra flags.
 
 Flat Layout
 ~~~~~~~~~~~
