@@ -186,12 +186,8 @@ libmongocrypt = [
 
 [repo.groups.wagtail]
 repos = [
-    "git@github.com:wagtail/bakerydemo.git",
     "git@github.com:mongodb-labs/wagtail-mongodb-project.git",
 ]
-
-[repo.groups.wagtail.sys_path]
-bakerydemo = true
 
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
@@ -210,10 +206,14 @@ project_name = "ai-ml-pipeline-testing"
 
 [repo.groups.demo]
 repos = [
+    "git@github.com:wagtail/bakerydemo.git",
     "git@github.com:aclark4life/mflix.git",
     "git@github.com:aclark4life/polls.git",
     "git@github.com:aclark4life/medical-records.git",
 ]
+
+[repo.groups.demo.sys_path]
+bakerydemo = true
 
 [repo.groups.django-thirdparty]
 # Python version for the group's virtual environment
