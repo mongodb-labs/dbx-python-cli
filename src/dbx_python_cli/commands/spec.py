@@ -1,6 +1,7 @@
 """Spec command for managing spec syncs with the MongoDB specifications repository."""
 
 import filecmp
+import fnmatch
 import os
 import re
 import subprocess
@@ -540,6 +541,77 @@ def _find_removable_patches(
     return removable
 
 
+def _parse_remove_script(
+    script_path: Path,
+) -> list[tuple[str, str]]:
+    """Parse remove-unimplemented-tests.sh into [(driver_rel_path_glob, ticket), ...].
+
+    Handles:
+    - ``rm $PYMONGO/test/foo.json  # PYTHON-1234``  (inline ticket)
+    - Block comments ``# PYTHON-5248 - description`` above rm commands
+    - ``find /$PYMONGO/test -type f -name 'pre-42-*.json' -delete``
+    """
+    try:
+        text = script_path.read_text()
+    except OSError:
+        return []
+
+    entries: list[tuple[str, str]] = []
+    pending_ticket = ""  # ticket from most recent standalone comment line
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            # Blank line resets the pending block comment
+            pending_ticket = ""
+            continue
+
+        if line.startswith("#"):
+            # Extract PYTHON-XXXX or DRIVERS-XXXX from standalone comment
+            m = re.search(r"\b(PYTHON-\d+|DRIVERS-\d+)\b", line)
+            pending_ticket = m.group(1) if m else ""
+            continue
+
+        # Pull optional trailing inline comment (takes precedence over block comment)
+        ticket = pending_ticket
+        if " # " in line:
+            line, comment_part = line.rsplit(" # ", 1)
+            m = re.search(r"\b(PYTHON-\d+|DRIVERS-\d+)\b", comment_part)
+            ticket = m.group(1) if m else comment_part.strip()
+
+        line = line.strip()
+
+        if line.startswith("rm "):
+            path_str = line.split()[-1]
+            path_str = re.sub(r"^/?\$\w+/", "", path_str)
+            if path_str.startswith("test/"):
+                entries.append((path_str, ticket))
+
+        elif "find " in line and "-name " in line:
+            name_match = re.search(r"-name\s+'([^']+)'", line)
+            dir_match = re.search(r"find\s+/?\$\w+/(\S+)", line)
+            if name_match and dir_match:
+                base_dir = dir_match.group(1).rstrip("/")
+                pattern = name_match.group(1)
+                path_str = f"{base_dir}/{pattern}"
+                if path_str.startswith("test/"):
+                    entries.append((path_str, ticket))
+
+    return entries
+
+
+def _remove_script_tickets(entries: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """Group remove-script entries by ticket → [path_glob, ...].
+
+    Entries without a ticket comment are grouped under an empty string key.
+    """
+    result: dict[str, list[str]] = {}
+    for path_glob, ticket in entries:
+        result.setdefault(ticket, []).append(path_glob)
+    return result
+
+
 def _spec_is_stale(
     specs_source: Path,
     driver_test: Path,
@@ -686,11 +758,16 @@ def spec_status(
         else:
             typer.echo("     No test/ files changed yet on this branch.")
 
-    # --- Parse spec map ---------------------------------------------------- #
+    # --- Parse spec map and remove script ---------------------------------- #
     spec_map = _parse_resync_script(script)
     if not spec_map:
         typer.echo("\n⚠  Could not parse resync-specs.sh — no spec mappings found.")
         raise typer.Exit(1)
+
+    remove_script = driver_path / ".evergreen" / "remove-unimplemented-tests.sh"
+    remove_entries = _parse_remove_script(remove_script)
+    # Build a flat set of all glob patterns tracked by the remove script
+    remove_globs: set[str] = {path_glob for path_glob, _ in remove_entries}
 
     typer.echo(f"\n  Checking {len(spec_map)} spec(s) against {specs_source}...\n")
 
@@ -727,6 +804,26 @@ def spec_status(
                     tickets.append(t)
         return tickets
 
+    # Helper: check if a new-file reason is already tracked in the remove script
+    def _new_files_covered(
+        spec_name: str, mappings: list[tuple[str, str]]
+    ) -> list[str]:
+        """Return new spec filenames (relative to driver test/) NOT yet in remove script."""
+        uncovered: list[str] = []
+        for spec_dir, driver_dir in mappings:
+            src = specs_source / spec_dir
+            dst = driver_test / driver_dir
+            if not src.exists() or not dst.exists():
+                continue
+            src_files = {f.relative_to(src) for f in src.rglob("*.json")}
+            dst_files = {f.relative_to(dst) for f in dst.rglob("*.json")}
+            for rel in src_files - dst_files:
+                driver_rel = f"test/{driver_dir}/{rel}"
+                # Check against remove_globs (exact match or fnmatch for wildcards)
+                if not any(fnmatch.fnmatch(driver_rel, g) for g in remove_globs):
+                    uncovered.append(driver_rel)
+        return sorted(uncovered)
+
     # --- Output ------------------------------------------------------------ #
     if stale:
         typer.echo(f"  ❌ Still needs syncing ({len(stale)}):\n")
@@ -737,6 +834,17 @@ def spec_status(
             tickets = _patches_for_spec(name)
             patch_str = f"  🩹 {', '.join(tickets)}" if tickets else ""
             typer.echo(f"{prefix} dbx spec sync {name}{reason_str}{patch_str}")
+            if "new file" in reason:
+                uncovered = _new_files_covered(name, spec_map.get(name, []))
+                if uncovered:
+                    marker = "    └──" if is_last else "    │  "
+                    typer.echo(
+                        f"{marker} ⚠  {len(uncovered)} new file(s) not yet in"
+                        " remove-unimplemented-tests.sh or a patch:"
+                    )
+                    if verbose:
+                        for f in uncovered:
+                            typer.echo(f"{marker}      {f}")
         if any(_patches_for_spec(n) for n, _ in stale):
             typer.echo(
                 "\n  🩹 = has an active patch — use --apply-patches to sync + patch in one shot"
@@ -778,6 +886,72 @@ def spec_status(
         )
         for patch_path, _ in removable:
             typer.echo(f"     rm {patch_path}")
+
+    # --- remove-unimplemented-tests.sh summary ----------------------------- #
+    if remove_entries:
+        remove_by_ticket = _remove_script_tickets(remove_entries)
+        typer.echo(
+            f"\n  🗂  remove-unimplemented-tests.sh"
+            f" ({len(remove_entries)} tracked exclusion(s)"
+            f" across {len(remove_by_ticket)} ticket(s)):"
+        )
+        for ticket, globs in sorted(remove_by_ticket.items()):
+            label = ticket if ticket else "(no ticket)"
+            subdirs = sorted(
+                {
+                    g.split("/")[1]
+                    for g in globs
+                    if g.startswith("test/") and len(g.split("/")) >= 3
+                }
+            )
+            dirs_str = f"  → {', '.join(subdirs)}" if subdirs else ""
+            if verbose:
+                typer.echo(f"  • {label} ({len(globs)} glob(s)){dirs_str}:")
+                for g in globs:
+                    typer.echo(f"      {g}")
+            else:
+                typer.echo(f"  • {label} ({len(globs)} glob(s)){dirs_str}")
+
+        # Flag remove-script entries whose source files no longer exist in specs
+        stale_removes: list[tuple[str, str]] = []
+        for path_glob, ticket in remove_entries:
+            parts = path_glob.split("/")
+            if len(parts) < 3 or parts[0] != "test":
+                continue
+            driver_dir = parts[1]
+            # Build matching specs source dir via spec_map
+            src_dir: str | None = None
+            for mappings in spec_map.values():
+                for specs_src, drv_dst in mappings:
+                    if drv_dst == driver_dir:
+                        src_dir = specs_src
+                        break
+                if src_dir:
+                    break
+            if src_dir is None:
+                continue
+            rel = "/".join(parts[2:])
+            src_base = specs_source / src_dir
+            # Expand glob — if no matches in specs, flag as stale
+            matches = (
+                list(src_base.glob(rel))
+                if "*" in rel or "?" in rel
+                else ([src_base / rel] if (src_base / rel).exists() else [])
+            )
+            if not matches:
+                stale_removes.append((path_glob, ticket))
+
+        if stale_removes:
+            typer.echo(
+                f"\n  🗑  {len(stale_removes)} remove-script entry/entries may be"
+                " removable (source no longer in specs repo):"
+            )
+            for path_glob, ticket in stale_removes:
+                label = f"  [{ticket}]" if ticket else ""
+                typer.echo(f"  • {path_glob}{label}")
+        typer.echo(
+            "\n  ℹ  Run 'dbx spec patch verify' to check whether patch files still apply cleanly."
+        )
 
     # --- What to do next --------------------------------------------------- #
     typer.echo("\n  🔍 To verify locally:\n")
@@ -1129,3 +1303,93 @@ def patch_apply(
     if not _apply_patches(driver_repo, verbose):
         raise typer.Exit(1)
     typer.echo("✅ All patches applied.")
+
+
+# ---------------------------------------------------------------------------
+# dbx spec patch verify
+# ---------------------------------------------------------------------------
+
+
+@patch_app.command("verify")
+def patch_verify(
+    ctx: typer.Context,
+    repo_name: str = typer.Option(
+        "mongo-python-driver",
+        "--repo",
+        "-r",
+        help="Driver repository to verify patches in",
+    ),
+):
+    """Check whether all patch files still apply cleanly.
+
+    Runs ``git apply --check -R`` on each patch individually and reports
+    which are valid and which are stale (no longer match the current file
+    content).  A stale patch means the spec file was changed by something
+    other than the patch — either a later spec sync updated the file in a
+    way that the patch didn't anticipate, or someone edited it directly.
+
+    Usage::
+
+        dbx spec patch verify
+        dbx spec patch verify -r django-mongodb-backend
+    """
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    config = get_config()
+    base_dir = get_base_dir(config)
+
+    driver_repo = _get_driver_repo(repo_name, base_dir, config)
+    patch_dir = _get_patch_dir(driver_repo)
+    patches = _list_patches(patch_dir)
+
+    if not patches:
+        typer.echo(f"No patch files found in {patch_dir}")
+        return
+
+    typer.echo(f"\n🔍 Verifying {len(patches)} patch(es) in {repo_name}:\n")
+
+    ok: list[str] = []
+    stale: list[tuple[str, str]] = []  # (ticket, error_msg)
+
+    for patch_path in patches:
+        ticket = patch_path.stem
+        result = subprocess.run(
+            ["git", "apply", "--check", "-R", "--allow-empty", str(patch_path)],
+            cwd=str(driver_repo["path"]),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            ok.append(ticket)
+            typer.echo(f"  ✅ {ticket}")
+        else:
+            err = result.stderr.strip()
+            stale.append((ticket, err))
+            typer.echo(f"  ❌ {ticket}  [stale — does not apply cleanly]")
+            if verbose:
+                for line in err.splitlines():
+                    typer.echo(f"       {line}")
+
+    typer.echo("")
+    if stale:
+        typer.echo(
+            f"  {len(stale)} stale patch(es) found. The spec file(s) they target"
+            " have drifted since the patch was created.\n"
+        )
+        typer.echo("  For each stale patch, you have two options:")
+        typer.echo(
+            "    a) The spec now matches what the driver does → remove the patch:"
+        )
+        for ticket, _ in stale:
+            typer.echo(f"         dbx spec patch remove {ticket}")
+        typer.echo(
+            "    b) The spec changed but driver still unimplemented → recreate the patch:"
+        )
+        typer.echo("         dbx spec sync <spec-name>")
+        typer.echo("         # edit the files to reflect driver behavior")
+        typer.echo(
+            "         dbx spec patch remove <ticket> && dbx spec patch create <ticket>"
+        )
+        raise typer.Exit(1)
+    else:
+        typer.echo(f"  All {len(ok)} patch(es) apply cleanly.")
