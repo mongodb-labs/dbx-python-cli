@@ -164,6 +164,42 @@ dbx sync -g django
 dbx sync -a
 ```
 
+**Spec Sync:**
+
+Keep driver spec tests in sync with the [MongoDB specifications repository](https://github.com/mongodb/specifications):
+
+```bash
+# Check which specs are out of date
+dbx spec status
+
+# Sync all specs (pure file copy from specifications → test/)
+dbx spec sync
+
+# Sync specific specs
+dbx spec sync crud sessions change-streams
+
+# Sync and immediately apply all patches
+dbx spec sync --apply-patches
+
+# List active patches (tests excluded pending JIRA tickets)
+dbx spec patch list
+
+# Verify all patches still apply cleanly
+dbx spec patch verify
+
+# Create a patch for unimplemented tests (after syncing)
+dbx spec patch create PYTHON-1234
+
+# Remove a patch once the feature is implemented
+dbx spec patch remove PYTHON-1234
+```
+
+The `dbx spec sync` command wraps `.evergreen/resync-specs.sh` in the driver repo, auto-detecting the `specifications` repo from your config. Patches in `.evergreen/spec-patch/PYTHON-XXXX.patch` are reverse-applied (`git apply -R`) to exclude tests for features not yet implemented; each patch is named after a pre-existing JIRA ticket.
+
+The weekly bot PR (`[Spec Resync] MM-DD-YYYY`) is produced by this same file-copy operation. To reproduce it locally: `dbx spec sync` on `main`.
+
+See the [full spec sync documentation](https://dbx-python-cli.readthedocs.io/en/latest/features/spec-sync.html) for details.
+
 **View Git Branches:**
 
 View branches across repositories:

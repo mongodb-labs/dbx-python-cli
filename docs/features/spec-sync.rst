@@ -209,7 +209,7 @@ Compares JSON spec files in the driver repo against the local ``specifications``
    -r, --repo       Driver repository to inspect [default: mongo-python-driver]
    --specs-dir      Path to the MongoDB specifications repo (overrides auto-detection)
 
-
+dbx spec patch list
 ~~~~~~~~~~~~~~~~~~~
 
 Lists all active patch files and the test files each one affects. Add ``-v`` to see the individual filenames.
@@ -267,10 +267,42 @@ Runs ``git apply -R --allow-empty --whitespace=fix`` on all ``.evergreen/spec-pa
    dbx spec patch apply -r django-mongodb-backend
    dbx spec patch apply --dry-run    # list what would be applied
 
+dbx spec patch verify
+~~~~~~~~~~~~~~~~~~~~~
+
+Checks each ``.evergreen/spec-patch/*.patch`` file to confirm it still applies cleanly against the current working tree. Runs ``git apply --check -R`` on every patch and reports whether each one is clean or stale. Exits non-zero if any patch is stale.
+
+.. code-block:: bash
+
+   dbx spec patch verify
+   dbx spec patch verify -r django-mongodb-backend
+
+**Example output:**
+
+.. code-block:: text
+
+   Verifying patches in mongo-python-driver:
+     ✅ PYTHON-2673
+     ✅ PYTHON-4261
+     ❌ PYTHON-4918  [stale — does not apply cleanly]
+
+   1 stale patch(es) found.
+
+A patch becomes stale when the spec file it covers has been changed since the patch was created — for example, because a previous resync PR already incorporated part of those changes, or because the upstream file was renamed or removed. Stale patches should be removed (``dbx spec patch remove``) or recreated (``dbx spec patch remove`` + sync + ``dbx spec patch create``).
+
 Reviewing Automated Spec Sync PRs
 ----------------------------------
 
-The ``mongodb-drivers-pr-bot`` opens a weekly pull request (e.g. *[Spec Resync] 04-13-2026*) that runs ``resync-all-specs.py`` against the latest ``specifications`` repo and submits the result. The PR body summarises three things you need to triage:
+The ``mongodb-drivers-pr-bot`` opens a weekly pull request (e.g. *[Spec Resync] 04-13-2026*) that runs ``resync-all-specs.py`` against the latest ``specifications`` repo and submits the result.
+
+**Key point:** a spec resync is a pure file copy — ``resync-specs.sh`` copies JSON test files from ``specifications`` into ``test/`` with no logic or decisions. The diff in the PR is fully reproducible: check out ``main`` and run ``dbx spec sync`` to get identical output. Any CI failures on a resync PR are content-driven (the new spec tests exercise behaviour the driver hasn't implemented yet) and must be resolved before merging.
+
+When tests fail on a resync PR, the options are:
+
+* **Implement the feature** — fix the driver code so the new tests pass.
+* **Add a patch** — create a ``.evergreen/spec-patch/PYTHON-XXXX.patch`` that reverse-applies the new tests until a ticket is resolved. The patch must be named after a *pre-existing* JIRA ticket.
+
+The PR body summarises three things you need to triage:
 
 * **Changed specs** — spec test files that were updated upstream and need review
 * **Patch errors** — existing ``.evergreen/spec-patch/`` files that no longer apply cleanly
@@ -319,6 +351,9 @@ Patch errors mean a patch file references test content that no longer matches wh
    # Verbose mode shows the individual filenames — useful for spotting
    # stale paths that no longer exist after a rename/removal upstream
    dbx -v spec patch list
+
+   # Check each patch individually — reports ✅ clean or ❌ stale
+   dbx spec patch verify
 
    # Try applying patches to see which ones fail
    dbx spec patch apply
