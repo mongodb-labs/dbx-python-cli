@@ -484,6 +484,62 @@ def _branch_summary(repo_path: Path) -> tuple[list[str], int]:
     return [], 0
 
 
+def _find_removable_patches(
+    patch_dir: Path,
+    spec_map: dict[str, list[tuple[str, str]]],
+    specs_source: Path,
+) -> list[tuple[Path, list[str]]]:
+    """Return patches whose source files no longer exist in the specs repo.
+
+    For each patch, maps driver-side paths (``test/<driver_dst>/...``) back to
+    the corresponding specs-source paths using *spec_map*, then checks whether
+    any of those source files are still present.  A patch is considered
+    removable when **none** of its referenced source files exist upstream —
+    meaning after the next sync those files won't be copied in and there is
+    nothing left to patch out.
+
+    Returns a list of ``(patch_path, [missing_file, ...])`` tuples.
+    """
+    # Build reverse map: driver_dst -> specs_src (many-to-many, take first match)
+    driver_to_specs: dict[str, str] = {}
+    for mappings in spec_map.values():
+        for specs_src, driver_dst in mappings:
+            driver_to_specs.setdefault(driver_dst, specs_src)
+
+    removable: list[tuple[Path, list[str]]] = []
+    for patch_path in _list_patches(patch_dir):
+        patched_files = _parse_patch_files(patch_path)
+        if not patched_files:
+            continue
+
+        missing: list[str] = []
+        for file_path in patched_files:
+            parts = file_path.split("/")
+            if len(parts) < 3 or parts[0] != "test":
+                continue
+            driver_dst = parts[1]
+            rel_path = "/".join(parts[2:])
+            specs_src = driver_to_specs.get(driver_dst)
+            if specs_src is None:
+                # Can't resolve — treat as missing to be conservative
+                missing.append(file_path)
+                continue
+            src_file = specs_source / specs_src / rel_path
+            if not src_file.exists():
+                missing.append(file_path)
+
+        if missing and len(missing) == len(
+            [
+                f
+                for f in patched_files
+                if len(f.split("/")) >= 3 and f.split("/")[0] == "test"
+            ]
+        ):
+            removable.append((patch_path, missing))
+
+    return removable
+
+
 def _spec_is_stale(
     specs_source: Path,
     driver_test: Path,
@@ -699,6 +755,29 @@ def spec_status(
 
     # --- Patches ----------------------------------------------------------- #
     patch_count = _show_patch_summary(driver_repo, verbose)
+
+    # --- Removable patches ------------------------------------------------- #
+    removable = _find_removable_patches(
+        _get_patch_dir(driver_repo), spec_map, specs_source
+    )
+    if removable:
+        typer.echo(
+            f"\n  🗑  {len(removable)} patch(es) may be removable"
+            " (source files no longer exist in specs repo):\n"
+        )
+        for patch_path, missing_files in removable:
+            typer.echo(f"  • {patch_path.name}")
+            if verbose:
+                for f in missing_files:
+                    typer.echo(f"      {f}  [not found in specs]")
+        typer.echo(
+            "\n  ℹ  These patches target files that are no longer in the upstream specs."
+        )
+        typer.echo(
+            "     Review and remove them if the ticket has been resolved upstream:"
+        )
+        for patch_path, _ in removable:
+            typer.echo(f"     rm {patch_path}")
 
     # --- What to do next --------------------------------------------------- #
     typer.echo("\n  🔍 To verify locally:\n")

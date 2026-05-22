@@ -954,3 +954,81 @@ def test_spec_status_annotates_patches(tmp_path):
     assert result.exit_code == 0
     assert "PYTHON-9999" in result.output
     assert "🩹" in result.output
+
+
+def test_spec_status_shows_removable_patches(tmp_path):
+    """Patches whose source files no longer exist in specs should be flagged."""
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+
+    patch_dir = tmp_path / "repos" / "mongo-python-driver" / ".evergreen" / "spec-patch"
+    # This patch references a file that does NOT exist in the specs repo
+    (patch_dir / "PYTHON-GONE.patch").write_text(
+        "diff --git a/test/auth/deleted-test.json b/test/auth/deleted-test.json\n"
+        "index abc..def 100644\n"
+        "--- a/test/auth/deleted-test.json\n"
+        "+++ /dev/null\n"
+        "@@ -1 +0,0 @@\n"
+        "-{}\n"
+    )
+
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resyncing"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+
+    assert result.exit_code == 0
+    assert "PYTHON-GONE.patch" in result.output
+    assert "removable" in result.output.lower()
+
+
+def test_spec_status_no_removable_patches_when_files_exist(tmp_path):
+    """Patches whose source files still exist should NOT be flagged as removable."""
+    _, cfg = _make_status_repos(tmp_path, content_same=True)
+
+    patch_dir = tmp_path / "repos" / "mongo-python-driver" / ".evergreen" / "spec-patch"
+    # This patch references auth.json which DOES exist in the specs repo
+    (patch_dir / "PYTHON-KEEP.patch").write_text(
+        "diff --git a/test/auth/auth.json b/test/auth/auth.json\n"
+        "index abc..def 100644\n"
+        "--- a/test/auth/auth.json\n"
+        "+++ /dev/null\n"
+        "@@ -1 +0,0 @@\n"
+        '-{"spec": "auth"}\n'
+    )
+
+    with (
+        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch(
+            "dbx_python_cli.commands.spec._get_current_branch",
+            return_value="spec-resync-test",
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            return_value=["abc resyncing"],
+        ),
+        patch(
+            "dbx_python_cli.commands.spec._commit_relative_date",
+            return_value="1 day ago",
+        ),
+        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+    ):
+        result = runner.invoke(app, ["spec", "status"])
+
+    assert result.exit_code == 0
+    assert "may be removable" not in result.output
+    assert "PYTHON-KEEP.patch" not in result.output
