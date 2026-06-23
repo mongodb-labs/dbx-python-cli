@@ -270,7 +270,7 @@ def clone_callback(
         help="Clone all groups from configuration",
     ),
     fork: bool = typer.Option(
-        True,
+        False,
         "--fork",
         help="Clone from your fork instead of upstream (uses fork_user from config)",
     ),
