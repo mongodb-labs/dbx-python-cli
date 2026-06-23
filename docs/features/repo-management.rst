@@ -413,6 +413,7 @@ Per-group keys of note:
 
 - ``python_version`` — Python version for the group's virtual environment
 - ``preferred_branch`` — branch to ``git switch`` to automatically after cloning
+- ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
