@@ -83,6 +83,8 @@ Available for all commands:
 
 - ``-v, --verbose`` - Enable verbose output
 - ``-p, --pager`` - Use a pager (less) for command output
+- ``--backend`` - Override the MongoDB backend (``runner``, ``docker``, ``atlas-local``)
+- ``--edition`` - Override the MongoDB edition (``community``, ``enterprise``)
 - ``-h, --help`` - Show help message
 - ``--version`` - Show version information
 
@@ -94,6 +96,7 @@ Available commands:
 - ``branch`` - Show git branches in repositories
 - ``clone`` - Clone repositories by group
 - ``config`` - Manage configuration
+- ``docs`` - Build, list, and open documentation
 - ``edit`` - Open repositories in an editor
 - ``env`` - Virtual environment management
 - ``install`` - Dependency installation
@@ -101,9 +104,12 @@ Available commands:
 - ``list`` - List available repositories
 - ``log`` - Show git commit logs
 - ``open`` - Open repositories in browser
+- ``patch`` - Create Evergreen CI patches
 - ``project`` - Manage projects
 - ``remove`` - Remove repositories
+- ``spec`` - Spec sync and patch lifecycle
 - ``status`` - Show git status
+- ``swap`` - Swap origin and upstream remotes
 - ``switch`` - Switch git branches
 - ``sync`` - Sync fork with upstream
 - ``test`` - Run tests

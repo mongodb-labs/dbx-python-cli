@@ -138,4 +138,3 @@ Related Commands
 - :doc:`repo-management` - Clone and sync repositories
 - ``dbx branch`` - Show git branches
 - ``dbx log`` - Show git log
-- ``dbx remote`` - Show git remotes

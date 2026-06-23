@@ -34,6 +34,7 @@ Commands that support this behavior:
 - ``dbx project manage`` - Run Django management commands
 - ``dbx project migrate`` - Run Django migrations
 - ``dbx project su`` - Create a superuser
+- ``dbx project edit`` - Open the project's settings files in an editor
 
 This feature is particularly useful during active development when you're frequently working with the same project.
 
@@ -422,6 +423,14 @@ Projects use a shared virtual environment in the ``projects/`` directory:
 
    # List all virtual environments
    dbx env list
+
+   # Show which virtual environment is selected for a repo or the current directory
+   dbx env status
+   dbx env status mongo-python-driver
+
+``dbx env status`` walks the full venv resolution chain — repo-level → group-level → base-level →
+activated venv — and marks the selected environment with ``← selected (Python X.Y.Z)``. This is
+useful for diagnosing which venv a command will actually use.
 
 **Auto-creation**: If no virtual environment is found when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level (``base_dir/projects/.venv``) and Django is bootstrapped into it before project scaffolding begins. You do not need to run ``dbx env init`` manually before your first ``dbx project add``.
 

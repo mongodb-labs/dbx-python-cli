@@ -75,6 +75,7 @@ Related subcommands that share a common domain:
    dbx config init
    dbx config show
    dbx config edit
+   dbx config validate
 
    # Documentation operations
    dbx docs build
@@ -85,9 +86,11 @@ Related subcommands that share a common domain:
    dbx env init
    dbx env list
    dbx env remove
+   dbx env status
 
    # Django project management
    dbx project add myproject
+   dbx project edit
    dbx project install
    dbx project migrate
    dbx project run

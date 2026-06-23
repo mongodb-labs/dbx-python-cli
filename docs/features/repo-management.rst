@@ -157,16 +157,19 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Force push after rebasing (use if previous sync failed to push)
    dbx sync mongo-python-driver --force
 
-   # List available repositories
-   dbx sync -l
-
 This command will:
 
 1. Fetch the latest changes from the ``upstream`` remote
-2. Rebase your current branch on top of ``upstream/<current-branch>``
+2. Rebase your current branch onto the appropriate upstream branch (see Rebase Behavior below)
 3. Push the rebased branch to ``origin`` (your fork)
 4. If ``--force`` is used, force push with ``--force-with-lease`` for safety
 5. If ``--dry-run`` is used, compare commits between upstream and origin without making changes
+
+**Rebase behavior:**
+
+- **main / master** — always rebases to ``upstream/main`` or ``upstream/master``
+- **Feature branches with** ``upstream_branch`` **configured** — rebases to ``upstream/<configured-branch>`` (useful for fork workflows where the local branch name differs from the upstream branch, e.g. ``mongodb-6.0.x`` → ``upstream/stable/6.0.x``)
+- **Other feature branches** — detects the upstream remote's default branch (``main`` or ``master``) and rebases to that
 
 **Example workflow:**
 
@@ -195,7 +198,7 @@ This command will:
 
 - The ``sync`` command requires an ``upstream`` remote to be configured
 - If you cloned with ``--fork``, the upstream remote is automatically set up
-- The command will rebase your current branch on ``upstream/<current-branch>``
+- If you configured ``upstream`` in your group config, the remote is also set up automatically on clone (see :ref:`config-driven-upstream`)
 - After rebasing, it automatically pushes to ``origin/<current-branch>``
 - If the push fails (e.g., you've already pushed and rebased), use ``--force`` flag
 - The ``--force`` flag uses ``--force-with-lease`` for safety (won't overwrite others' changes)
@@ -233,6 +236,56 @@ After swapping, what was ``origin`` becomes ``upstream`` and vice versa. This is
 
 - Both ``origin`` and ``upstream`` remotes must already be configured; the command will fail if either is missing
 - Use ``--dry-run`` first to verify the swap looks correct before applying it
+
+.. _config-driven-upstream:
+
+Config-Driven Upstream Remotes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--fork-user`` / ``--fork`` flag works well for contributors who maintain personal forks.
+For repos where the fork is **owned by an organisation** (e.g. ``mongodb-forks/django``) you can
+instead declare the upstream URL and branch mapping directly in your config:
+
+.. code-block:: toml
+
+   [repo.groups.django.upstream]
+   django = "git@github.com:django/django.git"
+
+   [repo.groups.django.upstream_branch]
+   django = "stable/6.0.x"
+
+``upstream``
+   Maps a repo name to the URL of the original (non-fork) repository.
+   When ``dbx clone -g django`` clones ``mongodb-forks/django``, it will automatically add an
+   ``upstream`` remote pointing at ``django/django`` — no ``--fork-user`` flag required.
+
+``upstream_branch``
+   Maps a repo name to the upstream branch that the local branch tracks.
+   Required when the local branch name differs from the upstream branch name.
+   In the example above, the local ``mongodb-6.0.x`` branch is rebased against
+   ``upstream/stable/6.0.x`` rather than the upstream remote's default branch.
+
+**Example workflow (django fork):**
+
+.. code-block:: bash
+
+   # Clone mongodb-forks/django — upstream remote is added automatically
+   dbx clone -g django
+
+   # Verify the remotes
+   cd ~/Developer/mongodb/django
+   git remote -v
+   # origin    git@github.com:mongodb-forks/django.git (fetch)
+   # upstream  git@github.com:django/django.git (fetch)
+
+   # Switch to the fork branch and sync it with upstream
+   git switch mongodb-6.0.x
+   dbx sync django
+   # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
+
+Both keys are optional and independent — you can use ``upstream`` alone (to auto-add the remote
+on clone without changing sync behaviour) or ``upstream_branch`` alone (if you have already added
+the remote manually and only need to override the rebase target).
 
 **Available Groups (Default):**
 
@@ -329,38 +382,60 @@ In flat mode:
 
 **Configuration:**
 
-Repository groups are defined in ``~/.config/dbx-python-cli/config.toml``. The default base directory for cloning is ``~/Developer/dbx-repos``, which can be customized.
+Repository groups are defined in ``~/.config/dbx-python-cli/config.toml``. The default base
+directory is ``~/Developer/mongodb``; repositories are cloned into subdirectories named after
+their group (e.g. ``~/Developer/mongodb/pymongo/``).
 
-Repositories are cloned into subdirectories named after their group. For example, the ``pymongo`` group will be cloned to ``~/Developer/dbx-repos/pymongo/``.
+A minimal example:
 
 .. code-block:: toml
 
    [repo]
-   base_dir = "~/Developer/dbx-repos"
+   base_dir = "~/Developer/mongodb"
    global_groups = ["global"]
 
    [repo.groups.global]
-   repos = [
-       "https://github.com/mongodb/mongo-python-driver.git",
-   ]
+   repos = []
 
    [repo.groups.pymongo]
    repos = [
-       "https://github.com/mongodb/specifications.git",
+       "git@github.com:mongodb/mongo-python-driver.git",
+       "git@github.com:mongodb/specifications.git",
    ]
 
    [repo.groups.django]
    repos = [
-       "https://github.com/django/django.git",
-       "https://github.com/mongodb-labs/django-mongodb-backend.git",
+       "git@github.com:mongodb-forks/django.git",
+       "git@github.com:mongodb-labs/django-mongodb-backend.git",
    ]
 
-   [repo.groups.custom]
-   repos = [
-       "https://github.com/your-org/your-repo.git",
-   ]
+Per-group keys of note:
+
+- ``python_version`` — Python version for the group's virtual environment
+- ``preferred_branch`` — branch to ``git switch`` to automatically after cloning (replaces the
+  deprecated ``default_branch`` key)
+- ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
+- ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
+- ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
+- ``install_dirs`` — sub-directory paths for repos that contain multiple packages
+- ``build_commands`` — shell commands run before installation (e.g. a Rust or CMake build)
+- ``test_runner``, ``test_runner_args`` — custom test runner for repos that don't use pytest
+- ``test_env`` — per-repo environment variables injected when running tests
+- ``skip_install``, ``sys_path`` — advanced installation controls
 
 You can add your own custom groups by editing the configuration file.
+
+**Validating the configuration:**
+
+Use ``dbx config validate`` to check your config for unknown, deprecated, or missing keys:
+
+.. code-block:: bash
+
+   dbx config validate
+
+The command reports ``[unknown]``, ``[deprecated]``, and ``[error]`` issues and exits with a non-zero
+status when errors are found. It also flags the deprecated ``default_branch`` key — rename it to
+``preferred_branch`` if you see that warning.
 
 **Features:**
 
@@ -368,7 +443,9 @@ You can add your own custom groups by editing the configuration file.
 - Clones all repositories in a group to the configured base directory
 - Skips repositories that already exist locally
 - Fork-based workflow support with automatic upstream remote configuration
+- Config-driven ``upstream`` remote setup without requiring ``--fork-user``
 - Sync command to fetch from upstream and rebase current branch
+- ``dbx remove`` supports ``--dry-run`` to preview what would be deleted without removing anything
 - Provides clear progress feedback with emoji indicators
 - Handles errors gracefully and continues with remaining repositories
 - Easy to add custom repository groups

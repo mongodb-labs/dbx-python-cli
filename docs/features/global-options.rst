@@ -62,3 +62,31 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
 - Works with all commands that produce output
 
 **Note:** The pager flag must come **before** the subcommand (e.g., ``dbx -p branch``, not ``dbx branch -p``).
+
+MongoDB Backend Override
+------------------------
+
+Use ``--backend`` and ``--edition`` to override the MongoDB backend for a single invocation without
+editing your config:
+
+.. code-block:: bash
+
+   # Start a project using Docker instead of mongodb-runner
+   dbx --backend docker project run
+
+   # Use Atlas Local (includes Atlas Search & Vector Search)
+   dbx --backend atlas-local project run
+
+   # Use the Enterprise edition with mongodb-runner
+   dbx --edition enterprise project run
+
+``--backend``
+   Overrides ``[project.mongodb] backend`` from your config. Accepted values: ``runner``
+   (default, uses ``npx mongodb-runner``), ``docker`` (official MongoDB Docker image),
+   ``atlas-local`` (``mongodb/mongodb-atlas-local`` Docker image).
+
+``--edition``
+   Overrides ``[project.mongodb] edition`` from your config. Accepted values: ``community``
+   (default), ``enterprise``.
+
+Both flags must come **before** the subcommand (e.g., ``dbx --backend docker project run``).
