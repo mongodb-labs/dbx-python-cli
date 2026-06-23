@@ -375,7 +375,6 @@ def validate(ctx: typer.Context):
         "repos",
         "python_version",
         "preferred_branch",
-        "default_branch",  # deprecated
         "upstream",
         "upstream_branch",
         "install_extras",
@@ -428,12 +427,7 @@ def validate(ctx: typer.Context):
                 if not isinstance(group_cfg, dict):
                     continue
                 for key in group_cfg:
-                    if key == "default_branch":
-                        issues.append(
-                            f"⚠️  [deprecated] [repo.groups.{group_name}] key: default_branch"
-                            " (use preferred_branch instead)"
-                        )
-                    elif key not in KNOWN_GROUP_KEYS:
+                    if key not in KNOWN_GROUP_KEYS:
                         issues.append(
                             f"⚠️  [unknown] [repo.groups.{group_name}] key: {key}"
                         )

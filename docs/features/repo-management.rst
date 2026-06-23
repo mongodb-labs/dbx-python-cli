@@ -412,8 +412,7 @@ A minimal example:
 Per-group keys of note:
 
 - ``python_version`` — Python version for the group's virtual environment
-- ``preferred_branch`` — branch to ``git switch`` to automatically after cloning (replaces the
-  deprecated ``default_branch`` key)
+- ``preferred_branch`` — branch to ``git switch`` to automatically after cloning
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
@@ -434,8 +433,7 @@ Use ``dbx config validate`` to check your config for unknown, deprecated, or mis
    dbx config validate
 
 The command reports ``[unknown]``, ``[deprecated]``, and ``[error]`` issues and exits with a non-zero
-status when errors are found. It also flags the deprecated ``default_branch`` key — rename it to
-``preferred_branch`` if you see that warning.
+status when errors are found.
 
 **Features:**
 

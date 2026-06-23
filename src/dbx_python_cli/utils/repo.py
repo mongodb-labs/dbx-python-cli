@@ -383,17 +383,7 @@ def get_preferred_branch(config, group_name, repo_name):
     if group_name not in groups:
         return None
 
-    # Try preferred_branch first (new name), fall back to default_branch (old name) for backwards compatibility
     preferred_branch_config = groups[group_name].get("preferred_branch", {})
-    if not preferred_branch_config:
-        preferred_branch_config = groups[group_name].get("default_branch", {})
-        if preferred_branch_config:
-            import typer
-
-            typer.echo(
-                f"⚠️  Config: 'default_branch' in group '{group_name}' is deprecated — rename to 'preferred_branch'",
-                err=True,
-            )
     return preferred_branch_config.get(repo_name)
 
 
