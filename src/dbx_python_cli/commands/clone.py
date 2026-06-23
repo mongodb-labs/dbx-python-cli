@@ -502,26 +502,34 @@ def clone_callback(
             group_dir = get_group_dir(base_dir, group_name, flat)
             group_dir.mkdir(parents=True, exist_ok=True)
 
+            no_fork_repos = get_no_fork_repos(config, group_name)
+
             # Display appropriate message
             if len(repos) == 1:
                 single_repo_name = repos[0].split("/")[-1].replace(".git", "")
-                if effective_fork_user:
+                header_fork_user = (
+                    None if single_repo_name in no_fork_repos else effective_fork_user
+                )
+                if header_fork_user:
                     typer.echo(
-                        f"Cloning {single_repo_name} from {effective_fork_user}'s fork to {group_dir}"
+                        f"Cloning {single_repo_name} from {header_fork_user}'s fork to {group_dir}"
                     )
                 else:
                     typer.echo(f"Cloning {single_repo_name} to {group_dir}")
             else:
-                if effective_fork_user:
+                fork_repos = [
+                    r
+                    for r in repos
+                    if r.split("/")[-1].replace(".git", "") not in no_fork_repos
+                ]
+                if effective_fork_user and fork_repos:
                     typer.echo(
-                        f"Cloning {len(repos)} repository(ies) from {effective_fork_user}'s forks to {group_dir}"
+                        f"Cloning {len(repos)} repository(ies) from group '{group_name}' to {group_dir} ({len(fork_repos)} via {effective_fork_user}'s fork)"
                     )
                 else:
                     typer.echo(
                         f"Cloning {len(repos)} repository(ies) from group '{group_name}' to {group_dir}"
                     )
-
-            no_fork_repos = get_no_fork_repos(config, group_name)
             for repo_url in repos:
                 # Extract repository name from URL
                 repo_name = repo_url.split("/")[-1].replace(".git", "")
