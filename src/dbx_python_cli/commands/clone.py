@@ -96,7 +96,7 @@ def auto_install_repo(
                     groups=eff_groups,
                     verbose=verbose,
                 )
-                if result != "success":
+                if result == "failed":
                     return False
         else:
             # Regular repo: install from root
@@ -108,7 +108,7 @@ def auto_install_repo(
                 groups=eff_groups,
                 verbose=verbose,
             )
-            if result != "success":
+            if result == "failed":
                 return False
 
         return True
@@ -524,13 +524,20 @@ def clone_callback(
                 repo_name = repo_url.split("/")[-1].replace(".git", "")
                 repo_path = group_dir / repo_name
 
-                if repo_path.exists():
+                if repo_path.exists() and (repo_path / ".git").exists():
                     typer.echo(f"  ⏭️  {repo_name} already exists, skipping")
                     preferred_branch = repo.get_preferred_branch(
                         config, group_name, repo_name
                     )
                     if preferred_branch:
                         _switch_to_branch(repo_path, preferred_branch, verbose)
+                    continue
+                elif repo_path.exists():
+                    typer.echo(
+                        f"  ⚠️  {repo_name}: directory exists but has no .git — "
+                        "possibly an incomplete clone. Remove it manually to re-clone.",
+                        err=True,
+                    )
                     continue
 
                 # Determine clone URL and upstream URL

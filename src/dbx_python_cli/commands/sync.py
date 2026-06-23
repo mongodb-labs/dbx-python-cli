@@ -144,6 +144,7 @@ def sync_callback(
 
                 synced_count = 0
                 skipped_count = 0
+                failed_count = 0
                 for i, repo_info in enumerate(target_repos):
                     # Add separator between repos (not before first or after last)
                     if i > 0:
@@ -155,6 +156,8 @@ def sync_callback(
                         skipped_count += 1
                     elif status in ("synced", "dry_run"):
                         synced_count += 1
+                    elif status == "failed":
+                        failed_count += 1
 
                 if dry_run:
                     summary = (
@@ -164,6 +167,8 @@ def sync_callback(
                     summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
                 if skipped_count:
                     summary += f", skipped {skipped_count}"
+                if failed_count:
+                    summary += f", failed {failed_count}"
                 typer.echo(summary)
             finally:
                 if use_pager:
@@ -251,6 +256,7 @@ def sync_callback(
 
                 synced_count = 0
                 skipped_count = 0
+                failed_count = 0
                 for i, repo_info in enumerate(group_repos):
                     # Add separator between repos (not before first or after last)
                     if i > 0:
@@ -262,6 +268,8 @@ def sync_callback(
                         skipped_count += 1
                     elif status in ("synced", "dry_run"):
                         synced_count += 1
+                    elif status == "failed":
+                        failed_count += 1
 
                 if dry_run:
                     summary = (
@@ -271,6 +279,8 @@ def sync_callback(
                     summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
                 if skipped_count:
                     summary += f", skipped {skipped_count}"
+                if failed_count:
+                    summary += f", failed {failed_count}"
                 typer.echo(summary)
             finally:
                 if use_pager:
@@ -540,7 +550,7 @@ def _sync_repository(
             f"  Try running: dbx sync {repo_name} --force",
             err=True,
         )
-        return "synced"
+        return "failed"
 
 
 def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str | None:

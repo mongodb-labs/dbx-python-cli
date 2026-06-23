@@ -340,6 +340,11 @@ def setup_django_command_env(
     ).exists():
         for fallback in ("dev", "base"):
             if (ctx.project_path / ctx.name / "settings" / f"{fallback}.py").exists():
+                if settings:
+                    typer.echo(
+                        f"⚠️  Settings module '{settings}' not found, falling back to '{fallback}'",
+                        err=True,
+                    )
                 settings_module = fallback
                 break
     env["DJANGO_SETTINGS_MODULE"] = f"{ctx.name}.settings.{settings_module}"

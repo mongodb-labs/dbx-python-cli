@@ -127,9 +127,10 @@ def _find_existing_venvs(base_path):
     if base_venv.exists():
         existing_venvs.append(("base", base_venv))
 
-    # Check group venvs
+    # Check group venvs — skip subdirectories that are repos (have a .git dir),
+    # since in flat mode every subdirectory of base_dir is a repo, not a group.
     for item in base_dir.iterdir():
-        if item.is_dir():
+        if item.is_dir() and not (item / ".git").exists():
             group_venv = item / ".venv"
             if group_venv.exists():
                 existing_venvs.append((f"{item.name} group", group_venv))

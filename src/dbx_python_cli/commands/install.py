@@ -237,7 +237,7 @@ def install_package(
         work_dir = repo_path / install_dir
         if not work_dir.exists():
             typer.echo(f"⚠️  Warning: Install directory not found: {work_dir}", err=True)
-            return False
+            return "failed"
         display_path = f"{repo_path.name}/{install_dir}"
     else:
         work_dir = repo_path

@@ -138,9 +138,18 @@ def _apply_patches(driver_repo, verbose: bool = False) -> bool:
         typer.echo("  No patches to apply.")
         return True
 
-    # Dry-run first so we can give a helpful error instead of a raw git failure
+    # Dry-run first so we can give a helpful error instead of a raw git failure.
+    # Include --whitespace=fix so the check matches what the real apply will do.
     check_result = subprocess.run(
-        ["git", "apply", "-R", "--check", "--allow-empty", *[str(p) for p in patches]],
+        [
+            "git",
+            "apply",
+            "-R",
+            "--check",
+            "--allow-empty",
+            "--whitespace=fix",
+            *[str(p) for p in patches],
+        ],
         cwd=str(driver_repo["path"]),
         check=False,
         capture_output=True,

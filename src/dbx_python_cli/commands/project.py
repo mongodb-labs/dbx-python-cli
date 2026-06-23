@@ -1415,31 +1415,39 @@ def remove_project(
         return
 
     # Drop MongoDB databases associated with the project (non-fatal)
+    python_path = None
     try:
         python_path, _ = get_django_python_path(proj, directory)
         _drop_project_databases(proj, python_path)
-    except Exception as e:
+    except (Exception, SystemExit) as e:
         typer.echo(f"⚠️  Could not drop databases: {e}", err=True)
 
-    # Try to uninstall the package from the current environment before
-    # removing the project directory. Failures here are non-fatal so that
-    # filesystem cleanup still proceeds.
-    uninstall_cmd = [sys.executable, "-m", "pip", "uninstall", "-y", proj.name]
-    typer.echo(f"📦 Uninstalling project package '{proj.name}' with pip")
-    try:
-        result = subprocess.run(uninstall_cmd, check=False)
-        if result.returncode != 0:
-            typer.echo(
-                f"⚠️ pip uninstall exited with code {result.returncode}. "
-                "Proceeding to remove project files.",
-                err=True,
-            )
-    except FileNotFoundError:
+    # Try to uninstall the package from the project's venv before removing the
+    # project directory. Failures here are non-fatal so that filesystem cleanup
+    # still proceeds.
+    if python_path is None:
         typer.echo(
-            "⚠️ Could not run pip to uninstall the project package. "
+            "⚠️ Could not determine project venv; skipping pip uninstall. "
             "Proceeding to remove project files.",
             err=True,
         )
+    else:
+        uninstall_cmd = [python_path, "-m", "pip", "uninstall", "-y", proj.name]
+        typer.echo(f"📦 Uninstalling project package '{proj.name}' with pip")
+        try:
+            result = subprocess.run(uninstall_cmd, check=False)
+            if result.returncode != 0:
+                typer.echo(
+                    f"⚠️ pip uninstall exited with code {result.returncode}. "
+                    "Proceeding to remove project files.",
+                    err=True,
+                )
+        except FileNotFoundError:
+            typer.echo(
+                "⚠️ Could not run pip to uninstall the project package. "
+                "Proceeding to remove project files.",
+                err=True,
+            )
 
     shutil.rmtree(proj.project_path)
     typer.echo(f"🗑️ Removed project {proj.name}")
