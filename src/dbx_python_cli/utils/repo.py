@@ -323,6 +323,22 @@ def get_editor(config, group_name=None, repo_name=None):
     return "vim"
 
 
+def get_no_fork_repos(config, group_name):
+    """Return the list of repo names that should skip the fork workflow in a group.
+
+    Configure in ``[repo.groups.<group>]``:
+
+    .. code-block:: toml
+
+        [repo.groups.django]
+        no_fork = ["django"]
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return []
+    return groups[group_name].get("no_fork", [])
+
+
 def get_upstream_url(config, group_name, repo_name):
     """Return the configured upstream remote URL for a repo, or None.
 

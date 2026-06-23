@@ -375,6 +375,7 @@ def validate(ctx: typer.Context):
         "repos",
         "python_version",
         "preferred_branch",
+        "no_fork",
         "upstream",
         "upstream_branch",
         "install_extras",

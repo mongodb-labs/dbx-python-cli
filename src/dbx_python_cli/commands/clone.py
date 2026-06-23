@@ -8,6 +8,7 @@ import typer
 from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.repo import (
     get_group_dir,
+    get_no_fork_repos,
     get_upstream_url,
     is_flat_mode,
     switch_to_branch as _switch_to_branch,
@@ -270,7 +271,7 @@ def clone_callback(
         help="Clone all groups from configuration",
     ),
     fork: bool = typer.Option(
-        False,
+        True,
         "--fork",
         help="Clone from your fork instead of upstream (uses fork_user from config)",
     ),
@@ -520,10 +521,16 @@ def clone_callback(
                         f"Cloning {len(repos)} repository(ies) from group '{group_name}' to {group_dir}"
                     )
 
+            no_fork_repos = get_no_fork_repos(config, group_name)
             for repo_url in repos:
                 # Extract repository name from URL
                 repo_name = repo_url.split("/")[-1].replace(".git", "")
                 repo_path = group_dir / repo_name
+
+                # Per-repo fork override: repos listed in no_fork skip the fork workflow
+                active_fork_user = (
+                    None if repo_name in no_fork_repos else effective_fork_user
+                )
 
                 if repo_path.exists() and (repo_path / ".git").exists():
                     typer.echo(f"  ⏭️  {repo_name} already exists, skipping")
@@ -542,7 +549,7 @@ def clone_callback(
                     continue
 
                 # Determine clone URL and upstream URL
-                if effective_fork_user:
+                if active_fork_user:
                     # Replace the org/user in the URL with the fork user
                     # Handle both SSH and HTTPS URLs
                     clone_url = repo_url
@@ -554,14 +561,16 @@ def clone_callback(
                         if len(parts) == 2:
                             repo_part = parts[1].split("/", 1)
                             if len(repo_part) == 2:
-                                clone_url = f"git@github.com:{effective_fork_user}/{repo_part[1]}"
+                                clone_url = (
+                                    f"git@github.com:{active_fork_user}/{repo_part[1]}"
+                                )
                     elif "github.com/" in repo_url:
                         # HTTPS format: https://github.com/org/repo.git
                         parts = repo_url.split("github.com/")
                         if len(parts) == 2:
                             repo_part = parts[1].split("/", 1)
                             if len(repo_part) == 2:
-                                clone_url = f"{parts[0]}github.com/{effective_fork_user}/{repo_part[1]}"
+                                clone_url = f"{parts[0]}github.com/{active_fork_user}/{repo_part[1]}"
                 else:
                     clone_url = repo_url
                     upstream_url = None
@@ -569,7 +578,7 @@ def clone_callback(
                 typer.echo(f"  📦 Cloning {repo_name}...")
                 if verbose:
                     typer.echo(f"  [verbose] Clone URL: {clone_url}")
-                    if effective_fork_user:
+                    if active_fork_user:
                         typer.echo(f"  [verbose] Upstream URL: {upstream_url}")
                     typer.echo(f"  [verbose] Destination: {repo_path}")
 
@@ -587,7 +596,7 @@ def clone_callback(
                     # Determine upstream URL: fork workflow uses origin URL with
                     # different org; config-driven upstream key is used otherwise.
                     add_upstream_url = None
-                    if effective_fork_user:
+                    if active_fork_user:
                         add_upstream_url = upstream_url
                     else:
                         add_upstream_url = get_upstream_url(
@@ -653,7 +662,7 @@ def clone_callback(
                                 text=True,
                             )
 
-                            label = "fork" if effective_fork_user else "upstream"
+                            label = "fork" if active_fork_user else "upstream"
                             if result and result.returncode == 0:
                                 commits_ahead = int(result.stdout.strip())
                                 if commits_ahead > 0:
@@ -699,7 +708,7 @@ def clone_callback(
 
                 except subprocess.CalledProcessError as e:
                     # If fork clone failed, try falling back to upstream
-                    if effective_fork_user and upstream_url:
+                    if active_fork_user and upstream_url:
                         if verbose:
                             typer.echo(
                                 "  [verbose] Fork clone failed, falling back to upstream"

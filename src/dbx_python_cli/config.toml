@@ -165,6 +165,9 @@ repos = [
     "git@github.com:mongodb-labs/django-mongodb-extensions.git",
     "git@github.com:mongodb-labs/django-mongodb-project.git",
 ]
+# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
+# Use this for repos that are already organisation forks rather than personal forks.
+no_fork = ["django"]
 
 # Upstream remote URL for fork repos (added as `upstream` remote on clone)
 # Use this when the group contains forks that need to track the original repo.
