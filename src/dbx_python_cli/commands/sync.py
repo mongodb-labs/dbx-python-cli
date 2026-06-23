@@ -21,6 +21,54 @@ app = typer.Typer(
 )
 
 
+def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
+    """Sync a list of repos, print a header and a summary, and honour the pager flag."""
+    use_pager = should_use_pager(ctx, command_default=False)
+
+    if use_pager:
+        output_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = output_buffer
+        sys.stderr = output_buffer
+
+    try:
+        typer.echo(header)
+
+        synced_count = 0
+        skipped_count = 0
+        failed_count = 0
+        for i, repo_info in enumerate(repos):
+            if i > 0:
+                typer.echo("─" * 60)
+            status = _sync_repository(
+                repo_info["path"], repo_info["name"], verbose, force, dry_run
+            )
+            if status == "skipped":
+                skipped_count += 1
+            elif status in ("synced", "dry_run"):
+                synced_count += 1
+            elif status == "failed":
+                failed_count += 1
+
+        if dry_run:
+            summary = f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
+        else:
+            summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
+        if skipped_count:
+            summary += f", skipped {skipped_count}"
+        if failed_count:
+            summary += f", failed {failed_count}"
+        typer.echo(summary)
+    finally:
+        if use_pager:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+    if use_pager:
+        paginate_output(output_buffer.getvalue(), use_pager)
+
+
 @app.callback()
 def sync_callback(
     ctx: typer.Context,
@@ -90,6 +138,7 @@ def sync_callback(
         find_all_repos,
         find_repo_by_name,
         find_repo_by_path,
+        is_path_like,
     )
 
     # Get verbose flag from parent context
@@ -126,59 +175,14 @@ def sync_callback(
                 typer.echo("\nClone repositories using: dbx clone -a")
                 raise typer.Exit(1)
 
-            # Check if pager is requested
-            use_pager = should_use_pager(ctx, command_default=False)
-
-            # Only capture output if pager is requested
-            if use_pager:
-                output_buffer = io.StringIO()
-                old_stdout = sys.stdout
-                old_stderr = sys.stderr
-                sys.stdout = output_buffer
-                sys.stderr = output_buffer
-
-            try:
-                typer.echo(
-                    f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n"
-                )
-
-                synced_count = 0
-                skipped_count = 0
-                failed_count = 0
-                for i, repo_info in enumerate(target_repos):
-                    # Add separator between repos (not before first or after last)
-                    if i > 0:
-                        typer.echo("─" * 60)
-                    status = _sync_repository(
-                        repo_info["path"], repo_info["name"], verbose, force, dry_run
-                    )
-                    if status == "skipped":
-                        skipped_count += 1
-                    elif status in ("synced", "dry_run"):
-                        synced_count += 1
-                    elif status == "failed":
-                        failed_count += 1
-
-                if dry_run:
-                    summary = (
-                        f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
-                    )
-                else:
-                    summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
-                if skipped_count:
-                    summary += f", skipped {skipped_count}"
-                if failed_count:
-                    summary += f", failed {failed_count}"
-                typer.echo(summary)
-            finally:
-                if use_pager:
-                    sys.stdout = old_stdout
-                    sys.stderr = old_stderr
-
-            # Display output with pagination if requested
-            if use_pager:
-                output = output_buffer.getvalue()
-                paginate_output(output, use_pager)
+            _sync_repo_list(
+                target_repos,
+                f"Syncing {len(target_repos)} repository(ies) across {len(non_global_groups)} group(s):\n",
+                ctx,
+                verbose,
+                force,
+                dry_run,
+            )
             return
 
         # Handle sync with both group and repo name specified
@@ -238,59 +242,14 @@ def sync_callback(
                 typer.echo(f"\nClone repositories using: dbx clone -g {group}")
                 raise typer.Exit(1)
 
-            # Check if pager is requested
-            use_pager = should_use_pager(ctx, command_default=False)
-
-            # Only capture output if pager is requested
-            if use_pager:
-                output_buffer = io.StringIO()
-                old_stdout = sys.stdout
-                old_stderr = sys.stderr
-                sys.stdout = output_buffer
-                sys.stderr = output_buffer
-
-            try:
-                typer.echo(
-                    f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n"
-                )
-
-                synced_count = 0
-                skipped_count = 0
-                failed_count = 0
-                for i, repo_info in enumerate(group_repos):
-                    # Add separator between repos (not before first or after last)
-                    if i > 0:
-                        typer.echo("─" * 60)
-                    status = _sync_repository(
-                        repo_info["path"], repo_info["name"], verbose, force, dry_run
-                    )
-                    if status == "skipped":
-                        skipped_count += 1
-                    elif status in ("synced", "dry_run"):
-                        synced_count += 1
-                    elif status == "failed":
-                        failed_count += 1
-
-                if dry_run:
-                    summary = (
-                        f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
-                    )
-                else:
-                    summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
-                if skipped_count:
-                    summary += f", skipped {skipped_count}"
-                if failed_count:
-                    summary += f", failed {failed_count}"
-                typer.echo(summary)
-            finally:
-                if use_pager:
-                    sys.stdout = old_stdout
-                    sys.stderr = old_stderr
-
-            # Display output with pagination if requested
-            if use_pager:
-                output = output_buffer.getvalue()
-                paginate_output(output, use_pager)
+            _sync_repo_list(
+                group_repos,
+                f"Syncing {len(group_repos)} repository(ies) in group '{group}':\n",
+                ctx,
+                verbose,
+                force,
+                dry_run,
+            )
             return
 
         # Handle single repo sync
@@ -301,13 +260,7 @@ def sync_callback(
             typer.echo("   or: dbx sync -g <group> <repo-name>")
             raise typer.Exit(1)
 
-        # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
-        _is_path_like = (
-            repo_name in (".", "..")
-            or repo_name.startswith(("./", "../", "/", "~/"))
-            or "/" in repo_name
-            or Path(repo_name).is_dir()
-        )
+        _is_path_like = is_path_like(repo_name)
 
         # Find the repository
         if _is_path_like:

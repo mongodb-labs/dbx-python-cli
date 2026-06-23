@@ -20,6 +20,7 @@ from dbx_python_cli.utils.repo import (
     get_test_runner,
     get_test_runner_args,
     is_flat_mode,
+    is_path_like,
 )
 from dbx_python_cli.utils.project import apply_libmongocrypt_env
 from dbx_python_cli.utils.venv import get_venv_info
@@ -161,13 +162,7 @@ def test_callback(
                 "group": group,
             }
         else:
-            # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
-            _is_path_like = (
-                repo_name in (".", "..")
-                or repo_name.startswith(("./", "../", "/", "~/"))
-                or "/" in repo_name
-                or Path(repo_name).is_dir()
-            )
+            _is_path_like = is_path_like(repo_name)
 
             if _is_path_like:
                 repo = find_repo_by_path(repo_name, base_dir, config)

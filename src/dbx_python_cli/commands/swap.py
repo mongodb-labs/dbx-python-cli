@@ -10,6 +10,7 @@ from dbx_python_cli.utils.repo import (
     find_repo_by_path,
     get_base_dir,
     get_config,
+    is_path_like,
 )
 
 app = typer.Typer(
@@ -143,12 +144,7 @@ def swap_callback(
         typer.echo("❌ Error: Repository name or -g <group> required", err=True)
         raise typer.Exit(1)
 
-    _is_path_like = (
-        repo_name in (".", "..")
-        or repo_name.startswith(("./", "../", "/", "~/"))
-        or "/" in repo_name
-        or Path(repo_name).is_dir()
-    )
+    _is_path_like = is_path_like(repo_name)
 
     if _is_path_like:
         repo_info = find_repo_by_path(repo_name, base_dir, config)

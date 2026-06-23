@@ -11,6 +11,7 @@ from dbx_python_cli.utils.repo import (
     get_base_dir,
     get_config,
     get_evergreen_project_name,
+    is_path_like,
 )
 
 app = typer.Typer(
@@ -65,13 +66,7 @@ def patch_callback(
         if verbose:
             typer.echo(f"[verbose] Using base directory: {base_dir}")
 
-        # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
-        _is_path_like = (
-            repo_name in (".", "..")
-            or repo_name.startswith(("./", "../", "/", "~/"))
-            or "/" in repo_name
-            or Path(repo_name).is_dir()
-        )
+        _is_path_like = is_path_like(repo_name)
 
         if _is_path_like:
             repo = find_repo_by_path(repo_name, base_dir, config)

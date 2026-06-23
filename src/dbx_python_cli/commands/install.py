@@ -22,6 +22,7 @@ from dbx_python_cli.utils.repo import (
     get_install_groups,
     get_repo_dir,
     is_flat_mode,
+    is_path_like,
     should_skip_install,
 )
 from dbx_python_cli.utils.venv import get_venv_info
@@ -589,13 +590,7 @@ def install_callback(
 
             selected_group = repo_group
         else:
-            # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
-            _is_path_like = (
-                repo_name in (".", "..")
-                or repo_name.startswith(("./", "../", "/", "~/"))
-                or "/" in repo_name
-                or Path(repo_name).is_dir()
-            )
+            _is_path_like = is_path_like(repo_name)
 
             if _is_path_like:
                 repo = find_repo_by_path(repo_name, base_dir, config)
@@ -878,13 +873,7 @@ def install_callback(
             "group": venv_group,
         }
     else:
-        # Detect path-like inputs: ".", "..", absolute paths, relative paths with /
-        _is_path_like = (
-            repo_name in (".", "..")
-            or repo_name.startswith(("./", "../", "/", "~/"))
-            or "/" in repo_name
-            or Path(repo_name).is_dir()
-        )
+        _is_path_like = is_path_like(repo_name)
 
         if _is_path_like:
             repo = find_repo_by_path(repo_name, base_dir, config)

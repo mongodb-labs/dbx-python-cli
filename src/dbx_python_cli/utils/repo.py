@@ -642,6 +642,22 @@ def find_repo_by_name(repo_name, base_dir, config=None):
     return matching_repos[0]
 
 
+def is_path_like(name: str) -> bool:
+    """Return True if *name* looks like a filesystem path rather than a repo name.
+
+    Treats ".", "..", absolute paths, paths starting with "./" or "../" or "~/",
+    names containing "/", and names that resolve to an existing directory as
+    path-like inputs that should be looked up via find_repo_by_path instead of
+    find_repo_by_name.
+    """
+    return (
+        name in (".", "..")
+        or name.startswith(("./", "../", "/", "~/"))
+        or "/" in name
+        or Path(name).is_dir()
+    )
+
+
 def find_repo_by_path(path, base_dir, config=None):
     """
     Find a repository by filesystem path.
@@ -704,7 +720,7 @@ def list_repos(base_dir, format_style="default", config=None):
 
     Args:
         base_dir: Path to the base directory containing group subdirectories
-        format_style: Output format style ('default', 'tree', 'grouped', or 'simple')
+        format_style: Output format style ('default', 'grouped', or 'simple')
         config: Optional config dict to compare available vs cloned repos
 
     Returns:
@@ -805,52 +821,7 @@ def list_repos(base_dir, format_style="default", config=None):
 
         return "\n".join(lines) if lines else None
 
-    if format_style == "tree":
-        # Tree format with group as parent
-        # Build cloned repos dict
-        cloned = defaultdict(list)
-        for repo in sorted(repos, key=lambda r: (r["group"], r["name"])):
-            cloned[repo["group"]].append(repo["name"])
-
-        # Merge available and cloned groups, excluding global groups
-        # (global repos are cloned into target group directories, not their own directory)
-        all_groups = (
-            set(cloned.keys()) | set(available_repos.keys())
-        ) - global_group_names
-
-        lines = []
-        sorted_groups = sorted(all_groups)
-        for i, group in enumerate(sorted_groups):
-            is_last_group = i == len(sorted_groups) - 1
-            group_prefix = "└──" if is_last_group else "├──"
-            lines.append(f"{group_prefix} {group}/")
-
-            # Get all repos for this group (available and cloned)
-            available_in_group = set(available_repos.get(group, []))
-            cloned_in_group = set(cloned.get(group, []))
-            all_repos_in_group = sorted(available_in_group | cloned_in_group)
-
-            for j, repo_name in enumerate(all_repos_in_group):
-                is_last_repo = j == len(all_repos_in_group) - 1
-                continuation = "    " if is_last_group else "│   "
-                repo_prefix = "└──" if is_last_repo else "├──"
-
-                # Add status indicator if config is provided
-                if config:
-                    is_cloned = repo_name in cloned_in_group
-                    is_available = repo_name in available_in_group
-                    if is_cloned and is_available:
-                        status = "✓"  # Cloned
-                    elif is_cloned and not is_available:
-                        status = "?"  # Cloned but not in config
-                    else:
-                        status = "○"  # Available but not cloned
-                    lines.append(f"{continuation}{repo_prefix} {status} {repo_name}")
-                else:
-                    lines.append(f"{continuation}{repo_prefix} {repo_name}")
-        return "\n".join(lines)
-
-    elif format_style == "grouped":
+    if format_style == "grouped":
         # Group repos by group name
         grouped = defaultdict(list)
         for repo in sorted(repos, key=lambda r: (r["group"], r["name"])):
