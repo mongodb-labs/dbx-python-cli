@@ -42,7 +42,12 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
             if i > 0:
                 typer.echo("─" * 60)
             status = _sync_repository(
-                repo_info["path"], repo_info["name"], verbose, force, dry_run
+                repo_info["path"],
+                repo_info["name"],
+                verbose,
+                force,
+                dry_run,
+                upstream_branch=repo_info.get("upstream_branch"),
             )
             if status == "skipped":
                 skipped_count += 1
@@ -138,8 +143,15 @@ def sync_callback(
         find_all_repos,
         find_repo_by_name,
         find_repo_by_path,
+        get_upstream_branch,
         is_path_like,
     )
+
+    def _enrich(repo_list):
+        """Attach upstream_branch from config to each repo_info dict."""
+        for r in repo_list:
+            r["upstream_branch"] = get_upstream_branch(config, r["group"], r["name"])
+        return repo_list
 
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -168,7 +180,9 @@ def sync_callback(
 
             # Find all repos across all non-global groups
             all_repos = find_all_repos(base_dir, config)
-            target_repos = [r for r in all_repos if r["group"] in non_global_groups]
+            target_repos = _enrich(
+                [r for r in all_repos if r["group"] in non_global_groups]
+            )
 
             if not target_repos:
                 typer.echo("❌ Error: No repositories found in any group.", err=True)
@@ -213,7 +227,12 @@ def sync_callback(
                 raise typer.Exit(1)
 
             _sync_repository(
-                repo_info["path"], repo_info["name"], verbose, force, dry_run
+                repo_info["path"],
+                repo_info["name"],
+                verbose,
+                force,
+                dry_run,
+                upstream_branch=get_upstream_branch(config, group, repo_info["name"]),
             )
 
             if dry_run:
@@ -233,7 +252,7 @@ def sync_callback(
 
             # Find all repos in the group
             all_repos = find_all_repos(base_dir, config)
-            group_repos = [r for r in all_repos if r["group"] == group]
+            group_repos = _enrich([r for r in all_repos if r["group"] == group])
 
             if not group_repos:
                 typer.echo(
@@ -279,7 +298,16 @@ def sync_callback(
                 typer.echo("\nUse 'dbx list' to see available repositories")
                 raise typer.Exit(1)
 
-        _sync_repository(repo_info["path"], repo_info["name"], verbose, force, dry_run)
+        _sync_repository(
+            repo_info["path"],
+            repo_info["name"],
+            verbose,
+            force,
+            dry_run,
+            upstream_branch=get_upstream_branch(
+                config, repo_info.get("group", ""), repo_info["name"]
+            ),
+        )
 
         if dry_run:
             typer.echo("\n✨ Dry run complete!")
@@ -297,11 +325,13 @@ def _sync_repository(
     verbose: bool = False,
     force: bool = False,
     dry_run: bool = False,
+    upstream_branch: str | None = None,
 ) -> str:
     """Sync a single repository with upstream.
 
     For main/master branches: rebases to upstream/<branch_name>
-    For feature branches: rebases to upstream's default branch (main/master)
+    For feature branches: rebases to upstream's default branch (main/master),
+    or to upstream/<upstream_branch> if upstream_branch is explicitly provided.
 
     Returns:
         "synced", "skipped", "failed", or "dry_run"
@@ -390,11 +420,18 @@ def _sync_repository(
 
     # Determine which branch to rebase onto
     # For main/master: rebase to upstream/<current_branch>
-    # For feature branches: rebase to upstream's default branch
+    # For feature branches: use configured upstream_branch if provided,
+    # otherwise detect upstream's default branch (main/master)
     if current_branch in ["main", "master"]:
         rebase_target = f"upstream/{current_branch}"
         if verbose:
             typer.echo(f"[verbose] Main branch detected, rebasing to {rebase_target}")
+    elif upstream_branch:
+        rebase_target = f"upstream/{upstream_branch}"
+        if verbose:
+            typer.echo(
+                f"[verbose] Using configured upstream_branch, rebasing to {rebase_target}"
+            )
     else:
         # Get upstream's default branch
         upstream_default = _get_upstream_default_branch(repo_path, verbose)

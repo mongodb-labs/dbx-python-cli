@@ -8,6 +8,7 @@ import typer
 from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.repo import (
     get_group_dir,
+    get_upstream_url,
     is_flat_mode,
     switch_to_branch as _switch_to_branch,
 )
@@ -583,8 +584,17 @@ def clone_callback(
                     )
                     clone_success = True
 
-                    # If using fork workflow, add upstream remote
+                    # Determine upstream URL: fork workflow uses origin URL with
+                    # different org; config-driven upstream key is used otherwise.
+                    add_upstream_url = None
                     if effective_fork_user:
+                        add_upstream_url = upstream_url
+                    else:
+                        add_upstream_url = get_upstream_url(
+                            config, group_name, repo_name
+                        )
+
+                    if add_upstream_url:
                         subprocess.run(
                             [
                                 "git",
@@ -593,7 +603,7 @@ def clone_callback(
                                 "remote",
                                 "add",
                                 "upstream",
-                                upstream_url,
+                                add_upstream_url,
                             ],
                             check=True,
                             capture_output=True,
@@ -623,10 +633,11 @@ def clone_callback(
                             )
 
                             if result and result.returncode == 0:
-                                upstream_branch = result.stdout.strip().split("/")[-1]
+                                detected_upstream_branch = result.stdout.strip().split(
+                                    "/"
+                                )[-1]
                             else:
-                                # Fallback to main/master
-                                upstream_branch = "main"
+                                detected_upstream_branch = "main"
 
                             # Count commits ahead
                             result = subprocess.run(
@@ -636,30 +647,30 @@ def clone_callback(
                                     str(repo_path),
                                     "rev-list",
                                     "--count",
-                                    f"upstream/{upstream_branch}..HEAD",
+                                    f"upstream/{detected_upstream_branch}..HEAD",
                                 ],
                                 capture_output=True,
                                 text=True,
                             )
 
+                            label = "fork" if effective_fork_user else "upstream"
                             if result and result.returncode == 0:
                                 commits_ahead = int(result.stdout.strip())
                                 if commits_ahead > 0:
                                     typer.echo(
-                                        f"  ✅ {repo_name} cloned from fork (upstream remote added, {commits_ahead} commit{'s' if commits_ahead != 1 else ''} ahead)"
+                                        f"  ✅ {repo_name} cloned (upstream remote added, {commits_ahead} commit{'s' if commits_ahead != 1 else ''} ahead of {label})"
                                     )
                                 else:
                                     typer.echo(
-                                        f"  ✅ {repo_name} cloned from fork (upstream remote added, up to date)"
+                                        f"  ✅ {repo_name} cloned (upstream remote added, up to date with {label})"
                                     )
                             else:
                                 typer.echo(
-                                    f"  ✅ {repo_name} cloned from fork (upstream remote added)"
+                                    f"  ✅ {repo_name} cloned (upstream remote added)"
                                 )
                         except (subprocess.CalledProcessError, AttributeError):
-                            # If fetch or comparison fails, just show basic message
                             typer.echo(
-                                f"  ✅ {repo_name} cloned from fork (upstream remote added)"
+                                f"  ✅ {repo_name} cloned (upstream remote added)"
                             )
                     else:
                         typer.echo(f"  ✅ {repo_name} cloned successfully")

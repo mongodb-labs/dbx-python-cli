@@ -376,6 +376,8 @@ def validate(ctx: typer.Context):
         "python_version",
         "preferred_branch",
         "default_branch",  # deprecated
+        "upstream",
+        "upstream_branch",
         "install_extras",
         "install_groups",
         "install_dirs",

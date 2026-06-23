@@ -323,6 +323,46 @@ def get_editor(config, group_name=None, repo_name=None):
     return "vim"
 
 
+def get_upstream_url(config, group_name, repo_name):
+    """Return the configured upstream remote URL for a repo, or None.
+
+    Used by ``dbx clone`` to add an ``upstream`` remote after cloning repos
+    that are forks of a third-party project (e.g. mongodb-forks/django whose
+    upstream is django/django).
+
+    Configure in ``[repo.groups.<group>.upstream]``:
+
+    .. code-block:: toml
+
+        [repo.groups.django.upstream]
+        django = "git@github.com:django/django.git"
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return None
+    return groups[group_name].get("upstream", {}).get(repo_name)
+
+
+def get_upstream_branch(config, group_name, repo_name):
+    """Return the upstream branch to sync against for a repo, or None.
+
+    Overrides the default upstream-branch detection in ``dbx sync`` for repos
+    whose local branch name differs from the upstream branch name (e.g.
+    ``mongodb-6.0.x`` → ``stable/6.0.x`` in the Django fork workflow).
+
+    Configure in ``[repo.groups.<group>.upstream_branch]``:
+
+    .. code-block:: toml
+
+        [repo.groups.django.upstream_branch]
+        django = "stable/6.0.x"
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return None
+    return groups[group_name].get("upstream_branch", {}).get(repo_name)
+
+
 def get_preferred_branch(config, group_name, repo_name):
     """
     Get the preferred branch to switch to after cloning a repository.

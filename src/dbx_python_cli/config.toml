@@ -166,6 +166,16 @@ repos = [
     "git@github.com:mongodb-labs/django-mongodb-project.git",
 ]
 
+# Upstream remote URL for fork repos (added as `upstream` remote on clone)
+# Use this when the group contains forks that need to track the original repo.
+[repo.groups.django.upstream]
+django = "git@github.com:django/django.git"
+
+# Upstream branch mapping: maps the local branch to the upstream branch to rebase against.
+# Required when the local branch name differs from the upstream branch (e.g. mongodb-6.0.x → stable/6.0.x).
+[repo.groups.django.upstream_branch]
+django = "stable/6.0.x"
+
 # Custom test runner configuration: specify test runner script for repos that don't use pytest
 [repo.groups.django.test_runner]
 django = "tests/runtests.py"
