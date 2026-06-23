@@ -172,9 +172,11 @@ repos = ["https://github.com/test/repo.git"]
             # Verify base_dir exists before
             assert base_dir.exists()
 
-            # Use --remove-base-dir flag with --yes to skip confirmation
+            # Use --remove-base-dir flag; provide the directory name to confirm
             result = runner.invoke(
-                app, ["config", "init", "--remove-base-dir", "--yes"]
+                app,
+                ["config", "init", "--remove-base-dir", "--yes"],
+                input="test_base_dir\n",
             )
             assert result.exit_code == 0
             assert config_path.exists()
@@ -342,6 +344,7 @@ def test_repo_clone_skips_existing(tmp_path, mock_config, temp_repos_dir):
         group_dir.mkdir(parents=True)
         existing_repo = group_dir / "repo1"
         existing_repo.mkdir()
+        (existing_repo / ".git").mkdir()
 
         with patch("dbx_python_cli.commands.clone.subprocess.run"):
             result = runner.invoke(app, ["clone", "-g", "test"])

@@ -246,6 +246,7 @@ def test_clone_switches_to_preferred_branch_when_already_cloned(tmp_path):
     # Pre-create the repo directory so clone is skipped
     repo_dir = tmp_path / "django" / "django"
     repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
 
     with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
         with patch("subprocess.run") as mock_run:
