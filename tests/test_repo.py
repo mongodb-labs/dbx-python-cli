@@ -1206,6 +1206,9 @@ repos = [
                         cmd, 0, stdout="feature-branch\n", stderr=""
                     )
                     return result
+                elif "rev-parse" in cmd:
+                    # upstream/feature-branch does not exist — force fallback to default
+                    raise subprocess.CalledProcessError(128, cmd, stderr="")
                 elif "symbolic-ref" in cmd:
                     # git symbolic-ref refs/remotes/upstream/HEAD
                     result = subprocess.CompletedProcess(
@@ -1277,6 +1280,9 @@ repos = [
                         cmd, 0, stdout="feature-branch\n", stderr=""
                     )
                     return result
+                elif "rev-parse" in cmd:
+                    # upstream/feature-branch does not exist — force fallback to default
+                    raise subprocess.CalledProcessError(128, cmd, stderr="")
                 elif "symbolic-ref" in cmd:
                     # Fail symbolic-ref (upstream/HEAD not set)
                     raise subprocess.CalledProcessError(1, cmd, stderr="not found")

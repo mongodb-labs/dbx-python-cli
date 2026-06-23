@@ -435,46 +435,68 @@ def _sync_repository(
                 f"[verbose] Using configured upstream_branch, rebasing to {rebase_target}"
             )
     else:
-        # Get upstream's default branch
-        upstream_default = _get_upstream_default_branch(repo_path, verbose)
-        if not upstream_default:
-            # Fallback to trying common default branches
+        # Check if upstream has a branch with the same name as the current branch.
+        # This handles repos where fork and upstream use matching branch names
+        # (e.g. 5.2.x on both sides) without requiring explicit upstream_branch config.
+        try:
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_path),
+                    "rev-parse",
+                    f"upstream/{current_branch}",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            rebase_target = f"upstream/{current_branch}"
             if verbose:
                 typer.echo(
-                    "[verbose] Could not detect upstream default, trying main/master..."
+                    f"[verbose] Upstream has matching branch, rebasing to {rebase_target}"
                 )
-            # Try main first, then master
-            for branch in ["main", "master"]:
-                try:
-                    subprocess.run(
-                        [
-                            "git",
-                            "-C",
-                            str(repo_path),
-                            "rev-parse",
-                            f"upstream/{branch}",
-                        ],
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    upstream_default = branch
-                    break
-                except subprocess.CalledProcessError:
-                    continue
-
+        except subprocess.CalledProcessError:
+            # No matching upstream branch — fall back to upstream's default branch
+            upstream_default = _get_upstream_default_branch(repo_path, verbose)
             if not upstream_default:
-                typer.echo(
-                    "❌ Could not determine upstream default branch",
-                    err=True,
-                )
-                return "failed"
+                # Fallback to trying common default branches
+                if verbose:
+                    typer.echo(
+                        "[verbose] Could not detect upstream default, trying main/master..."
+                    )
+                # Try main first, then master
+                for branch in ["main", "master"]:
+                    try:
+                        subprocess.run(
+                            [
+                                "git",
+                                "-C",
+                                str(repo_path),
+                                "rev-parse",
+                                f"upstream/{branch}",
+                            ],
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
+                        upstream_default = branch
+                        break
+                    except subprocess.CalledProcessError:
+                        continue
 
-        rebase_target = f"upstream/{upstream_default}"
-        if verbose:
-            typer.echo(
-                f"[verbose] Feature branch detected, rebasing to {rebase_target}"
-            )
+                if not upstream_default:
+                    typer.echo(
+                        "❌ Could not determine upstream default branch",
+                        err=True,
+                    )
+                    return "failed"
+
+            rebase_target = f"upstream/{upstream_default}"
+            if verbose:
+                typer.echo(
+                    f"[verbose] Feature branch detected, rebasing to {rebase_target}"
+                )
 
     # If dry-run, compare commits and show what would happen
     if dry_run:
