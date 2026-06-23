@@ -252,7 +252,7 @@ instead declare the upstream URL and branch mapping directly in your config:
    django = "git@github.com:django/django.git"
 
    [repo.groups.django.upstream_branch]
-   django = "stable/6.0.x"
+   django = {"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
 
 ``upstream``
    Maps a repo name to the URL of the original (non-fork) repository.
@@ -262,8 +262,10 @@ instead declare the upstream URL and branch mapping directly in your config:
 ``upstream_branch``
    Maps a repo name to the upstream branch that the local branch tracks.
    Required when the local branch name differs from the upstream branch name.
-   In the example above, the local ``mongodb-6.0.x`` branch is rebased against
-   ``upstream/stable/6.0.x`` rather than the upstream remote's default branch.
+   Accepts either a single string (one fixed upstream branch for all local branches) or a dict
+   mapping each local branch name to its upstream branch. The dict form is useful for repos like
+   the Django fork where each local branch tracks a different upstream branch — ``dbx sync``
+   picks the correct target based on the branch currently checked out.
 
 **Example workflow (django fork):**
 
@@ -278,10 +280,14 @@ instead declare the upstream URL and branch mapping directly in your config:
    # origin    git@github.com:mongodb-forks/django.git (fetch)
    # upstream  git@github.com:django/django.git (fetch)
 
-   # Switch to the fork branch and sync it with upstream
+   # Switch to a fork branch and sync it with upstream
    git switch mongodb-6.0.x
    dbx sync django
    # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
+
+   git switch mongodb-5.2.x
+   dbx sync django
+   # Fetches upstream, rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
 
 Both keys are optional and independent — you can use ``upstream`` alone (to auto-add the remote
 on clone without changing sync behaviour) or ``upstream_branch`` alone (if you have already added
