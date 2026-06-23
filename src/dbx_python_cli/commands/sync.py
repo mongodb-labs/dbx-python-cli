@@ -422,6 +422,8 @@ def _sync_repository(
     # For main/master: rebase to upstream/<current_branch>
     # For feature branches: use configured upstream_branch if provided,
     # otherwise detect upstream's default branch (main/master)
+    if isinstance(upstream_branch, dict):
+        upstream_branch = upstream_branch.get(current_branch)
     if current_branch in ["main", "master"]:
         rebase_target = f"upstream/{current_branch}"
         if verbose:

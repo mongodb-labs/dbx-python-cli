@@ -359,24 +359,29 @@ def get_upstream_url(config, group_name, repo_name):
     return groups[group_name].get("upstream", {}).get(repo_name)
 
 
-def get_upstream_branch(config, group_name, repo_name):
+def get_upstream_branch(config, group_name, repo_name, current_branch=None):
     """Return the upstream branch to sync against for a repo, or None.
 
     Overrides the default upstream-branch detection in ``dbx sync`` for repos
-    whose local branch name differs from the upstream branch name (e.g.
-    ``mongodb-6.0.x`` → ``stable/6.0.x`` in the Django fork workflow).
+    whose local branch name differs from the upstream branch name.
 
-    Configure in ``[repo.groups.<group>.upstream_branch]``:
+    Accepts either a single string (same upstream branch regardless of local
+    branch) or a dict mapping local branch names to upstream branch names (for
+    repos like the Django fork where each local branch tracks a different
+    upstream branch):
 
     .. code-block:: toml
 
         [repo.groups.django.upstream_branch]
-        django = "stable/6.0.x"
+        django = {"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
     """
     groups = get_repo_groups(config)
     if group_name not in groups:
         return None
-    return groups[group_name].get("upstream_branch", {}).get(repo_name)
+    value = groups[group_name].get("upstream_branch", {}).get(repo_name)
+    if isinstance(value, dict):
+        return value.get(current_branch) if current_branch else None
+    return value
 
 
 def get_preferred_branch(config, group_name, repo_name):

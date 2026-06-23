@@ -173,11 +173,13 @@ no_fork = ["django"]
 # Use this when the group contains forks that need to track the original repo.
 [repo.groups.django.upstream]
 django = "git@github.com:django/django.git"
+django-mongodb-backend = "git@github.com:mongodb-labs/django-mongodb-backend.git"
+django-mongodb-extensions = "git@github.com:mongodb-labs/django-mongodb-extensions.git"
 
 # Upstream branch mapping: maps the local branch to the upstream branch to rebase against.
 # Required when the local branch name differs from the upstream branch (e.g. mongodb-6.0.x → stable/6.0.x).
 [repo.groups.django.upstream_branch]
-django = "stable/6.0.x"
+django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x", "mongodb-5.1.x" = "stable/5.1.x"}
 
 # Custom test runner configuration: specify test runner script for repos that don't use pytest
 [repo.groups.django.test_runner]
