@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "mongodb-runner": "^6.7.12"
+    "mongodb-runner": "^6.8.0"
   }
 }
