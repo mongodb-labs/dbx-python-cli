@@ -1,6 +1,8 @@
 """Virtual environment management commands."""
 
+import platform
 import subprocess
+import sys
 
 import typer
 
@@ -549,6 +551,152 @@ def remove(
         shutil.rmtree(venv_path)
         typer.echo(f"✅ Virtual environment removed: {venv_path}")
         typer.echo(f"\nTo recreate: {recreate_cmd}")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def status(
+    ctx: typer.Context,
+    repo: str = typer.Argument(
+        None,
+        help="Repository name or path (defaults to current directory)",
+    ),
+):
+    """Show which virtual environment will be used and why.
+
+    Walks the venv resolution priority chain and shows which venv dbx would
+    select: repo-level → group-level → base → activated venv.
+    """
+    from pathlib import Path
+
+    from dbx_python_cli.utils.repo import (
+        find_repo_by_name,
+        find_repo_by_path,
+        is_path_like,
+    )
+    from dbx_python_cli.utils.venv import _get_python_path, _is_venv
+
+    # Windows uses Scripts/python.exe, Unix uses bin/python
+    python_subpath = (
+        "Scripts/python.exe" if platform.system() == "Windows" else "bin/python"
+    )
+
+    try:
+        config = get_config()
+        base_dir = get_base_dir(config)
+        flat = is_flat_mode(config)
+
+        # Resolve repo info
+        repo_info = None
+        if repo:
+            if is_path_like(repo):
+                repo_info = find_repo_by_path(Path(repo), base_dir, config)
+            else:
+                repo_info = find_repo_by_name(repo, base_dir, config)
+        else:
+            # Auto-detect from CWD
+            repo_info = find_repo_by_path(Path.cwd(), base_dir, config)
+
+        repo_path = repo_info["path"] if repo_info else None
+        group_path = (
+            get_group_dir(base_dir, repo_info["group"], flat) if repo_info else None
+        )
+
+        # Build the header line
+        if repo_info:
+            if flat:
+                header = f"Venv resolution for: {repo_info['name']}"
+            else:
+                header = f"Venv resolution for: {repo_info['name']} ({repo_info['group']} group)"
+        else:
+            header = "Venv resolution for: (current directory — not in a known repo)"
+
+        typer.echo(f"\n{header}\n")
+
+        # Walk the priority chain
+        selected = False
+
+        def _get_version(python_exe: str) -> str:
+            """Return 'Python X.Y.Z' from python --version, or '' on failure."""
+            try:
+                result = subprocess.run(
+                    [python_exe, "--version"],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip() or result.stderr.strip()
+            except (OSError, subprocess.SubprocessError):
+                pass
+            return ""
+
+        def _report(label: str, path, exists: bool, is_selected: bool) -> None:
+            icon = "✅" if exists else "❌"
+            line = f"  {icon}  {label:<8} {path}"
+            if exists and is_selected:
+                version = _get_version(str(path / python_subpath))
+                suffix = f"  ← selected ({version})" if version else "  ← selected"
+                line += suffix
+            typer.echo(line)
+
+        # 1. Repo-level venv
+        if repo_path is not None:
+            repo_venv = repo_path / ".venv"
+            repo_venv_python = repo_venv / python_subpath
+            exists = repo_venv_python.exists()
+            is_hit = exists and not selected
+            _report("repo:", repo_venv, exists, is_hit)
+            if is_hit:
+                selected = True
+
+        # 2. Group-level venv (skip in flat mode)
+        if group_path is not None and not flat:
+            group_venv = group_path / ".venv"
+            group_venv_python = group_venv / python_subpath
+            exists = group_venv_python.exists()
+            is_hit = exists and not selected
+            _report("group:", group_venv, exists, is_hit)
+            if is_hit:
+                selected = True
+
+        # 3. Base venv
+        base_venv = base_dir / ".venv"
+        base_venv_python = base_venv / python_subpath
+        exists = base_venv_python.exists()
+        is_hit = exists and not selected
+        _report("base:", base_venv, exists, is_hit)
+        if is_hit:
+            selected = True
+
+        # 4. Activated venv via sys.executable
+        if not selected and _is_venv(sys.executable):
+            version = _get_version(sys.executable)
+            suffix = f"  ← selected ({version})" if version else "  ← selected"
+            typer.echo(f"  ✅  {'venv:':<8} {sys.executable}{suffix}")
+            selected = True
+        elif not selected:
+            typer.echo(f"  ❌  {'venv:':<8} {sys.executable} (not a venv)")
+
+        # 5. PATH python via _get_python_path
+        if not selected:
+            path_python = _get_python_path()
+            if path_python != sys.executable and _is_venv(path_python):
+                version = _get_version(path_python)
+                suffix = f"  ← selected ({version})" if version else "  ← selected"
+                typer.echo(f"  ✅  {'path py:':<8} {path_python}{suffix}")
+                selected = True
+
+        if not selected:
+            typer.echo(
+                "\nNo virtual environment found. Run 'dbx env init' to create one."
+            )
+
+        typer.echo("")
 
     except typer.Exit:
         raise

@@ -45,6 +45,11 @@ def remove_callback(
         "-y",
         help="Skip confirmation prompt",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be removed without deleting anything",
+    ),
 ):
     """Remove repositories or repository groups.
 
@@ -153,6 +158,11 @@ def remove_callback(
         typer.echo(f"  • {repo_info['name']} ({repo_info['group']})")
         if verbose:
             typer.echo(f"    Path: {repo_info['path']}")
+
+    # Short-circuit for dry run — print list and exit without deleting
+    if dry_run:
+        typer.echo("\n🔍 Dry run — no repositories were removed.")
+        return
 
     # Confirm removal unless --force is used
     if not force:

@@ -70,13 +70,20 @@ def init(
                 base_dir_path = Path(config["repo"]["base_dir"]).expanduser()
 
                 if base_dir_path.exists():
-                    if not yes:
-                        confirm = typer.confirm(
-                            f"⚠️  This will delete {base_dir_path} and all its contents. Continue?"
-                        )
-                        if not confirm:
-                            typer.echo("Aborted.")
-                            raise typer.Exit(0)
+                    typer.echo(f"\n{'=' * 60}", err=True)
+                    typer.echo("⚠️  DANGER: About to permanently delete:", err=True)
+                    typer.echo(f"    {base_dir_path}", err=True)
+                    typer.echo(
+                        "    This includes ALL cloned repositories and uncommitted changes.",
+                        err=True,
+                    )
+                    typer.echo(f"{'=' * 60}\n", err=True)
+                    confirm_input = typer.prompt(
+                        f"Type the directory name '{base_dir_path.name}' to confirm"
+                    )
+                    if confirm_input.strip() != base_dir_path.name:
+                        typer.echo("❌ Aborted — name did not match.", err=True)
+                        raise typer.Exit(1)
 
                     try:
                         shutil2.rmtree(base_dir_path)
@@ -346,3 +353,116 @@ def show(ctx: typer.Context):
     # Use pager if requested
     use_pager = should_use_pager(ctx, command_default=False)
     paginate_output(output, use_pager)
+
+
+@app.command()
+def validate(ctx: typer.Context):
+    """Validate the configuration file for unknown or deprecated keys."""
+    KNOWN_TOP_LEVEL = {"project", "repo", "evergreen"}
+
+    KNOWN_REPO_KEYS = {
+        "base_dir",
+        "fork_user",
+        "python_version",
+        "global_groups",
+        "group_priority",
+        "flat",
+        "editor",
+        "groups",
+    }
+
+    KNOWN_GROUP_KEYS = {
+        "repos",
+        "python_version",
+        "preferred_branch",
+        "default_branch",  # deprecated
+        "install_extras",
+        "install_groups",
+        "install_dirs",
+        "build_commands",
+        "skip_install",
+        "test_runner",
+        "test_runner_args",
+        "test_env",
+        "sys_path",
+    }
+
+    KNOWN_PROJECT_KEYS = {"default_env", "mongodb"}
+
+    issues: list[str] = []
+    has_errors = False
+
+    try:
+        config = get_config()
+    except Exception as e:
+        typer.echo(f"❌ Failed to load configuration: {e}", err=True)
+        raise typer.Exit(1)
+
+    # Check for unknown top-level sections
+    for key in config:
+        if key not in KNOWN_TOP_LEVEL:
+            issues.append(f"⚠️  [unknown] top-level key: [{key}]")
+            has_errors = True
+
+    # Check [repo] keys
+    repo_config = config.get("repo", {})
+    if isinstance(repo_config, dict):
+        # base_dir is required
+        if "base_dir" not in repo_config:
+            issues.append("❌  [error] [repo] is missing required key: base_dir")
+            has_errors = True
+
+        for key in repo_config:
+            if key == "groups":
+                continue
+            if key not in KNOWN_REPO_KEYS:
+                issues.append(f"⚠️  [unknown] [repo] key: {key}")
+                has_errors = True
+
+        # Check [repo.groups.X] keys
+        groups = repo_config.get("groups", {})
+        if isinstance(groups, dict):
+            for group_name, group_cfg in groups.items():
+                if not isinstance(group_cfg, dict):
+                    continue
+                for key in group_cfg:
+                    if key == "default_branch":
+                        issues.append(
+                            f"⚠️  [deprecated] [repo.groups.{group_name}] key: default_branch"
+                            " (use preferred_branch instead)"
+                        )
+                    elif key not in KNOWN_GROUP_KEYS:
+                        issues.append(
+                            f"⚠️  [unknown] [repo.groups.{group_name}] key: {key}"
+                        )
+                        has_errors = True
+
+    # Check [project] keys
+    project_config = config.get("project", {})
+    if isinstance(project_config, dict):
+        for key in project_config:
+            if key not in KNOWN_PROJECT_KEYS:
+                issues.append(f"⚠️  [unknown] [project] key: {key}")
+                has_errors = True
+
+    # Check [evergreen.X] keys — each sub-table may only have project_name
+    evergreen_config = config.get("evergreen", {})
+    if isinstance(evergreen_config, dict):
+        for section_name, section_cfg in evergreen_config.items():
+            if not isinstance(section_cfg, dict):
+                continue
+            for key in section_cfg:
+                if key != "project_name":
+                    issues.append(f"⚠️  [unknown] [evergreen.{section_name}] key: {key}")
+                    has_errors = True
+
+    # Report results
+    if issues:
+        for issue in issues:
+            typer.echo(issue)
+        typer.echo(f"\n{len(issues)} issue(s) found.")
+        raise typer.Exit(1 if has_errors else 0)
+    else:
+        typer.echo(
+            "✅ Configuration looks valid — no unknown or deprecated keys found."
+        )
