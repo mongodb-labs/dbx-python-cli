@@ -81,6 +81,10 @@ All path resolution goes through helpers in `utils/repo.py`: `get_group_dir()`, 
 - `utils/project.py` — Django project helpers (settings discovery, env var injection)
 - `utils/output.py` — pager support (`paginate_output`, `should_use_pager`)
 
+### Documentation
+
+When adding or changing any user-facing behaviour (new config keys, new commands, new flags, changed defaults, removed features), always update the relevant file(s) in `docs/features/` or `docs/design/` in the same commit. Also keep `docs/design/command-structure.rst` in sync when commands or subcommands are added or removed.
+
 ### Testing
 
 Tests use `typer.testing.CliRunner`. Mock `get_config` at the command module level (e.g. `dbx_python_cli.commands.install.get_config`), not at the utils level. Shared fixtures are in `tests/conftest.py`.
