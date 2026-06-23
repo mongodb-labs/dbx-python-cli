@@ -1316,6 +1316,121 @@ repos = [
             assert "upstream/main" in rebase_calls[0][0][0]
 
 
+def test_repo_sync_feature_branch_matches_upstream_branch(tmp_path, temp_repos_dir):
+    """Test that a feature branch rebases to upstream/<branch> when upstream has a matching branch."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.test]
+repos = [
+    "git@github.com:mongodb/django-mongodb-backend.git",
+]
+"""
+    config_path.write_text(config_content)
+
+    group_dir = temp_repos_dir / "test"
+    repo_dir = group_dir / "django-mongodb-backend"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                elif "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="5.2.x\n", stderr=""
+                    )
+                elif "rev-parse" in cmd and "upstream/5.2.x" in cmd:
+                    # upstream has a matching 5.2.x branch
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="abc123\n", stderr=""
+                    )
+                elif "rebase" in cmd:
+                    assert "upstream/5.2.x" in cmd
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                else:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "django-mongodb-backend"])
+            assert result.exit_code == 0
+
+            rebase_calls = [c for c in mock_run.call_args_list if "rebase" in c[0][0]]
+            assert len(rebase_calls) == 1
+            assert "upstream/5.2.x" in rebase_calls[0][0][0]
+
+
+def test_get_upstream_branch_dict_form():
+    """Test that upstream_branch dict config resolves correctly for the current branch."""
+    from dbx_python_cli.utils.repo import get_upstream_branch
+
+    config = {
+        "repo": {
+            "groups": {
+                "django": {
+                    "upstream_branch": {
+                        "django": {
+                            "mongodb-6.0.x": "stable/6.0.x",
+                            "mongodb-5.2.x": "stable/5.2.x",
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert (
+        get_upstream_branch(config, "django", "django", "mongodb-6.0.x")
+        == "stable/6.0.x"
+    )
+    assert (
+        get_upstream_branch(config, "django", "django", "mongodb-5.2.x")
+        == "stable/5.2.x"
+    )
+    # Branch not in dict returns None
+    assert get_upstream_branch(config, "django", "django", "mongodb-6.1.x") is None
+    # No current_branch provided returns None for dict form
+    assert get_upstream_branch(config, "django", "django") is None
+
+
+def test_get_upstream_branch_string_form():
+    """Test that upstream_branch string config is returned as-is regardless of current branch."""
+    from dbx_python_cli.utils.repo import get_upstream_branch
+
+    config = {
+        "repo": {
+            "groups": {
+                "django": {
+                    "upstream_branch": {
+                        "django": "stable/6.0.x",
+                    }
+                }
+            }
+        }
+    }
+
+    assert (
+        get_upstream_branch(config, "django", "django", "mongodb-6.0.x")
+        == "stable/6.0.x"
+    )
+    assert (
+        get_upstream_branch(config, "django", "django", "any-branch") == "stable/6.0.x"
+    )
+    assert get_upstream_branch(config, "django", "django") == "stable/6.0.x"
+
+
 def test_repo_sync_main_branch_to_upstream_main(tmp_path, temp_repos_dir):
     """Test syncing main branch still rebases to upstream/main (not changed)."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
