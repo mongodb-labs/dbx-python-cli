@@ -103,7 +103,7 @@ repos = [
     "git@github.com:mongodb-labs/mongo-arrow.git",
 ]
 # Automatically sync with upstream immediately after cloning
-sync_after_clone = ["mongo-python-driver"]
+sync_after_clone = ["mongo-python-driver", "django-mongodb-backend"]
 
 # Environment variables for test runs
 [repo.groups.pymongo.test_env]
