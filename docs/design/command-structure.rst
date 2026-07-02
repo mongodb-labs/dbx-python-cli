@@ -48,19 +48,14 @@ Single-action commands that are frequently used or domain-agnostic:
 
 .. code-block:: text
 
-   dbx branch      Git branch operations across repositories
    dbx clone       Clone a repository group
-   dbx edit        Open a repository in an editor
    dbx install     Install package dependencies
    dbx just        Run just commands in a repository
    dbx list        List cloned repositories
-   dbx log         Git log across repositories
-   dbx open        Open a repository in the browser
    dbx patch       Create Evergreen CI patches
    dbx remove      Remove a cloned repository
-   dbx status      Git status across repositories
-   dbx swap        Swap between repository versions
-   dbx switch      Switch git branches across repositories
+   dbx status      Git status (or, with --log, git log) across repositories
+   dbx switch      Switch git branches (or, with --branches, list them)
    dbx sync        Sync repositories with upstream
    dbx test        Run tests in a repository
 
@@ -76,11 +71,6 @@ Related subcommands that share a common domain:
    dbx config show
    dbx config edit
    dbx config validate
-
-   # Documentation operations
-   dbx docs build
-   dbx docs list
-   dbx docs open
 
    # Virtual environment management
    dbx env init

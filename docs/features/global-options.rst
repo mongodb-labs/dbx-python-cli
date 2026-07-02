@@ -61,7 +61,7 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
 - Pagination is opt-in: you must use the ``-p`` flag to enable it
 - Works with all commands that produce output
 
-**Note:** The pager flag must come **before** the subcommand (e.g., ``dbx -p branch``, not ``dbx branch -p``).
+**Note:** The pager flag must come **before** the subcommand (e.g., ``dbx -p status --log``, not ``dbx status --log -p``).
 
 MongoDB Backend Override
 ------------------------

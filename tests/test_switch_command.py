@@ -74,7 +74,7 @@ def test_switch_help():
     """Test switch help command."""
     result = runner.invoke(app, ["switch", "--help"])
     assert result.exit_code == 0
-    assert "Git branch switching commands" in result.stdout
+    assert "Git branch switching and listing commands" in result.stdout
     assert "repo_name" in result.stdout.lower()
     assert "branch_name" in result.stdout.lower()
 

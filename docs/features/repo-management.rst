@@ -1,7 +1,7 @@
 Repository Management
 =====================
 
-The ``dbx clone``, ``dbx sync``, ``dbx swap``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
+The ``dbx clone``, ``dbx sync``, and ``dbx switch`` commands provide repository management functionality for cloning and managing groups of related repositories. ``dbx switch`` also lists branches via ``--branches`` and, together with ``dbx status --log``, replaces the old ``branch`` and ``log`` commands.
 
 Initialize Configuration
 ------------------------
@@ -232,38 +232,6 @@ completes — equivalent to running ``dbx sync mongo-python-driver`` right after
 - Like ``dbx sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
 - Pass ``--no-sync`` to ``dbx clone`` to skip this for a single invocation even when configured
 
-Swap Origin and Upstream
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-After setting up a fork workflow, you may occasionally need to swap your ``origin`` and ``upstream``
-remotes — for example, if you initially cloned the upstream repo directly and later created a fork.
-
-.. code-block:: bash
-
-   # Swap remotes for a specific repository
-   dbx swap mongo-python-driver
-
-   # Swap by navigating to the repo directory
-   cd ~/Developer/mongodb/pymongo/mongo-python-driver
-   dbx swap .
-
-   # Swap all repositories in a group
-   dbx swap -g pymongo
-
-   # Preview what would change without making modifications
-   dbx swap mongo-python-driver --dry-run
-   dbx swap -g pymongo --dry-run
-
-After swapping, what was ``origin`` becomes ``upstream`` and vice versa. This is useful when:
-
-- You cloned a repo directly and then forked it — swap so your fork is ``origin``
-- You want to point ``origin`` back to the canonical repo and ``upstream`` to your fork
-
-**Notes:**
-
-- Both ``origin`` and ``upstream`` remotes must already be configured; the command will fail if either is missing
-- Use ``--dry-run`` first to verify the swap looks correct before applying it
-
 .. _config-driven-upstream:
 
 Config-Driven Upstream Remotes
@@ -486,31 +454,28 @@ status when errors are found.
 View Git Branches
 -----------------
 
-The ``dbx branch`` command allows you to run ``git branch`` in one or more repositories:
+The ``dbx switch --branches`` command (short form ``-b``) allows you to run ``git branch`` in one or more repositories:
 
 .. code-block:: bash
 
    # Show branches in a single repository
-   dbx branch mongo-python-driver
+   dbx switch --branches mongo-python-driver
 
    # Show all branches (including remote branches)
-   dbx branch mongo-python-driver -a
+   dbx switch --branches mongo-python-driver -a
 
    # Show branches with verbose information
-   dbx branch mongo-python-driver -v
+   dbx -v switch --branches mongo-python-driver
 
    # Show branches in all repositories in a group
-   dbx branch -g pymongo
+   dbx switch --branches -g pymongo
 
    # Show branches in all repositories in a group with arguments
-   dbx branch -g pymongo -a
-
-   # Show branches in a project
-   dbx branch -p myproject
+   dbx switch --branches -g pymongo -a
 
 This command will:
 
-1. Find the repository, group, or project by name
+1. Find the repository or group by name
 2. Run ``git branch`` with any provided arguments
 3. Display the output for each repository
 
@@ -519,13 +484,13 @@ This command will:
 .. code-block:: bash
 
    # View local branches in a single repo
-   $ dbx branch mongo-python-driver
+   $ dbx switch --branches mongo-python-driver
    🌿 mongo-python-driver:
    * main
      feature-branch
 
    # View all branches (local and remote)
-   $ dbx branch mongo-python-driver -a
+   $ dbx switch --branches mongo-python-driver -a
    🌿 mongo-python-driver: git branch -a
    * main
      feature-branch
@@ -534,7 +499,7 @@ This command will:
      remotes/origin/feature-branch
 
    # View branches across all repos in a group
-   $ dbx branch -g pymongo
+   $ dbx switch --branches -g pymongo
    Running git branch in 2 repository(ies) in group 'pymongo':
 
    🌿 mongo-python-driver:
@@ -543,7 +508,7 @@ This command will:
    * master
 
    # View all branches (local and remote) across all repos in a group
-   $ dbx branch -g pymongo -a
+   $ dbx switch --branches -g pymongo -a
    Running git branch in 2 repository(ies) in group 'pymongo':
 
    🌿 mongo-python-driver: git branch -a
@@ -560,7 +525,7 @@ This command will:
 **Notes:**
 
 - The command works with any repository that has been cloned using ``dbx clone``
-- You can pass any valid ``git branch`` arguments (e.g., ``-a``, ``-r``, ``-v``, ``--merged``)
+- You can pass any valid ``git branch`` arguments (e.g., ``-a``, ``-r``, ``--merged``)
 - The ``-a`` or ``--all`` flag shows all branches (local and remote) for all repositories
 - When using with a group, the command runs in all repositories in that group
 - Projects without a ``.git`` directory will be skipped with a warning
@@ -625,27 +590,27 @@ This command will:
 View Git Commit Logs
 ---------------------
 
-The ``dbx log`` command allows you to view git commit logs from one or more repositories:
+The ``dbx status --log`` command allows you to view git commit logs from one or more repositories:
 
 .. code-block:: bash
 
    # Show last 10 commits from a repository
-   dbx log mongo-python-driver
+   dbx status --log mongo-python-driver
 
    # Show last 20 commits
-   dbx log -n 20 mongo-python-driver
+   dbx status --log -n 20 mongo-python-driver
 
    # Show logs in oneline format
-   dbx log --oneline mongo-python-driver
+   dbx status --log --oneline mongo-python-driver
 
    # Show logs from all repositories in a group
-   dbx log -g pymongo
+   dbx status --log -g pymongo
 
    # Show last 5 commits from all repos in a group
-   dbx log -n 5 -g pymongo
+   dbx status --log -n 5 -g pymongo
 
    # Show logs from a project
-   dbx log -p myproject
+   dbx status --log --project myproject
 
 This command will:
 
@@ -658,7 +623,7 @@ This command will:
 .. code-block:: bash
 
    # View last 10 commits (default)
-   $ dbx log mongo-python-driver
+   $ dbx status --log mongo-python-driver
    📜 mongo-python-driver: Last 10 commits
    commit abc123...
    Author: John Doe <john@example.com>
@@ -667,14 +632,14 @@ This command will:
        Add new feature
 
    # View last 5 commits in oneline format
-   $ dbx log -n 5 --oneline mongo-python-driver
+   $ dbx status --log -n 5 --oneline mongo-python-driver
    📜 mongo-python-driver: Last 5 commits (oneline)
    abc123 Add new feature
    def456 Fix bug
    ghi789 Update docs
 
    # View logs from all repos in a group
-   $ dbx log -g pymongo
+   $ dbx status --log -g pymongo
    📜 mongo-python-driver: Last 10 commits
    ...
    📜 specifications: Last 10 commits
@@ -688,49 +653,4 @@ This command will:
 - Use ``--oneline`` for a compact one-line-per-commit format
 - When using with a group, the command runs in all repositories in that group
 - Projects without a ``.git`` directory will be skipped with a warning
-- Run ``dbx list`` to see all available repositories
-
-Open Repositories in Browser
------------------------------
-
-The ``dbx open`` command allows you to open repositories in your web browser:
-
-.. code-block:: bash
-
-   # Open a single repository in browser
-   dbx open mongo-python-driver
-
-   # Open all repositories in a group
-   dbx open -g pymongo
-
-This command will:
-
-1. Find the repository or group by name
-2. Get the git remote URL from the repository
-3. Convert the git URL to a browser-friendly URL
-4. Open the URL in your default web browser
-
-**Examples:**
-
-.. code-block:: bash
-
-   # Open a single repository
-   $ dbx open mongo-python-driver
-   🌐 Opening mongo-python-driver in browser...
-   # Opens https://github.com/mongodb/mongo-python-driver
-
-   # Open all repos in a group
-   $ dbx open -g pymongo
-   Opening 2 repository(ies) in group 'pymongo' in browser:
-
-   🌐 Opening mongo-python-driver in browser...
-   🌐 Opening specifications in browser...
-
-**Notes:**
-
-- The command works with any repository that has been cloned using ``dbx clone``
-- Automatically converts SSH URLs (``git@github.com:org/repo.git``) to HTTPS URLs (``https://github.com/org/repo``)
-- Also works with HTTPS git URLs
-- When using with a group, opens all repositories in that group
-- Requires the repository to have an ``origin`` remote configured
 - Run ``dbx list`` to see all available repositories

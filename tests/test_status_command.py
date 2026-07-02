@@ -79,7 +79,7 @@ def test_status_help():
     result = runner.invoke(app, ["status", "--help"])
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
-    assert "Show git status of repositories" in output
+    assert "Show git status" in output
 
 
 def test_status_no_repo_name(tmp_path, temp_repos_dir, mock_config):
@@ -92,7 +92,7 @@ def test_status_no_repo_name(tmp_path, temp_repos_dir, mock_config):
         # Exit code 2 means help was shown (no_args_is_help=True)
         assert result.exit_code == 2
         output = strip_ansi(result.stdout)
-        assert "Show git status of repositories" in output
+        assert "Show git status" in output
 
 
 def test_status_repo_not_found(tmp_path, temp_repos_dir, mock_config):

@@ -159,16 +159,16 @@ View branches across repositories:
 .. code-block:: bash
 
    # View branches in a single repository
-   dbx branch django-mongodb-backend
+   dbx switch --branches django-mongodb-backend
 
    # View all branches (including remote) with verbose output
-   dbx -v branch django-mongodb-backend
+   dbx -v switch --branches django-mongodb-backend
 
    # View branches in all repositories in a group
-   dbx branch -g django
+   dbx switch --branches -g django
 
    # View all branches in all repositories in a group
-   dbx -v branch -g django
+   dbx -v switch --branches -g django
 
 Working with Multiple Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

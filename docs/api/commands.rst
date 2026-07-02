@@ -3,14 +3,6 @@ Commands
 
 The command modules implement the CLI commands for repository management, installation, testing, and more.
 
-dbx_python_cli.commands.branch module
---------------------------------------
-
-.. automodule:: dbx_python_cli.commands.branch
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 dbx_python_cli.commands.clone module
 -------------------------------------
 
@@ -23,14 +15,6 @@ dbx_python_cli.commands.config module
 --------------------------------------
 
 .. automodule:: dbx_python_cli.commands.config
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-dbx_python_cli.commands.edit module
-------------------------------------
-
-.. automodule:: dbx_python_cli.commands.edit
    :members:
    :undoc-members:
    :show-inheritance:
@@ -63,22 +47,6 @@ dbx_python_cli.commands.list module
 ------------------------------------
 
 .. automodule:: dbx_python_cli.commands.list
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-dbx_python_cli.commands.log module
------------------------------------
-
-.. automodule:: dbx_python_cli.commands.log
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-dbx_python_cli.commands.open module
-------------------------------------
-
-.. automodule:: dbx_python_cli.commands.open
    :members:
    :undoc-members:
    :show-inheritance:

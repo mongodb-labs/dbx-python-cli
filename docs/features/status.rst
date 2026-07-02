@@ -20,14 +20,40 @@ Basic Usage
    # Show short-format status
    dbx status --short mongo-python-driver
 
+   # Show git commit log instead of status
+   dbx status --log mongo-python-driver -n 5
+
 Command Options
 ---------------
 
 The ``status`` command supports the following options:
 
 * ``<repo_name>`` - Repository name to show status for
-* ``-g, --group <group_name>`` - Show status for all repositories in a group
+* ``-g, --group <group_name>`` - Show status/log for all repositories in a group
 * ``-s, --short`` - Show short-format status output (equivalent to ``git status --short``)
+* ``-l, --log`` - Show git commit logs instead of status
+* ``-a, --all`` - With ``--log``, show logs for all cloned repositories across all groups
+* ``--project <name>`` - With ``--log``, show logs for a project
+
+Showing Git Logs
+----------------
+
+With ``--log``, ``dbx status`` shows commit history instead of working-tree
+state. Any trailing arguments are passed straight through to ``git log``:
+
+.. code-block:: bash
+
+   # Last 5 commits of a repository
+   dbx status --log mongo-python-driver -n 5
+
+   # Oneline log across a whole group
+   dbx status --log -g pymongo --oneline
+
+   # Log across all cloned repositories
+   dbx status --log -a --oneline -n 5
+
+   # Log for a project
+   dbx status --log --project myproject -n 10
 
 Examples
 --------
@@ -136,5 +162,5 @@ Related Commands
 ----------------
 
 - :doc:`repo-management` - Clone and sync repositories
-- ``dbx branch`` - Show git branches
-- ``dbx log`` - Show git log
+- ``dbx status --log`` - Show git commit logs
+- ``dbx switch --branches`` - Show git branches
