@@ -378,6 +378,7 @@ def validate(ctx: typer.Context):
         "no_fork",
         "upstream",
         "upstream_branch",
+        "sync_after_clone",
         "install_extras",
         "install_groups",
         "install_dirs",

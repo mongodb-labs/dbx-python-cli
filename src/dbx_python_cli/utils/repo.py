@@ -384,6 +384,35 @@ def get_upstream_branch(config, group_name, repo_name, current_branch=None):
     return value
 
 
+def should_sync_after_clone(config, group_name, repo_name):
+    """Check whether a repository should be synced with upstream right after cloning.
+
+    When enabled, ``dbx clone`` runs the same fetch/rebase/push sequence as
+    ``dbx sync`` immediately after a successful clone (and preferred branch
+    switch), so a freshly cloned fork starts already up to date with
+    upstream.
+
+    Configure in ``[repo.groups.<group>]``:
+
+    .. code-block:: toml
+
+        [repo.groups.pymongo]
+        sync_after_clone = ["mongo-python-driver"]
+
+    Args:
+        config: Configuration dictionary
+        group_name: Name of the group (e.g., 'pymongo')
+        repo_name: Name of the repository (e.g., 'mongo-python-driver')
+
+    Returns:
+        bool: True if the repo should be synced immediately after cloning
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return False
+    return repo_name in groups[group_name].get("sync_after_clone", [])
+
+
 def get_preferred_branch(config, group_name, repo_name):
     """
     Get the preferred branch to switch to after cloning a repository.

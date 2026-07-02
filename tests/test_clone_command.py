@@ -406,6 +406,87 @@ def test_clone_all_groups_with_global_repos(tmp_path):
             assert any(str(tmp_path / "django") in p for p in dest_paths)
 
 
+# ---------------------------------------------------------------------------
+# sync_after_clone tests
+# ---------------------------------------------------------------------------
+
+
+def test_clone_syncs_when_sync_after_clone_configured(tmp_path):
+    """After a successful clone, dbx sync runs when sync_after_clone lists the repo."""
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "groups": {
+                "pymongo": {
+                    "repos": ["git@github.com:mongodb/mongo-python-driver.git"],
+                    "sync_after_clone": ["mongo-python-driver"],
+                }
+            },
+        }
+    }
+
+    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+                mock_sync.return_value = "synced"
+
+                result = runner.invoke(app, ["clone", "-g", "pymongo", "--no-install"])
+                assert result.exit_code == 0
+
+                mock_sync.assert_called_once()
+                call_args = mock_sync.call_args
+                assert call_args.args[1] == "mongo-python-driver"
+
+
+def test_clone_no_sync_when_not_configured(tmp_path):
+    """dbx sync is NOT run after cloning when sync_after_clone is not configured."""
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "groups": {
+                "pymongo": {
+                    "repos": ["git@github.com:mongodb/specifications.git"],
+                }
+            },
+        }
+    }
+
+    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+                result = runner.invoke(app, ["clone", "-g", "pymongo", "--no-install"])
+                assert result.exit_code == 0
+                mock_sync.assert_not_called()
+
+
+def test_clone_no_sync_flag_overrides_config(tmp_path):
+    """--no-sync skips the automatic sync even when sync_after_clone is configured."""
+    config = {
+        "repo": {
+            "base_dir": str(tmp_path),
+            "groups": {
+                "pymongo": {
+                    "repos": ["git@github.com:mongodb/mongo-python-driver.git"],
+                    "sync_after_clone": ["mongo-python-driver"],
+                }
+            },
+        }
+    }
+
+    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+                result = runner.invoke(
+                    app,
+                    ["clone", "-g", "pymongo", "--no-install", "--no-sync"],
+                )
+                assert result.exit_code == 0
+                mock_sync.assert_not_called()
+
+
 def test_clone_all_groups_empty_config(tmp_path):
     """Test that -a with no groups in config shows an error."""
     config = {

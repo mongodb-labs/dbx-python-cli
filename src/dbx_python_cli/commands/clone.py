@@ -9,10 +9,31 @@ from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.repo import (
     get_group_dir,
     get_no_fork_repos,
+    get_upstream_branch,
     get_upstream_url,
     is_flat_mode,
+    should_sync_after_clone,
     switch_to_branch as _switch_to_branch,
 )
+
+
+def sync_repo_after_clone(
+    repo_path: Path,
+    repo_name: str,
+    group_name: str,
+    config,
+    verbose: bool = False,
+):
+    """Run the same fetch/rebase/push sequence as ``dbx sync`` right after cloning."""
+    from dbx_python_cli.commands.sync import _sync_repository
+
+    typer.echo(f"  🔄 Syncing {repo_name} with upstream...")
+    _sync_repository(
+        repo_path,
+        repo_name,
+        verbose=verbose,
+        upstream_branch=get_upstream_branch(config, group_name, repo_name),
+    )
 
 
 def auto_install_repo(
@@ -284,6 +305,11 @@ def clone_callback(
         False,
         "--no-install",
         help="Skip automatic installation after cloning",
+    ),
+    no_sync: bool = typer.Option(
+        False,
+        "--no-sync",
+        help="Skip automatic upstream sync after cloning, even if sync_after_clone is configured",
     ),
 ):
     """Clone a repository by name, all repositories from one or more groups, or all groups."""
@@ -704,6 +730,16 @@ def clone_callback(
                         if preferred_branch:
                             _switch_to_branch(repo_path, preferred_branch, verbose)
 
+                    # Sync with upstream immediately if configured
+                    if (
+                        clone_success
+                        and not no_sync
+                        and should_sync_after_clone(config, group_name, repo_name)
+                    ):
+                        sync_repo_after_clone(
+                            repo_path, repo_name, group_name, config, verbose
+                        )
+
                     # Track successful clone for auto-install
                     if clone_success:
                         cloned_repos.append(
@@ -742,6 +778,14 @@ def clone_callback(
                                 )
                             if preferred_branch:
                                 _switch_to_branch(repo_path, preferred_branch, verbose)
+
+                            # Sync with upstream immediately if configured
+                            if not no_sync and should_sync_after_clone(
+                                config, group_name, repo_name
+                            ):
+                                sync_repo_after_clone(
+                                    repo_path, repo_name, group_name, config, verbose
+                                )
 
                             # Track successful clone from upstream fallback
                             cloned_repos.append(

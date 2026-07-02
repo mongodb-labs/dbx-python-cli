@@ -128,11 +128,7 @@ You can set multiple environment variables for a repository:
 .. code-block:: toml
 
    [repo.groups.pymongo.test_env]
-   mongo-python-driver = {
-       DRIVERS_TOOLS = "{base_dir}/{group}/drivers-evergreen-tools",
-       TEST_MODE = "integration",
-       CUSTOM_PATH = "~/my/custom/path"
-   }
+   mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/{group}/drivers-evergreen-tools", TEST_MODE = "integration", CUSTOM_PATH = "~/my/custom/path" }
 
 When you run tests or just commands, these environment variables will be automatically set:
 

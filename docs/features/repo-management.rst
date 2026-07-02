@@ -205,6 +205,33 @@ This command will:
 - If there are rebase conflicts, you'll need to resolve them manually
 - Works with any repository that has an ``upstream`` remote, not just forks
 
+.. _sync-after-clone:
+
+Automatically Sync After Cloning
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you always want a repository synced with upstream right after ``dbx clone`` sets it up
+(e.g. your fork of ``mongo-python-driver`` tends to be behind by the time you clone it),
+list the repo in ``sync_after_clone`` for its group:
+
+.. code-block:: toml
+
+   [repo.groups.pymongo]
+   repos = [
+       "git@github.com:mongodb/mongo-python-driver.git",
+   ]
+   sync_after_clone = ["mongo-python-driver"]
+
+With this configured, ``dbx clone mongo-python-driver`` fetches from upstream, rebases, and
+pushes to your fork automatically after the clone (and any ``preferred_branch`` switch)
+completes — equivalent to running ``dbx sync mongo-python-driver`` right afterwards.
+
+**Notes:**
+
+- Only runs after a fresh clone; it has no effect when the repo already exists and the clone is skipped
+- Like ``dbx sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
+- Pass ``--no-sync`` to ``dbx clone`` to skip this for a single invocation even when configured
+
 Swap Origin and Upstream
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -422,6 +449,7 @@ Per-group keys of note:
 - ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
+- ``sync_after_clone`` — list of repo names to automatically ``dbx sync`` immediately after cloning (see :ref:`sync-after-clone`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
 - ``install_dirs`` — sub-directory paths for repos that contain multiple packages
 - ``build_commands`` — shell commands run before installation (e.g. a Rust or CMake build)
