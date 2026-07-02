@@ -81,8 +81,26 @@ def branch_callback(
         git_args.insert(0, repo_name)
         repo_name = None
 
-    # Add -a flag when verbose mode is active to show all branches
-    if verbose and "-a" not in git_args:
+    # Add -a flag when verbose mode is active to show all branches. Only do
+    # this for a plain listing — `-a` is invalid alongside mutating operations
+    # like -d/-D/-m/-c (e.g. `git branch -a -D old` is rejected by git).
+    _mutating_flags = {
+        "-d",
+        "-D",
+        "--delete",
+        "-m",
+        "-M",
+        "--move",
+        "-c",
+        "-C",
+        "--copy",
+        "-u",
+        "--set-upstream-to",
+        "--unset-upstream",
+        "--edit-description",
+    }
+    is_mutating = any(arg in _mutating_flags for arg in git_args)
+    if verbose and not is_mutating and "-a" not in git_args:
         git_args.insert(0, "-a")
 
     try:

@@ -512,10 +512,11 @@ def get_test_env_vars(config, group_name, repo_name, base_dir):
             return {}
         result = {}
         group_env_config = groups[grp_name].get("test_env", {})
-        if isinstance(group_env_config, dict):
-            for key, value in group_env_config.items():
-                if not isinstance(value, dict):
-                    result[key] = _expand_env_var_value(value, base_dir, grp_name)
+        if not isinstance(group_env_config, dict):
+            return result
+        for key, value in group_env_config.items():
+            if not isinstance(value, dict):
+                result[key] = _expand_env_var_value(value, base_dir, grp_name)
         repo_env_config = group_env_config.get(repo_name, {})
         if isinstance(repo_env_config, dict):
             for key, value in repo_env_config.items():
@@ -561,8 +562,12 @@ def _expand_env_var_value(value, base_dir, group_name):
     expanded = value.replace("{base_dir}", str(base_dir))
     expanded = expanded.replace("{group}", group_name)
 
-    # Expand user home directory
-    expanded = str(Path(expanded).expanduser())
+    # Expand a leading ~ / ~user to the home directory. Only apply when the
+    # value actually starts with a tilde — running every value through
+    # Path().expanduser() would normalise paths and collapse "//" sequences,
+    # corrupting values like "mongodb://localhost:27017".
+    if expanded.startswith("~"):
+        expanded = str(Path(expanded).expanduser())
 
     return expanded
 

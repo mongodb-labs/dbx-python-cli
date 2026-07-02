@@ -110,6 +110,7 @@ def auto_install_repo(
                     f"  [verbose] Installing {len(install_dirs)} package(s) from subdirectories"
                 )
 
+            installed_any = False
             for install_dir in install_dirs:
                 result = install_package(
                     repo_path,
@@ -121,6 +122,10 @@ def auto_install_repo(
                 )
                 if result == "failed":
                     return False
+                if result == "success":
+                    installed_any = True
+            # No installable package found in any subdirectory
+            return True if installed_any else "skipped"
         else:
             # Regular repo: install from root
             result = install_package(
@@ -133,6 +138,11 @@ def auto_install_repo(
             )
             if result == "failed":
                 return False
+            # install_package returns "skipped" when there's no setup.py /
+            # pyproject.toml to install — propagate that instead of reporting
+            # a successful install for a package that was never installed.
+            if result == "skipped":
+                return "skipped"
 
         return True
     except Exception as e:
@@ -326,6 +336,10 @@ def clone_callback(
             typer.echo(f"[verbose] Using base directory: {base_dir}")
             typer.echo(f"[verbose] Available groups: {list(groups.keys())}\n")
 
+        # Maps a directory group name to the config group its per-repo settings
+        # live under, when they differ (see the single-repo global-group case).
+        clone_config_groups = {}
+
         # Handle individual repo clone
         if repo_name:
             # Find the repo in all groups
@@ -384,6 +398,12 @@ def clone_callback(
 
             # Clone single repo
             repos_to_clone = {target_group: [found_repo]}
+            # A repo defined in a global group is cloned into a non-global
+            # directory group, but its per-repo config (upstream, preferred
+            # branch, install extras, skip_install, ...) still lives under the
+            # original group. Remember that mapping so config lookups use it.
+            if target_group != found_group:
+                clone_config_groups[target_group] = found_group
 
         # Handle clone all groups
         elif all_groups:
@@ -528,7 +548,11 @@ def clone_callback(
             group_dir = get_group_dir(base_dir, group_name, flat)
             group_dir.mkdir(parents=True, exist_ok=True)
 
-            no_fork_repos = get_no_fork_repos(config, group_name)
+            # Group to read per-repo config from (differs from the directory
+            # group when a global-group repo is cloned into a non-global group).
+            config_group = clone_config_groups.get(group_name, group_name)
+
+            no_fork_repos = get_no_fork_repos(config, config_group)
 
             # Display appropriate message
             if len(repos) == 1:
@@ -569,7 +593,7 @@ def clone_callback(
                 if repo_path.exists() and (repo_path / ".git").exists():
                     typer.echo(f"  ⏭️  {repo_name} already exists, skipping")
                     preferred_branch = repo.get_preferred_branch(
-                        config, group_name, repo_name
+                        config, config_group, repo_name
                     )
                     if preferred_branch:
                         _switch_to_branch(repo_path, preferred_branch, verbose)
@@ -634,27 +658,33 @@ def clone_callback(
                         add_upstream_url = upstream_url
                     else:
                         add_upstream_url = get_upstream_url(
-                            config, group_name, repo_name
+                            config, config_group, repo_name
                         )
 
                     if add_upstream_url:
-                        subprocess.run(
-                            [
-                                "git",
-                                "-C",
-                                str(repo_path),
-                                "remote",
-                                "add",
-                                "upstream",
-                                add_upstream_url,
-                            ],
-                            check=True,
-                            capture_output=True,
-                            text=True,
-                        )
-
-                        # Fetch upstream to compare commits
+                        # Adding the upstream remote (and the fetch/compare that
+                        # follows) is best-effort: the repo already cloned fine,
+                        # so a failure here (e.g. an upstream remote left over
+                        # from a partial run) must not escape to the outer
+                        # handler, which would try to re-clone into a non-empty
+                        # directory and report a bogus clone failure.
                         try:
+                            subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo_path),
+                                    "remote",
+                                    "add",
+                                    "upstream",
+                                    add_upstream_url,
+                                ],
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                            )
+
+                            # Fetch upstream to compare commits
                             subprocess.run(
                                 ["git", "-C", str(repo_path), "fetch", "upstream"],
                                 check=True,
@@ -721,7 +751,7 @@ def clone_callback(
                     # Switch to preferred branch if configured
                     if clone_success:
                         preferred_branch = repo.get_preferred_branch(
-                            config, group_name, repo_name
+                            config, config_group, repo_name
                         )
                         if verbose:
                             typer.echo(
@@ -734,10 +764,10 @@ def clone_callback(
                     if (
                         clone_success
                         and not no_sync
-                        and should_sync_after_clone(config, group_name, repo_name)
+                        and should_sync_after_clone(config, config_group, repo_name)
                     ):
                         sync_repo_after_clone(
-                            repo_path, repo_name, group_name, config, verbose
+                            repo_path, repo_name, config_group, config, verbose
                         )
 
                     # Track successful clone for auto-install
@@ -746,7 +776,7 @@ def clone_callback(
                             {
                                 "name": repo_name,
                                 "path": repo_path,
-                                "group": group_name,
+                                "group": config_group,
                             }
                         )
 
@@ -770,7 +800,7 @@ def clone_callback(
 
                             # Switch to preferred branch if configured
                             preferred_branch = repo.get_preferred_branch(
-                                config, group_name, repo_name
+                                config, config_group, repo_name
                             )
                             if verbose:
                                 typer.echo(
@@ -781,10 +811,10 @@ def clone_callback(
 
                             # Sync with upstream immediately if configured
                             if not no_sync and should_sync_after_clone(
-                                config, group_name, repo_name
+                                config, config_group, repo_name
                             ):
                                 sync_repo_after_clone(
-                                    repo_path, repo_name, group_name, config, verbose
+                                    repo_path, repo_name, config_group, config, verbose
                                 )
 
                             # Track successful clone from upstream fallback
@@ -792,7 +822,7 @@ def clone_callback(
                                 {
                                     "name": repo_name,
                                     "path": repo_path,
-                                    "group": group_name,
+                                    "group": config_group,
                                 }
                             )
                         except subprocess.CalledProcessError as upstream_error:
@@ -866,7 +896,7 @@ def clone_callback(
 
                 if result == "skipped":
                     typer.echo(
-                        f"  ⏭️  {repo_info['name']} skipped (configured in skip_install)"
+                        f"  ⏭️  {repo_info['name']} skipped (nothing to install or configured in skip_install)"
                     )
                     skipped_count += 1
                 elif result:

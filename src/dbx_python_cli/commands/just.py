@@ -229,7 +229,7 @@ def _run_just_in_repo(
     venv_path = None
     if (repo_path / ".venv").exists():
         venv_path = repo_path / ".venv"
-    elif group and (base_dir / repo["group"] / ".venv").exists():
+    elif repo.get("group") and (base_dir / repo["group"] / ".venv").exists():
         venv_path = base_dir / repo["group"] / ".venv"
     elif (base_dir / ".venv").exists():
         venv_path = base_dir / ".venv"

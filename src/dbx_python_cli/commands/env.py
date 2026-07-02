@@ -95,6 +95,7 @@ def init(
             return
 
         # Determine what type of venv to create
+        repo_info = None
         if repo and group:
             # Create venv in individual repo directory within a specific group
             from dbx_python_cli.utils.repo import find_all_repos_by_name
@@ -206,7 +207,10 @@ def init(
         # Determine Python version: CLI flag > group config > repo default
         effective_python = python
         if not effective_python:
-            effective_python = get_python_version(config, group)
+            # When a repo is targeted without an explicit --group, use the
+            # repo's own group so its configured python_version is honoured.
+            resolved_group = group or (repo_info.get("group") if repo_info else None)
+            effective_python = get_python_version(config, resolved_group)
 
         # Create venv using uv
         if effective_python:
