@@ -348,7 +348,13 @@ def setup_django_command_env(
                 settings_module = fallback
                 break
     env["DJANGO_SETTINGS_MODULE"] = f"{ctx.name}.settings.{settings_module}"
-    env["PYTHONPATH"] = str(ctx.project_path) + os.pathsep + env.get("PYTHONPATH", "")
+    # Prepend the project path; avoid a trailing separator when PYTHONPATH is
+    # empty, since an empty entry is interpreted as the current directory.
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    if existing_pythonpath:
+        env["PYTHONPATH"] = str(ctx.project_path) + os.pathsep + existing_pythonpath
+    else:
+        env["PYTHONPATH"] = str(ctx.project_path)
     typer.echo(f"🔧 Using DJANGO_SETTINGS_MODULE={env['DJANGO_SETTINGS_MODULE']}")
 
     return env

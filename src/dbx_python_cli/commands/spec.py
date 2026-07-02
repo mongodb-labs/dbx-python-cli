@@ -1174,17 +1174,54 @@ def patch_create(
         typer.echo("Remove it first with: dbx spec patch remove " + ticket, err=True)
         raise typer.Exit(1)
 
-    diff_cmd = ["git", "diff", "--", *(files or [])]
-    if verbose:
-        typer.echo(f"[verbose] Running: {' '.join(diff_cmd)}")
+    repo_cwd = str(driver_repo["path"])
 
-    result = subprocess.run(
-        diff_cmd,
-        cwd=str(driver_repo["path"]),
+    # Newly synced spec tests are untracked, and `git diff` ignores untracked
+    # files. Mark them intent-to-add so they appear in the diff (as additions
+    # from /dev/null, which `git apply -R` can then remove), and undo that
+    # marking afterwards so the user's index is left untouched.
+    untracked_result = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", *(files or [])],
+        cwd=repo_cwd,
         check=False,
         capture_output=True,
         text=True,
     )
+    untracked_files = [
+        line for line in untracked_result.stdout.splitlines() if line.strip()
+    ]
+    if untracked_files:
+        subprocess.run(
+            ["git", "add", "-N", "--", *untracked_files],
+            cwd=repo_cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    diff_cmd = ["git", "diff", "--", *(files or [])]
+    if verbose:
+        typer.echo(f"[verbose] Running: {' '.join(diff_cmd)}")
+
+    try:
+        result = subprocess.run(
+            diff_cmd,
+            cwd=repo_cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        # Restore the index: drop the intent-to-add entries we just created.
+        if untracked_files:
+            subprocess.run(
+                ["git", "reset", "--quiet", "--", *untracked_files],
+                cwd=repo_cwd,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
     if result.returncode != 0:
         typer.echo(f"❌ git diff failed: {result.stderr.strip()}", err=True)
         raise typer.Exit(1)

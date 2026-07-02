@@ -349,7 +349,7 @@ def test_callback(
                     typer.echo(f"[verbose] Could not parse MONGODB_URI: {e}")
 
         # Apply libmongocrypt environment variables from project config
-        apply_libmongocrypt_env(test_env, config, base_dir=base_dir, verbose=True)
+        apply_libmongocrypt_env(test_env, config, base_dir=base_dir, verbose=verbose)
 
         # Set DRIVERS_EVERGREEN_TOOLS path based on layout mode
         if "DRIVERS_EVERGREEN_TOOLS" not in test_env:

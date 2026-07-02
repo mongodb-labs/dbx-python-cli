@@ -151,6 +151,9 @@ def open_callback(
         webbrowser.open(browser_url)
         typer.echo(f"✨ Opened {browser_url}")
 
+    except typer.Exit:
+        # Already-handled errors that echoed their own message — don't re-wrap.
+        raise
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)

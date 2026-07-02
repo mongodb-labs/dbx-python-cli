@@ -97,6 +97,9 @@ def edit_callback(
             )
             raise typer.Exit(1)
 
+    except typer.Exit:
+        # Already-handled errors that echoed their own message — don't re-wrap.
+        raise
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
