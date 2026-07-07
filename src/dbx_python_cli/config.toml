@@ -182,8 +182,12 @@ django-mongodb-extensions = "git@github.com:mongodb-labs/django-mongodb-extensio
 
 # Upstream branch mapping: maps the local branch to the upstream branch to rebase against.
 # Required when the local branch name differs from the upstream branch (e.g. mongodb-6.0.x → stable/6.0.x).
+# Only branches whose upstream target currently exists are listed here. Add a branch once
+# Django cuts its stable/<version>.x branch; drop it once that upstream branch is deleted (EOL).
+# Not currently mapped: mongodb-5.0.x / mongodb-5.1.x (upstream stable branches deleted, EOL) and
+# mongodb-6.2.x (Django 6.2 is still on main; add stable/6.2.x here once it is branched).
 [repo.groups.django.upstream_branch]
-django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x", "mongodb-5.1.x" = "stable/5.1.x"}
+django = {"mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
 
 # Custom test runner configuration: specify test runner script for repos that don't use pytest
 [repo.groups.django.test_runner]

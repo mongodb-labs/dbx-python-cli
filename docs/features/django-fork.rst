@@ -32,9 +32,10 @@ organisation rather than a personal account:
    [repo.groups.django.upstream]
    django = "git@github.com:django/django.git"
 
-   # Map each local (fork) branch to the upstream branch it tracks
+   # Map each local (fork) branch to the upstream branch it tracks.
+   # Only branches whose upstream stable/<version>.x still exists are listed.
    [repo.groups.django.upstream_branch]
-   django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x", "mongodb-5.1.x" = "stable/5.1.x"}
+   django = {"mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
 
    # Branch checked out automatically right after cloning
    [repo.groups.django.preferred_branch]
@@ -140,8 +141,8 @@ you started on:
    dbx sync django --all-branches
    dbx sync django -b              # short form
 
-This is equivalent to switching to ``mongodb-6.2.x``, ``mongodb-6.1.x``,
-``mongodb-6.0.x``, … in turn and running ``dbx sync django`` on each. The
+This is equivalent to switching to ``mongodb-6.1.x``, ``mongodb-6.0.x``,
+``mongodb-5.2.x``, … in turn and running ``dbx sync django`` on each. The
 working tree must be clean (each branch is checked out via ``git switch``), and
 only branches present in the ``upstream_branch`` mapping are synced.
 
@@ -152,18 +153,25 @@ finish pushing the remaining branches.
 Adding a new release branch
 ----------------------------
 
-When Django cuts a new stable branch (for example ``stable/6.3.x``) and you
-create a matching ``mongodb-6.3.x`` fork branch, add the mapping to
+When Django cuts a new stable branch (for example ``stable/6.2.x``) and you
+create a matching ``mongodb-6.2.x`` fork branch, add the mapping to
 ``upstream_branch`` so ``dbx sync`` knows where to rebase it:
 
 .. code-block:: toml
 
    [repo.groups.django.upstream_branch]
-   django = {"mongodb-6.3.x" = "stable/6.3.x", "mongodb-6.2.x" = "stable/6.2.x", ...}
+   django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", ...}
 
 Until the mapping exists, ``dbx sync`` cannot determine the correct upstream
 target for that branch and falls back to upstream's default-branch detection,
 which is almost certainly not what you want for a release branch.
+
+Only map branches whose upstream target actually exists. A branch pointing at a
+``stable/<version>.x`` that has not been branched yet (a Django version still in
+development on ``main``) or one that has been deleted upstream (an end-of-life
+release) will fail to rebase under ``dbx sync``. When a Django release reaches
+end of life and its ``stable`` branch is removed, drop the corresponding entry
+from the mapping.
 
 Running the Django test suite
 -----------------------------
