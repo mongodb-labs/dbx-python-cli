@@ -8,10 +8,6 @@ branch, and it needs to be re-synced periodically as new Django patch releases
 land. This page describes how ``dbx`` is configured to manage that fork and the
 day-to-day maintenance workflow.
 
-.. contents::
-   :local:
-   :depth: 1
-
 How the fork is configured
 ---------------------------
 
