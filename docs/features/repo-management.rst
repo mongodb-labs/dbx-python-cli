@@ -1,7 +1,7 @@
 Repository Management
 =====================
 
-The ``dbx clone``, ``dbx sync``, ``dbx swap``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
+The ``dbx clone``, ``dbx sync``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
 
 Initialize Configuration
 ------------------------
@@ -231,38 +231,6 @@ completes — equivalent to running ``dbx sync mongo-python-driver`` right after
 - Only runs after a fresh clone; it has no effect when the repo already exists and the clone is skipped
 - Like ``dbx sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
 - Pass ``--no-sync`` to ``dbx clone`` to skip this for a single invocation even when configured
-
-Swap Origin and Upstream
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-After setting up a fork workflow, you may occasionally need to swap your ``origin`` and ``upstream``
-remotes — for example, if you initially cloned the upstream repo directly and later created a fork.
-
-.. code-block:: bash
-
-   # Swap remotes for a specific repository
-   dbx swap mongo-python-driver
-
-   # Swap by navigating to the repo directory
-   cd ~/Developer/mongodb/pymongo/mongo-python-driver
-   dbx swap .
-
-   # Swap all repositories in a group
-   dbx swap -g pymongo
-
-   # Preview what would change without making modifications
-   dbx swap mongo-python-driver --dry-run
-   dbx swap -g pymongo --dry-run
-
-After swapping, what was ``origin`` becomes ``upstream`` and vice versa. This is useful when:
-
-- You cloned a repo directly and then forked it — swap so your fork is ``origin``
-- You want to point ``origin`` back to the canonical repo and ``upstream`` to your fork
-
-**Notes:**
-
-- Both ``origin`` and ``upstream`` remotes must already be configured; the command will fail if either is missing
-- Use ``--dry-run`` first to verify the swap looks correct before applying it
 
 .. _config-driven-upstream:
 
