@@ -174,6 +174,47 @@ so ``dbx test django`` invokes ``tests/runtests.py`` with the configured
 arguments. See :doc:`testing` for details on how custom test runners are
 resolved and how to pass additional arguments.
 
+How the fork branches are tested in backend PRs
+-----------------------------------------------
+
+Keeping the fork branches rebased matters because they are the code under test
+in every ``django-mongodb-backend`` pull request. The backend's PR CI does not
+test against upstream Django — it checks out the corresponding branch of the
+``mongodb-forks/django`` fork and runs Django's own test suite against MongoDB,
+using ``django-mongodb-backend`` as the database engine. See the open PRs at
+https://github.com/mongodb/django-mongodb-backend/pulls.
+
+Each PR triggers several GitHub Actions test workflows
+(``.github/workflows/test-python*.yml`` in the backend repo), covering the core
+suite plus the geo, Atlas, and encryption feature sets. They all follow the
+same shape:
+
+1. Check out ``django-mongodb-backend`` and install it (``pip install -e .``).
+2. Check out ``mongodb-forks/django`` at the fork branch for the Django release
+   under test (e.g. ``ref: mongodb-6.0.x``) into a ``django_repo/`` directory,
+   then install it and Django's test requirements.
+3. Copy the backend's settings files (``mongodb_settings.py``, the encryption
+   settings, etc.) and its ``runtests.py`` into ``django_repo/tests/``.
+4. Start MongoDB and run Django's suite via
+   ``python3 django_repo/tests/runtests_.py``.
+
+In other words, the fork branch supplies the (lightly adapted) Django test
+suite, and the backend supplies the database engine and settings. The
+``ref:`` in those workflows pins the exact fork branch, so:
+
+- A rebased fork branch is what the backend PRs actually exercise — if a rebase
+  breaks the adapted tests, it surfaces as failures on backend PRs, not on the
+  fork itself.
+- When the backend adds support for a new Django feature release, the fork
+  needs a matching ``mongodb-<version>.x`` branch (see
+  `Adding a new release branch`_) and the workflows' ``ref:`` is bumped to it.
+
+To reproduce a backend PR run locally against a fork branch you have rebased,
+mirror those steps: check out the fork branch in your ``django`` group clone,
+install it alongside ``django-mongodb-backend``, copy the backend's settings /
+``runtests.py`` into ``tests/``, and run the suite against a local MongoDB (see
+:doc:`mongodb-runner`).
+
 Related configuration
 ----------------------
 
