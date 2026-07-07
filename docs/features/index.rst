@@ -5,6 +5,7 @@ Features
 
    global-options
    repo-management
+   django-fork
    project-management
    mongodb-runner
    installation
