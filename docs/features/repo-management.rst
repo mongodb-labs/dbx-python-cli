@@ -151,6 +151,9 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Sync all repositories across all groups
    dbx sync -a
 
+   # Sync every branch in a repo's upstream_branch mapping (e.g. the Django fork)
+   dbx sync django --all-branches
+
    # Preview what would be synced without making changes
    dbx sync mongo-python-driver --dry-run
 

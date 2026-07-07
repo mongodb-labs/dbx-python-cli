@@ -125,20 +125,29 @@ safety):
 Refreshing every release branch
 -------------------------------
 
-When a new round of Django patch releases lands upstream, each MongoDB branch
-needs to be rebased. Walk the branches in turn:
+When a new round of Django patch releases lands upstream, every MongoDB branch
+needs to be rebased. The ``--all-branches`` (``-b``) flag walks the repo's
+``upstream_branch`` mapping for you — it checks out each mapped branch in turn,
+rebases it onto its configured upstream target, pushes, and restores the branch
+you started on:
 
 .. code-block:: bash
 
-   cd ~/Developer/mongodb/django/django
-   for branch in mongodb-6.2.x mongodb-6.1.x mongodb-6.0.x mongodb-5.2.x mongodb-5.1.x; do
-       git switch "$branch"
-       dbx sync django --dry-run   # inspect first
-       dbx sync django             # then apply
-   done
+   # Preview what would change on every mapped branch
+   dbx sync django --all-branches --dry-run
+
+   # Rebase and push every mapped branch
+   dbx sync django --all-branches
+   dbx sync django -b              # short form
+
+This is equivalent to switching to ``mongodb-6.2.x``, ``mongodb-6.1.x``,
+``mongodb-6.0.x``, … in turn and running ``dbx sync django`` on each. The
+working tree must be clean (each branch is checked out via ``git switch``), and
+only branches present in the ``upstream_branch`` mapping are synced.
 
 Resolve any rebase conflicts manually as they arise, then re-run
-``dbx sync django`` to finish pushing the branch.
+``dbx sync django --all-branches`` (already-synced branches are fast no-ops) to
+finish pushing the remaining branches.
 
 Adding a new release branch
 ----------------------------
