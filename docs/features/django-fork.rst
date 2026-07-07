@@ -146,9 +146,23 @@ This is equivalent to switching to ``mongodb-6.1.x``, ``mongodb-6.0.x``,
 working tree must be clean (each branch is checked out via ``git switch``), and
 only branches present in the ``upstream_branch`` mapping are synced.
 
-Resolve any rebase conflicts manually as they arise, then re-run
-``dbx sync django --all-branches`` (already-synced branches are fast no-ops) to
-finish pushing the remaining branches.
+If a branch fails to rebase (for example, conflicts, or an upstream target that
+no longer exists), that branch's rebase is **aborted** so the working tree stays
+clean and the remaining branches are still processed — one bad branch does not
+leave a rebase in progress that blocks the rest. At the end, the failed branches
+are listed so you can rebase them manually:
+
+.. code-block:: text
+
+   ⚠️  Rebase these branch(es) manually: mongodb-6.0.x
+
+   # then, for each listed branch:
+   cd ~/Developer/mongodb/django/django
+   git switch mongodb-6.0.x
+   git rebase upstream/stable/6.0.x   # resolve conflicts, then git rebase --continue
+
+Once resolved, re-run ``dbx sync django --all-branches`` (already-synced
+branches are fast no-ops) to push the remaining branches.
 
 Adding a new release branch
 ----------------------------

@@ -121,7 +121,7 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
 
     synced_count = 0
     skipped_count = 0
-    failed_count = 0
+    failed_branches = []
     restored = True
     try:
         for i, branch in enumerate(branches):
@@ -140,18 +140,27 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
                     f"❌ Failed to switch to {branch}: {e.stderr if not verbose else ''}",
                     err=True,
                 )
-                failed_count += 1
+                failed_branches.append(branch)
                 continue
 
+            # abort_on_conflict keeps the working tree clean on a failed rebase
+            # so the loop can move on to the next branch and restore the
+            # original branch afterwards, instead of leaving a rebase in progress.
             status = _sync_repository(
-                path, name, verbose, force, dry_run, upstream_branch=mapping
+                path,
+                name,
+                verbose,
+                force,
+                dry_run,
+                upstream_branch=mapping,
+                abort_on_conflict=True,
             )
             if status == "skipped":
                 skipped_count += 1
             elif status in ("synced", "dry_run"):
                 synced_count += 1
             elif status == "failed":
-                failed_count += 1
+                failed_branches.append(branch)
     finally:
         # Restore whatever branch was checked out before we started.
         if original_branch and _current_branch(path) != original_branch:
@@ -171,9 +180,15 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
         summary = f"\n✨ Done! Synced {synced_count} branch(es)"
     if skipped_count:
         summary += f", skipped {skipped_count}"
-    if failed_count:
-        summary += f", failed {failed_count}"
+    if failed_branches:
+        summary += f", failed {len(failed_branches)}"
     typer.echo(summary)
+
+    if failed_branches:
+        typer.echo(
+            f"⚠️  Rebase these branch(es) manually: {', '.join(failed_branches)}",
+            err=True,
+        )
 
     if original_branch and not restored:
         typer.echo(
@@ -484,12 +499,20 @@ def _sync_repository(
     force: bool = False,
     dry_run: bool = False,
     upstream_branch: str | None = None,
+    abort_on_conflict: bool = False,
 ) -> str:
     """Sync a single repository with upstream.
 
     For main/master branches: rebases to upstream/<branch_name>
     For feature branches: rebases to upstream's default branch (main/master),
     or to upstream/<upstream_branch> if upstream_branch is explicitly provided.
+
+    When ``abort_on_conflict`` is True, a rebase that fails (e.g. conflicts) is
+    aborted so the working tree is left clean and the user is pointed at a
+    manual rebase. This is used by ``--all-branches`` so one failed branch does
+    not leave a rebase in progress that blocks the remaining branches. When
+    False (the default single-repo behaviour), the rebase is left in progress
+    for manual conflict resolution in place.
 
     Returns:
         "synced", "skipped", "failed", or "dry_run"
@@ -677,15 +700,31 @@ def _sync_repository(
 
     except subprocess.CalledProcessError as e:
         typer.echo(
-            f"❌ Failed to rebase on {rebase_target}",
+            f"❌ Failed to rebase {current_branch} on {rebase_target}",
             err=True,
         )
         if not verbose and e.stderr:
             typer.echo(f"  {e.stderr.strip()}", err=True)
-        typer.echo(
-            f"  You may need to resolve conflicts manually in {repo_path}",
-            err=True,
-        )
+
+        if abort_on_conflict:
+            # Leave the repo in a clean state so callers that iterate over
+            # multiple branches (dbx sync --all-branches) can continue and
+            # restore the original branch. Point the user at a manual rebase.
+            subprocess.run(
+                ["git", "-C", str(repo_path), "rebase", "--abort"],
+                capture_output=True,
+                text=True,
+            )
+            typer.echo(
+                f"  Rebase aborted. Resolve manually: cd {repo_path} && "
+                f"git switch {current_branch} && git rebase {rebase_target}",
+                err=True,
+            )
+        else:
+            typer.echo(
+                f"  You may need to resolve conflicts manually in {repo_path}",
+                err=True,
+            )
         return "failed"
 
     # Push to origin

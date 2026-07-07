@@ -1393,6 +1393,81 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
             assert "upstream/stable/5.2.x" in rebase_targets
 
 
+def test_repo_sync_all_branches_aborts_failed_rebase(tmp_path, temp_repos_dir):
+    """A failed rebase under --all-branches is aborted so remaining branches still run."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "switch" in cmd:
+                    state["current"] = cmd[-1]
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                elif "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                    )
+                elif "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                elif "rebase" in cmd and "upstream/stable/6.0.x" in cmd:
+                    # First branch's rebase hits conflicts.
+                    raise subprocess.CalledProcessError(1, cmd, stderr="conflict")
+                else:
+                    # rebase --abort, fetch, push, and the second branch's rebase
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "django", "--all-branches"])
+            assert result.exit_code == 0
+
+            # The failed rebase was aborted.
+            abort_calls = [
+                c
+                for c in mock_run.call_args_list
+                if "rebase" in c[0][0] and "--abort" in c[0][0]
+            ]
+            assert len(abort_calls) == 1
+
+            # The loop continued to the second branch and restored the original.
+            switch_targets = [
+                c[0][0][-1] for c in mock_run.call_args_list if "switch" in c[0][0]
+            ]
+            assert "mongodb-5.2.x" in switch_targets
+            assert switch_targets[-1] == "main"
+
+            # The failed branch is surfaced for manual rebase.
+            output = result.stdout + result.stderr
+            assert "Rebase these branch(es) manually" in output
+            assert "mongodb-6.0.x" in output
+
+
 def test_repo_sync_all_branches_requires_dict_mapping(tmp_path, temp_repos_dir):
     """--all-branches errors when the repo has no dict-form upstream_branch mapping."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
