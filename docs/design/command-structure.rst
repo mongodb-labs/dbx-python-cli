@@ -59,7 +59,6 @@ Single-action commands that are frequently used or domain-agnostic:
    dbx patch       Create Evergreen CI patches
    dbx remove      Remove a cloned repository
    dbx status      Git status across repositories
-   dbx swap        Swap between repository versions
    dbx switch      Switch git branches across repositories
    dbx sync        Sync repositories with upstream
    dbx test        Run tests in a repository

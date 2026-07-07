@@ -109,7 +109,6 @@ Available commands:
 - ``remove`` - Remove repositories
 - ``spec`` - Spec sync and patch lifecycle
 - ``status`` - Show git status
-- ``swap`` - Swap origin and upstream remotes
 - ``switch`` - Switch git branches
 - ``sync`` - Sync fork with upstream
 - ``test`` - Run tests
