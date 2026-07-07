@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 import typer
 
@@ -29,11 +28,6 @@ def init(
         "-y",
         help="Skip confirmation prompt and overwrite existing config",
     ),
-    remove_base_dir: bool = typer.Option(
-        False,
-        "--remove-base-dir",
-        help="Remove the base_dir directory from the filesystem",
-    ),
 ):
     """Initialize user configuration file."""
     user_config_path = get_config_path()
@@ -56,58 +50,7 @@ def init(
 
         shutil.copy(default_config_path, user_config_path)
 
-        # Remove base_dir directory if requested
-        if remove_base_dir:
-            import tomllib
-            import shutil as shutil2
-
-            # Read the config to get base_dir path
-            with open(user_config_path, "rb") as f:
-                config = tomllib.load(f)
-
-            # Remove base_dir directory from filesystem
-            if "repo" in config and "base_dir" in config["repo"]:
-                base_dir_path = Path(config["repo"]["base_dir"]).expanduser()
-
-                if base_dir_path.exists():
-                    typer.echo(f"\n{'=' * 60}", err=True)
-                    typer.echo("⚠️  DANGER: About to permanently delete:", err=True)
-                    typer.echo(f"    {base_dir_path}", err=True)
-                    typer.echo(
-                        "    This includes ALL cloned repositories and uncommitted changes.",
-                        err=True,
-                    )
-                    typer.echo(f"{'=' * 60}\n", err=True)
-                    confirm_input = typer.prompt(
-                        f"Type the directory name '{base_dir_path.name}' to confirm"
-                    )
-                    if confirm_input.strip() != base_dir_path.name:
-                        typer.echo("❌ Aborted — name did not match.", err=True)
-                        raise typer.Exit(1)
-
-                    try:
-                        shutil2.rmtree(base_dir_path)
-                        typer.echo(
-                            f"✅ Configuration file created at {user_config_path}"
-                        )
-                        typer.echo(f"✅ Removed directory: {base_dir_path}")
-                    except Exception as e:
-                        typer.echo(
-                            f"✅ Configuration file created at {user_config_path}"
-                        )
-                        typer.echo(
-                            f"⚠️  Failed to remove directory {base_dir_path}: {e}",
-                            err=True,
-                        )
-                else:
-                    typer.echo(f"✅ Configuration file created at {user_config_path}")
-                    typer.echo(f"⚠️  Directory does not exist: {base_dir_path}")
-            else:
-                typer.echo(f"✅ Configuration file created at {user_config_path}")
-                typer.echo("⚠️  No base_dir setting found in config")
-        else:
-            typer.echo(f"✅ Configuration file created at {user_config_path}")
-
+        typer.echo(f"✅ Configuration file created at {user_config_path}")
         typer.echo("\nYou can now edit this file to customize your repository groups.")
     else:
         typer.echo(

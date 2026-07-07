@@ -141,52 +141,6 @@ def test_repo_init_existing_config_with_yes_flag(tmp_path):
         assert "Aborted" not in result.stdout
 
 
-def test_repo_init_with_remove_base_dir(tmp_path):
-    """Test that config init --remove-base-dir removes the base_dir directory."""
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
-        config_path = tmp_path / "config.toml"
-        mock_get_path.return_value = config_path
-
-        # Create a base_dir directory to be removed
-        base_dir = tmp_path / "test_base_dir"
-        base_dir.mkdir()
-        (base_dir / "test_file.txt").write_text("test content")
-
-        # Patch the default config to use our test base_dir
-        with patch(
-            "dbx_python_cli.commands.config.get_default_config_path"
-        ) as mock_default:
-            default_config = tmp_path / "default_config.toml"
-            # Convert path to use forward slashes for TOML compatibility on Windows
-            base_dir_str = str(base_dir).replace("\\", "/")
-            default_config.write_text(f"""
-[repo]
-base_dir = "{base_dir_str}"
-fork_user = "testuser"
-
-[repo.groups.test]
-repos = ["https://github.com/test/repo.git"]
-""")
-            mock_default.return_value = default_config
-
-            # Verify base_dir exists before
-            assert base_dir.exists()
-
-            # Use --remove-base-dir flag; provide the directory name to confirm
-            result = runner.invoke(
-                app,
-                ["config", "init", "--remove-base-dir", "--yes"],
-                input="test_base_dir\n",
-            )
-            assert result.exit_code == 0
-            assert config_path.exists()
-            assert "Configuration file created" in result.stdout
-            assert "Removed directory" in result.stdout
-
-            # Verify base_dir was removed from filesystem
-            assert not base_dir.exists()
-
-
 def test_config_show_displays_test_runner(tmp_path):
     """Test that config show displays custom test runner configuration."""
     config_path = tmp_path / "config.toml"
@@ -1401,8 +1355,12 @@ def test_get_upstream_branch_dict_form():
     )
     # Branch not in dict returns None
     assert get_upstream_branch(config, "django", "django", "mongodb-6.1.x") is None
-    # No current_branch provided returns None for dict form
-    assert get_upstream_branch(config, "django", "django") is None
+    # No current_branch provided returns the raw dict so the caller can resolve
+    # it once the current branch is known (e.g. inside _sync_repository)
+    assert get_upstream_branch(config, "django", "django") == {
+        "mongodb-6.0.x": "stable/6.0.x",
+        "mongodb-5.2.x": "stable/5.2.x",
+    }
 
 
 def test_get_upstream_branch_string_form():

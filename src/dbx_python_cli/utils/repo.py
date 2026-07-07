@@ -374,13 +374,18 @@ def get_upstream_branch(config, group_name, repo_name, current_branch=None):
 
         [repo.groups.django.upstream_branch]
         django = {"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
+
+    When the value is a dict and ``current_branch`` is provided, the mapped
+    upstream branch (or ``None``) is returned. When ``current_branch`` is not
+    provided, the raw dict is returned so the caller can resolve it once the
+    current branch is known.
     """
     groups = get_repo_groups(config)
     if group_name not in groups:
         return None
     value = groups[group_name].get("upstream_branch", {}).get(repo_name)
-    if isinstance(value, dict):
-        return value.get(current_branch) if current_branch else None
+    if isinstance(value, dict) and current_branch is not None:
+        return value.get(current_branch)
     return value
 
 
