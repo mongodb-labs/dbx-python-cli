@@ -74,6 +74,113 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
         paginate_output(output_buffer.getvalue(), use_pager)
 
 
+def _current_branch(repo_path):
+    """Return the currently checked-out branch, or an empty string if unavailable."""
+    try:
+        return subprocess.run(
+            ["git", "-C", str(repo_path), "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""
+
+
+def _sync_all_branches(repo_info, config, verbose, force, dry_run):
+    """Sync every branch in a repo's ``upstream_branch`` mapping.
+
+    Checks out each mapped local branch in turn, runs the normal
+    fetch/rebase/push sequence, and restores the originally checked-out branch
+    when finished. Requires a dict-form ``upstream_branch`` mapping for the repo.
+    """
+    from dbx_python_cli.utils.repo import get_upstream_branch
+
+    path = repo_info["path"]
+    name = repo_info["name"]
+    group = repo_info.get("group", "")
+
+    mapping = get_upstream_branch(config, group, name)
+    if not isinstance(mapping, dict):
+        typer.echo(
+            f"❌ Error: --all-branches requires a dict-form upstream_branch mapping for '{name}'",
+            err=True,
+        )
+        typer.echo(
+            "Configure [repo.groups.<group>.upstream_branch] with a {local = upstream} map.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    branches = list(mapping.keys())
+    original_branch = _current_branch(path)
+
+    typer.echo(
+        f"{'[dry-run] ' if dry_run else ''}Syncing {len(branches)} branch(es) of {name}:\n"
+    )
+
+    synced_count = 0
+    skipped_count = 0
+    failed_count = 0
+    restored = True
+    try:
+        for i, branch in enumerate(branches):
+            if i > 0:
+                typer.echo("─" * 60)
+            typer.echo(f"🌿 {branch}")
+            try:
+                subprocess.run(
+                    ["git", "-C", str(path), "switch", branch],
+                    check=True,
+                    capture_output=not verbose,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                typer.echo(
+                    f"❌ Failed to switch to {branch}: {e.stderr if not verbose else ''}",
+                    err=True,
+                )
+                failed_count += 1
+                continue
+
+            status = _sync_repository(
+                path, name, verbose, force, dry_run, upstream_branch=mapping
+            )
+            if status == "skipped":
+                skipped_count += 1
+            elif status in ("synced", "dry_run"):
+                synced_count += 1
+            elif status == "failed":
+                failed_count += 1
+    finally:
+        # Restore whatever branch was checked out before we started.
+        if original_branch and _current_branch(path) != original_branch:
+            try:
+                subprocess.run(
+                    ["git", "-C", str(path), "switch", original_branch],
+                    check=True,
+                    capture_output=not verbose,
+                    text=True,
+                )
+            except subprocess.CalledProcessError:
+                restored = False
+
+    if dry_run:
+        summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
+    else:
+        summary = f"\n✨ Done! Synced {synced_count} branch(es)"
+    if skipped_count:
+        summary += f", skipped {skipped_count}"
+    if failed_count:
+        summary += f", failed {failed_count}"
+    typer.echo(summary)
+
+    if original_branch and not restored:
+        typer.echo(
+            f"⚠️  Could not switch back to original branch '{original_branch}'", err=True
+        )
+
+
 @app.callback()
 def sync_callback(
     ctx: typer.Context,
@@ -92,6 +199,12 @@ def sync_callback(
         "--all",
         "-a",
         help="Sync all repositories across all groups",
+    ),
+    all_branches: bool = typer.Option(
+        False,
+        "--all-branches",
+        "-b",
+        help="Sync every branch in a repo's upstream_branch mapping (e.g. the Django fork)",
     ),
     force: bool = typer.Option(
         False,
@@ -118,6 +231,7 @@ def sync_callback(
     Usage::
 
         dbx sync <repo_name>                    # Sync a single repository
+        dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
@@ -130,6 +244,8 @@ def sync_callback(
     Examples::
 
         dbx sync mongo-python-driver                    # Sync single repo
+        dbx sync django --all-branches                  # Sync every Django fork release branch
+        dbx sync django -b --dry-run                    # Preview syncing all branches
         dbx sync -g pymongo                             # Sync all repos in group
         dbx sync -a                                     # Sync all repos in all groups
         dbx sync -g pymongo mongo-python-driver         # Sync specific repo in pymongo group
@@ -197,6 +313,48 @@ def sync_callback(
                 force,
                 dry_run,
             )
+            return
+
+        # Handle syncing every branch in a single repo's upstream_branch mapping
+        if all_branches:
+            if not repo_name:
+                typer.echo(
+                    "❌ Error: --all-branches requires a repository name", err=True
+                )
+                typer.echo("\nUsage: dbx sync <repo-name> --all-branches")
+                raise typer.Exit(1)
+
+            if group:
+                if group not in groups:
+                    typer.echo(
+                        f"❌ Error: Group '{group}' not found in configuration.",
+                        err=True,
+                    )
+                    typer.echo(
+                        f"Available groups: {', '.join(groups.keys())}", err=True
+                    )
+                    raise typer.Exit(1)
+                from dbx_python_cli.utils.repo import find_all_repos_by_name
+
+                repo_info = next(
+                    (
+                        r
+                        for r in find_all_repos_by_name(repo_name, base_dir, config)
+                        if r["group"] == group
+                    ),
+                    None,
+                )
+            elif is_path_like(repo_name):
+                repo_info = find_repo_by_path(repo_name, base_dir, config)
+            else:
+                repo_info = find_repo_by_name(repo_name, base_dir, config)
+
+            if not repo_info:
+                typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+                typer.echo("\nUse 'dbx list' to see available repositories")
+                raise typer.Exit(1)
+
+            _sync_all_branches(repo_info, config, verbose, force, dry_run)
             return
 
         # Handle sync with both group and repo name specified
