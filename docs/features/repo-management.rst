@@ -300,6 +300,7 @@ the remote manually and only need to override the rebase target).
 - ``django-thirdparty`` - Third-party Django packages
 - ``ci`` - CI tooling (drivers-evergreen-tools, drivers-github-tools, mongo-orchestration, ai-ml-pipeline-testing)
 - ``wagtail`` - Wagtail CMS repositories
+- ``fastapi`` - FastAPI MongoDB repositories
 - ``demo`` - Demo applications
 
 Global Groups

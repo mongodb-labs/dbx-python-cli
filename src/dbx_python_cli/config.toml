@@ -210,6 +210,12 @@ repos = [
     "git@github.com:mongodb-labs/wagtail-mongodb-project.git",
 ]
 
+[repo.groups.fastapi]
+repos = [
+    "git@github.com:mongodb-labs/full-stack-fastapi-mongodb.git",
+    "git@github.com:aclark4life/create-mongo-app.git",
+]
+
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
 
