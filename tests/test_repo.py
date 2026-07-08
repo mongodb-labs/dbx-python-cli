@@ -1392,6 +1392,12 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
             assert "upstream/stable/6.0.x" in rebase_targets
             assert "upstream/stable/5.2.x" in rebase_targets
 
+            # Rebasing rewrites history, so --all-branches force-pushes by default
+            # (safe --force-with-lease) without requiring --force.
+            push_calls = [c[0][0] for c in mock_run.call_args_list if "push" in c[0][0]]
+            assert push_calls
+            assert all("--force-with-lease" in cmd for cmd in push_calls)
+
 
 def test_repo_sync_all_branches_aborts_failed_rebase(tmp_path, temp_repos_dir):
     """A failed rebase under --all-branches is aborted so remaining branches still run."""
@@ -1466,6 +1472,305 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
             output = result.stdout + result.stderr
             assert "Rebase these branch(es) manually" in output
             assert "mongodb-6.0.x" in output
+
+
+def test_repo_sync_all_branches_reruns_downstream_ci(tmp_path, temp_repos_dir):
+    """After a successful --all-branches sync, configured downstream CI is re-run."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {{"mongodb/django-mongodb-backend" = 422}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("shutil.which", return_value="/usr/bin/gh"):
+            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+                mock_get_path.return_value = config_path
+
+                def mock_run_side_effect(*args, **kwargs):
+                    cmd = args[0]
+                    if cmd[0] == "gh":
+                        if "pr" in cmd and "view" in cmd:
+                            return subprocess.CompletedProcess(
+                                cmd,
+                                0,
+                                stdout='{"headRefOid": "abc123"}',
+                                stderr="",
+                            )
+                        if "api" in cmd and "-X" not in cmd:
+                            # listing workflow runs for the head sha
+                            return subprocess.CompletedProcess(
+                                cmd, 0, stdout="[555]", stderr=""
+                            )
+                        # rerun POST
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "switch" in cmd:
+                        state["current"] = cmd[-1]
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "branch" in cmd and "--show-current" in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                        )
+                    if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout="origin\nupstream\n", stderr=""
+                        )
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+                mock_run.side_effect = mock_run_side_effect
+
+                result = runner.invoke(app, ["sync", "django", "--all-branches"])
+                assert result.exit_code == 0
+
+                # Only the pinned PR was resolved (via `gh pr view 422`), not a
+                # blanket `gh pr list`.
+                gh_cmds = [
+                    c[0][0] for c in mock_run.call_args_list if c[0][0][0] == "gh"
+                ]
+                assert any("view" in cmd and "422" in cmd for cmd in gh_cmds)
+                assert not any("list" in cmd for cmd in gh_cmds)
+
+                # The rerun POST was issued for the PR's workflow run.
+                rerun_calls = [
+                    cmd for cmd in gh_cmds if "-X" in cmd and cmd[-1].endswith("/rerun")
+                ]
+                assert rerun_calls
+                assert (
+                    "repos/mongodb/django-mongodb-backend/actions/runs/555/rerun"
+                    in (rerun_calls[0])
+                )
+
+                output = result.stdout + result.stderr
+                assert (
+                    "mongodb-6.0.x → re-running CI on mongodb/django-mongodb-backend#422"
+                    in output
+                )
+
+
+def test_repo_sync_all_branches_no_ci_skips_rerun(tmp_path, temp_repos_dir):
+    """--no-ci suppresses the downstream CI re-run."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {{"mongodb/django-mongodb-backend" = 422}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "switch" in cmd:
+                    state["current"] = cmd[-1]
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                if "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                    )
+                if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "django", "--all-branches", "--no-ci"])
+            assert result.exit_code == 0
+
+            # No gh calls were made.
+            assert not any(c[0][0][0] == "gh" for c in mock_run.call_args_list)
+
+
+def test_repo_sync_all_branches_dispatches_ci_without_pr(tmp_path, temp_repos_dir):
+    """A string ref in ci_rerun dispatches workflows via workflow_dispatch (no PR)."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {{"mongodb/django-mongodb-backend" = "main"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("shutil.which", return_value="/usr/bin/gh"):
+            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+                mock_get_path.return_value = config_path
+
+                def mock_run_side_effect(*args, **kwargs):
+                    cmd = args[0]
+                    if cmd[0] == "gh":
+                        if "api" in cmd and any(
+                            "actions/workflows" in str(x) for x in cmd
+                        ):
+                            # listing test-python* workflow paths
+                            return subprocess.CompletedProcess(
+                                cmd,
+                                0,
+                                stdout='[".github/workflows/test-python.yml", '
+                                '".github/workflows/test-python-geo.yml"]',
+                                stderr="",
+                            )
+                        # workflow run dispatch
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "switch" in cmd:
+                        state["current"] = cmd[-1]
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "branch" in cmd and "--show-current" in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                        )
+                    if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout="origin\nupstream\n", stderr=""
+                        )
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+                mock_run.side_effect = mock_run_side_effect
+
+                result = runner.invoke(app, ["sync", "django", "--all-branches"])
+                assert result.exit_code == 0
+
+                gh_cmds = [
+                    c[0][0] for c in mock_run.call_args_list if c[0][0][0] == "gh"
+                ]
+
+                # No PR was touched (no `gh pr view`, no `/rerun`).
+                assert not any("pr" in cmd and "view" in cmd for cmd in gh_cmds)
+                assert not any(
+                    cmd[-1].endswith("/rerun") for cmd in gh_cmds if "-X" in cmd
+                )
+
+                # Each test-python* workflow was dispatched on the `main` ref.
+                dispatches = [
+                    cmd for cmd in gh_cmds if "workflow" in cmd and "run" in cmd
+                ]
+                assert len(dispatches) == 2
+                for cmd in dispatches:
+                    assert "--ref" in cmd and cmd[cmd.index("--ref") + 1] == "main"
+                    assert (
+                        cmd[cmd.index("--repo") + 1] == "mongodb/django-mongodb-backend"
+                    )
+
+                output = result.stdout + result.stderr
+                assert (
+                    "mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main"
+                    in output
+                )
+                assert "test-python.yml ✓ queued" in output
+
+
+def test_repo_sync_all_branches_dry_run(tmp_path, temp_repos_dir):
+    """--all-branches --dry-run previews every branch without switching or rebasing."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "rev-list" in cmd and "--count" in cmd:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
+                # rev-parse (origin ref exists), fetch, log, etc.
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(
+                app, ["sync", "django", "--all-branches", "--dry-run"]
+            )
+            assert result.exit_code == 0
+
+            # Dry-run must never mutate the working tree: no switch, no rebase, no push.
+            issued = [c[0][0] for c in mock_run.call_args_list]
+            assert not any("switch" in cmd for cmd in issued)
+            assert not any("rebase" in cmd for cmd in issued)
+            assert not any("push" in cmd for cmd in issued)
+
+            # Both mapped branches were compared against their upstream targets.
+            output = result.stdout + result.stderr
+            assert "mongodb-6.0.x" in output
+            assert "mongodb-5.2.x" in output
+            assert "Dry run complete" in output
 
 
 def test_repo_sync_all_branches_requires_dict_mapping(tmp_path, temp_repos_dir):

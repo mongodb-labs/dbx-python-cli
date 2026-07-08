@@ -129,8 +129,10 @@ Refreshing every release branch
 When a new round of Django patch releases lands upstream, every MongoDB branch
 needs to be rebased. The ``--all-branches`` (``-b``) flag walks the repo's
 ``upstream_branch`` mapping for you — it checks out each mapped branch in turn,
-rebases it onto its configured upstream target, pushes, and restores the branch
-you started on:
+rebases it onto its configured upstream target, force-pushes, and restores the
+branch you started on. Because rebasing rewrites history, ``--all-branches``
+force-pushes by default (using the safe ``--force-with-lease``); you do not need
+to pass ``--force``:
 
 .. code-block:: bash
 
@@ -143,8 +145,15 @@ you started on:
 
 This is equivalent to switching to ``mongodb-6.1.x``, ``mongodb-6.0.x``,
 ``mongodb-5.2.x``, … in turn and running ``dbx sync django`` on each. The
-working tree must be clean (each branch is checked out via ``git switch``), and
-only branches present in the ``upstream_branch`` mapping are synced.
+working tree must be clean for a real sync (each branch is checked out via
+``git switch``), and only branches present in the ``upstream_branch`` mapping
+are synced.
+
+Combined with ``--dry-run``, ``--all-branches`` previews every mapped branch
+*without* checking any of them out: it fetches upstream once and compares each
+branch's ``origin`` ref against its configured upstream target directly. Because
+nothing is checked out, the preview works even when the working tree is dirty
+and never disturbs the branch you have open.
 
 If a branch fails to rebase (for example, conflicts, or an upstream target that
 no longer exists), that branch's rebase is **aborted** so the working tree stays
@@ -163,6 +172,64 @@ are listed so you can rebase them manually:
 
 Once resolved, re-run ``dbx sync django --all-branches`` (already-synced
 branches are fast no-ops) to push the remaining branches.
+
+Re-running downstream CI
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Because the backend's PR workflows check out the fork branch at a pinned
+``ref:`` at CI runtime (see `How the fork branches are tested in backend PRs`_),
+force-pushing a rebased fork branch does **not** re-trigger those workflows — so
+a rebase that breaks the adapted tests would go unnoticed until the next push to
+the PR. To close that gap, after a successful ``--all-branches`` sync ``dbx sync``
+re-runs the backend CI for each branch that rebased, via the ``ci_rerun`` mapping.
+
+The mapping is keyed per fork branch (only branches that actually rebased are
+processed — a branch that failed or was skipped triggers nothing). Each value
+maps an ``owner/name`` GitHub repo to a target that is **either**:
+
+- an **integer PR number** — re-runs the workflow runs attached to that PR
+  (needs an open PR with a prior run; updates the PR's own status checks), or
+- a **string git ref** — dispatches the repo's ``test-python*`` workflows on that
+  backend branch via ``workflow_dispatch`` (no PR needed). Each backend branch
+  pins the fork branch it tests via ``ref:``, so the backend ref selects which
+  fork branch is exercised — e.g. the backend's ``main`` pins ``mongodb-6.0.x``.
+
+.. code-block:: toml
+
+   [repo.groups.django.ci_rerun.django]
+   "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}   # dispatch, no PR
+   "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}      # re-run PR #422
+   "mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 562}
+   "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = 535}
+
+.. code-block:: text
+
+   ✨ Done! Synced 3 branch(es)
+
+   ♻️  mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main...
+      test-python.yml ✓ queued
+      test-python-geo.yml ✓ queued
+   ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#422...
+      #422 ✓ queued (4 workflow run(s))
+
+This uses the ``gh`` CLI (GitHub CLI), so ``gh`` must be installed and
+authenticated. It is best-effort: a missing ``gh``, an unconfigured ``ci_rerun``
+mapping, or a GitHub API error is reported as a warning and never fails the
+sync. Pass ``--no-ci`` to skip the re-run, and note it is skipped automatically
+for ``--dry-run`` and when no branch actually synced.
+
+.. note::
+
+   The two mechanisms report results in different places. A **PR re-run** updates
+   the PR's own status checks, so the result shows up on the PR. A
+   **``workflow_dispatch`` run** is standalone — it appears under the repo's
+   **Actions** tab, not as a status check on any PR — so after a dispatch you
+   check the run there rather than on a PR.
+
+Choosing between the two: use a **PR number** for branches that have an open PR
+you want to keep green/red (the run attaches to that PR); use a **ref** to
+validate a rebase with no PR involved, or when no suitable PR run exists yet
+(for example the backend's ``main``, which pins ``mongodb-6.0.x``).
 
 Adding a new release branch
 ----------------------------
@@ -217,8 +284,10 @@ https://github.com/mongodb/django-mongodb-backend/pulls.
 
 Each PR triggers several GitHub Actions test workflows
 (``.github/workflows/test-python*.yml`` in the backend repo), covering the core
-suite plus the geo, Atlas, and encryption feature sets. They all follow the
-same shape:
+suite plus the geo, Atlas, and encryption feature sets. Those workflows also
+declare ``workflow_dispatch``, so they can be run manually (with no PR) on any
+backend branch — this is what the ``ci_rerun`` "ref" form uses (see `Re-running
+downstream CI`_). They all follow the same shape:
 
 1. Check out ``django-mongodb-backend`` and install it (``pip install -e .``).
 2. Check out ``mongodb-forks/django`` at the fork branch for the Django release
@@ -239,6 +308,10 @@ suite, and the backend supplies the database engine and settings. The
 - When the backend adds support for a new Django feature release, the fork
   needs a matching ``mongodb-<version>.x`` branch (see
   `Adding a new release branch`_) and the workflows' ``ref:`` is bumped to it.
+- Because each backend branch's workflow pins its own fork ``ref:``, dispatching
+  a workflow on a given backend ref exercises the fork branch that ref pins — the
+  basis for the ``ci_rerun`` "ref" form (e.g. the backend's ``main`` pins
+  ``mongodb-6.0.x``).
 
 To reproduce a backend PR run locally against a fork branch you have rebased,
 mirror those steps: check out the fork branch in your ``django`` group clone,

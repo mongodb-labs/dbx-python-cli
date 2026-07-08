@@ -201,6 +201,21 @@ django = ["-v", "2"]
 [repo.groups.django.preferred_branch]
 django = "mongodb-6.0.x"
 
+# Per-branch downstream CI to re-run after that branch rebases, but only when the
+# branch actually synced. Keyed by the synced repo, then by the fork branch; the
+# value maps each `owner/name` GitHub repo to a target that is either:
+#   * an integer PR number  — re-runs the workflow runs on that PR (needs an open
+#     PR with a prior run; updates the PR's own status checks), or
+#   * a string git ref      — dispatches the repo's `test-python*` workflows on
+#     that backend branch via workflow_dispatch (no PR needed; each backend branch
+#     pins the fork branch it tests via `ref:`, so the ref selects the fork branch).
+# A list may mix both forms.
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
+"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}
+"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 562}
+"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = 535}
+
 # Environment variables for test runs
 [repo.groups.django.test_env]
 
