@@ -442,6 +442,61 @@ def get_preferred_branch(config, group_name, repo_name):
     return preferred_branch_config.get(repo_name)
 
 
+def get_ci_rerun_targets(config, group_name, repo_name, branch):
+    """Get the downstream CI to re-run for a specific fork branch that synced.
+
+    The backend's CI checks out a fork branch at a pinned ``ref:`` and runs
+    against it, so force-pushing a rebased fork branch does not re-trigger those
+    workflows. This mapping names, per fork branch, the ``owner/name`` GitHub
+    repos and how to re-run their CI, so a rebase that broke the adapted tests
+    surfaces without a manual re-run. It is keyed per branch so only the CI for
+    the branch that actually changed is touched.
+
+    Configure in ``[repo.groups.<group>.ci_rerun.<synced-repo>]`` keyed by fork
+    branch; each value maps ``owner/name`` GitHub repo to a target that is either
+    an integer **PR number** (re-run that PR's workflow runs) or a string **git
+    ref** (dispatch the repo's ``test-python*`` workflows on that backend branch).
+    A list may mix both forms:
+
+    .. code-block:: toml
+
+        [repo.groups.django.ci_rerun.django]
+        "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
+        "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}
+
+    Args:
+        config: Configuration dictionary
+        group_name: Name of the group (e.g., 'django')
+        repo_name: Name of the repository whose branch was synced (e.g., 'django')
+        branch: The fork branch that just synced (e.g., 'mongodb-6.1.x')
+
+    Returns:
+        dict[str, dict]: ``owner/name`` -> ``{"prs": [int, ...], "refs": [str, ...]}``
+        (empty dict if unconfigured)
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return {}
+    branch_map = groups[group_name].get("ci_rerun", {}).get(repo_name, {})
+    mapping = branch_map.get(branch, {})
+
+    result = {}
+    for target, value in mapping.items():
+        items = value if isinstance(value, list) else [value]
+        prs = []
+        refs = []
+        for item in items:
+            # bool is an int subclass; exclude it so `true`/`false` never parse as a PR.
+            if isinstance(item, bool):
+                continue
+            if isinstance(item, int):
+                prs.append(item)
+            elif isinstance(item, str):
+                refs.append(item)
+        result[target] = {"prs": prs, "refs": refs}
+    return result
+
+
 def switch_to_branch(repo_path: Path, branch_name: str, verbose: bool = False) -> bool:
     """
     Switch to a branch in a cloned repository.

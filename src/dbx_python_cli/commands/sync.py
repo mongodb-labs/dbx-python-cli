@@ -87,18 +87,26 @@ def _current_branch(repo_path):
         return ""
 
 
-def _sync_all_branches(repo_info, config, verbose, force, dry_run):
+def _sync_all_branches(repo_info, config, verbose, force, dry_run, no_ci=False):
     """Sync every branch in a repo's ``upstream_branch`` mapping.
 
     Checks out each mapped local branch in turn, runs the normal
     fetch/rebase/push sequence, and restores the originally checked-out branch
     when finished. Requires a dict-form ``upstream_branch`` mapping for the repo.
+
+    Each branch is rebased onto its upstream target, which rewrites history, so a
+    plain push would always be rejected as non-fast-forward. Force-push (via the
+    safe ``--force-with-lease``) is therefore the default for this flow; ``--force``
+    is redundant here but harmless.
     """
     from dbx_python_cli.utils.repo import get_upstream_branch
 
     path = repo_info["path"]
     name = repo_info["name"]
     group = repo_info.get("group", "")
+
+    # Rebasing rewrites the branch, so force-push is required to update origin.
+    force = True
 
     mapping = get_upstream_branch(config, group, name)
     if not isinstance(mapping, dict):
@@ -122,7 +130,44 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
     synced_count = 0
     skipped_count = 0
     failed_branches = []
+    synced_branches = []
     restored = True
+
+    # In dry-run mode we never mutate the working tree: instead of checking out
+    # each branch, fetch upstream once and compare each mapped branch's
+    # origin ref against its upstream target directly. This lets --all-branches
+    # and --dry-run work together even when the tree is dirty.
+    if dry_run:
+        try:
+            if verbose:
+                typer.echo("[verbose] Fetching from upstream...")
+            subprocess.run(
+                ["git", "-C", str(path), "fetch", "upstream"],
+                check=True,
+                capture_output=not verbose,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            typer.echo(
+                f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        for i, branch in enumerate(branches):
+            if i > 0:
+                typer.echo("─" * 60)
+            typer.echo(f"🌿 {branch}")
+            typer.echo(f"🔍 Checking {name}")
+            _show_commit_comparison(
+                path, name, branch, f"upstream/{mapping[branch]}", verbose
+            )
+            synced_count += 1
+
+        summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
+        typer.echo(summary)
+        return
+
     try:
         for i, branch in enumerate(branches):
             if i > 0:
@@ -159,6 +204,7 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
                 skipped_count += 1
             elif status in ("synced", "dry_run"):
                 synced_count += 1
+                synced_branches.append(branch)
             elif status == "failed":
                 failed_branches.append(branch)
     finally:
@@ -174,10 +220,8 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
             except subprocess.CalledProcessError:
                 restored = False
 
-    if dry_run:
-        summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
-    else:
-        summary = f"\n✨ Done! Synced {synced_count} branch(es)"
+    # Dry-run returns early above; this path only handles the real sync.
+    summary = f"\n✨ Done! Synced {synced_count} branch(es)"
     if skipped_count:
         summary += f", skipped {skipped_count}"
     if failed_branches:
@@ -193,6 +237,188 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run):
     if original_branch and not restored:
         typer.echo(
             f"⚠️  Could not switch back to original branch '{original_branch}'", err=True
+        )
+
+    # Re-run downstream CI for branches that actually rebased+pushed. The backend's
+    # PR workflows check out the fork branch at a pinned ref, so a rebased branch is
+    # only re-validated when those PRs' CI is re-run (see get_ci_rerun_targets).
+    if not no_ci and synced_branches:
+        _rerun_downstream_ci(config, group, name, synced_branches, verbose)
+
+
+def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose=False):
+    """Re-run downstream CI for the branches that synced, per the ci_rerun mapping.
+
+    Each fork branch maps to a downstream target that is either a **PR number**
+    (re-run that PR's workflow runs) or a **git ref** (dispatch the repo's
+    ``test-python*`` workflows on that backend branch via ``workflow_dispatch`` —
+    no PR needed). Only branches that actually rebased are processed; a branch
+    that failed or was skipped triggers nothing.
+
+    Best-effort: this never fails the sync. A missing ``gh`` CLI, an unconfigured
+    ``ci_rerun`` mapping, or a GitHub API error is reported as a warning and
+    skipped.
+    """
+    import json
+    import shutil
+
+    from dbx_python_cli.utils.repo import get_ci_rerun_targets
+
+    # Collect (branch, target, kind, value) actions for every synced branch,
+    # de-duplicating in case two branches map to the same PR or ref.
+    seen = set()
+    actions = []
+    for branch in synced_branches:
+        for target, spec in get_ci_rerun_targets(
+            config, group_name, repo_name, branch
+        ).items():
+            for number in spec["prs"]:
+                key = (target, "pr", number)
+                if key not in seen:
+                    seen.add(key)
+                    actions.append((branch, target, "pr", number))
+            for ref in spec["refs"]:
+                key = (target, "ref", ref)
+                if key not in seen:
+                    seen.add(key)
+                    actions.append((branch, target, "ref", ref))
+
+    if not actions:
+        return
+
+    if not shutil.which("gh"):
+        typer.echo(
+            "⚠️  Skipping downstream CI re-run: 'gh' CLI not found "
+            "(install GitHub CLI or pass --no-ci to silence)",
+            err=True,
+        )
+        return
+
+    def _gh_json(args):
+        result = subprocess.run(
+            ["gh", *args], check=True, capture_output=True, text=True
+        )
+        out = result.stdout.strip()
+        return json.loads(out) if out else []
+
+    typer.echo("")
+    for branch, target, kind, value in actions:
+        if kind == "pr":
+            _rerun_pr_ci(target, value, branch, verbose, _gh_json)
+        else:
+            _dispatch_workflows(target, value, branch, verbose, _gh_json)
+
+
+def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
+    """Re-run the workflow runs attached to an open PR's head commit."""
+    import json
+
+    typer.echo(f"♻️  {branch} → re-running CI on {target}#{number}...")
+    try:
+        pr = _gh_json(
+            ["pr", "view", str(number), "--repo", target, "--json", "headRefOid"]
+        )
+        head_sha = pr.get("headRefOid") if isinstance(pr, dict) else None
+        if not head_sha:
+            raise ValueError("no head commit returned")
+        runs = _gh_json(
+            [
+                "api",
+                f"repos/{target}/actions/runs?head_sha={head_sha}&per_page=100",
+                "--jq",
+                "[.workflow_runs[].id]",
+            ]
+        )
+    except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError) as e:
+        stderr = getattr(e, "stderr", "") or str(e)
+        typer.echo(f"   #{number} ⚠️  could not resolve runs: {stderr}", err=True)
+        return
+
+    if not runs:
+        typer.echo(f"   #{number} — no workflow runs for head commit")
+        return
+
+    requeued = 0
+    for run_id in runs:
+        try:
+            subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    "-X",
+                    "POST",
+                    f"repos/{target}/actions/runs/{run_id}/rerun",
+                ],
+                check=True,
+                capture_output=not verbose,
+                text=True,
+            )
+            requeued += 1
+        except subprocess.CalledProcessError as e:
+            if verbose:
+                typer.echo(
+                    f"   [verbose] rerun failed for run {run_id}: {e.stderr}",
+                    err=True,
+                )
+
+    if requeued:
+        typer.echo(f"   #{number} ✓ queued ({requeued} workflow run(s))")
+    else:
+        typer.echo(
+            f"   #{number} ⚠️  no runs re-queued (already running or no permission)",
+            err=True,
+        )
+
+
+def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
+    """Dispatch the target repo's ``test-python*`` workflows on a backend ref.
+
+    No PR is needed: ``workflow_dispatch`` runs each matching workflow using its
+    definition on ``ref``, which pins the fork branch it checks out.
+    """
+    import json
+
+    typer.echo(f"♻️  {branch} → dispatching CI on {target}@{ref}...")
+    try:
+        workflows = _gh_json(
+            [
+                "api",
+                f"repos/{target}/actions/workflows",
+                "--jq",
+                '[.workflows[] | select(.path | test("workflows/test-python")) '
+                "| .path]",
+            ]
+        )
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        stderr = getattr(e, "stderr", "") or str(e)
+        typer.echo(f"   @{ref} ⚠️  could not list workflows: {stderr}", err=True)
+        return
+
+    if not workflows:
+        typer.echo(f"   @{ref} — no test-python* workflows found")
+        return
+
+    dispatched = 0
+    for path in workflows:
+        name = path.split("/")[-1]
+        try:
+            subprocess.run(
+                ["gh", "workflow", "run", name, "--repo", target, "--ref", ref],
+                check=True,
+                capture_output=not verbose,
+                text=True,
+            )
+            dispatched += 1
+            typer.echo(f"   {name} ✓ queued")
+        except subprocess.CalledProcessError as e:
+            typer.echo(
+                f"   {name} ⚠️  dispatch failed: {e.stderr if not verbose else ''}",
+                err=True,
+            )
+
+    if not dispatched:
+        typer.echo(
+            f"   @{ref} ⚠️  no workflows dispatched (check ref/permissions)", err=True
         )
 
 
@@ -231,6 +457,11 @@ def sync_callback(
         False,
         "--dry-run",
         help="Show what would be synced without making changes",
+    ),
+    no_ci: bool = typer.Option(
+        False,
+        "--no-ci",
+        help="Skip re-running downstream CI after --all-branches (see ci_rerun config)",
     ),
 ):
     """Sync repository with upstream by fetching, rebasing, and pushing.
@@ -369,7 +600,7 @@ def sync_callback(
                 typer.echo("\nUse 'dbx list' to see available repositories")
                 raise typer.Exit(1)
 
-            _sync_all_branches(repo_info, config, verbose, force, dry_run)
+            _sync_all_branches(repo_info, config, verbose, force, dry_run, no_ci)
             return
 
         # Handle sync with both group and repo name specified
