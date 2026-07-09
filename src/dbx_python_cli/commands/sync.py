@@ -1,5 +1,6 @@
 """Sync command for syncing repositories with upstream."""
 
+import base64
 import io
 import subprocess
 import sys
@@ -398,8 +399,45 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
         typer.echo(f"   @{ref} — no test-python* workflows found")
         return
 
+    # Only workflows that declare a `workflow_dispatch` trigger can be run on a
+    # ref; the others (push/schedule/pull_request only) would 422. Inspect each
+    # workflow's definition on `ref` and skip the un-dispatchable ones quietly
+    # rather than surfacing them as failures.
+    dispatchable = []
+    for path in sorted(workflows):
+        name = path.split("/")[-1]
+        try:
+            content = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{target}/contents/{path}?ref={ref}",
+                    "--jq",
+                    ".content",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            body = base64.b64decode(content).decode("utf-8", "replace")
+            # Avoid a YAML dependency: a workflow can only be dispatched on a ref
+            # if its definition mentions the `workflow_dispatch` trigger at all.
+            has_dispatch = "workflow_dispatch" in body
+        except Exception as e:  # noqa: BLE001 — best-effort; still try to dispatch
+            if verbose:
+                typer.echo(f"   [verbose] could not inspect {name}: {e}", err=True)
+            has_dispatch = True  # fall back to attempting the dispatch
+        if has_dispatch:
+            dispatchable.append(path)
+        else:
+            typer.echo(f"   {name} — skipped (no workflow_dispatch trigger)")
+
+    if not dispatchable:
+        typer.echo(f"   @{ref} — no dispatchable test-python* workflows")
+        return
+
     dispatched = 0
-    for path in workflows:
+    for path in dispatchable:
         name = path.split("/")[-1]
         try:
             subprocess.run(

@@ -193,6 +193,9 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
   backend branch via ``workflow_dispatch`` (no PR needed). Each backend branch
   pins the fork branch it tests via ``ref:``, so the backend ref selects which
   fork branch is exercised — e.g. the backend's ``main`` pins ``mongodb-6.0.x``.
+  Only ``test-python*`` workflows that actually declare a ``workflow_dispatch``
+  trigger are dispatched; any that don't (push/schedule/pull_request only) are
+  reported as ``skipped (no workflow_dispatch trigger)`` instead of failing.
 
 .. code-block:: toml
 
@@ -209,6 +212,7 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
    ♻️  mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main...
       test-python.yml ✓ queued
       test-python-geo.yml ✓ queued
+      test-python-replica.yml — skipped (no workflow_dispatch trigger)
    ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#422...
       #422 ✓ queued (4 workflow run(s))
 
