@@ -33,9 +33,10 @@ organisation rather than a personal account:
    django = "git@github.com:django/django.git"
 
    # Map each local (fork) branch to the upstream branch it tracks.
-   # Only branches whose upstream stable/<version>.x still exists are listed.
+   # Branches tracking a released Django version map to its stable/<version>.x
+   # branch; the in-development version tracks Django's main branch.
    [repo.groups.django.upstream_branch]
-   django = {"mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
+   django = {"mongodb-6.2.x" = "main", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
 
    # Branch checked out automatically right after cloning
    [repo.groups.django.preferred_branch]
@@ -238,16 +239,24 @@ validate a rebase with no PR involved, or when no suitable PR run exists yet
 Adding a new release branch
 ----------------------------
 
-When Django cuts a new stable branch (for example ``stable/6.2.x``) and you
-create a matching ``mongodb-6.2.x`` fork branch, add the mapping to
-``upstream_branch`` so ``dbx sync`` knows where to rebase it:
+A fork branch that tracks an unreleased Django version maps to Django's
+``main`` branch. For example ``mongodb-6.2.x`` currently tracks ``main``
+because Django 6.2 has not been released:
+
+.. code-block:: toml
+
+   [repo.groups.django.upstream_branch]
+   django = {"mongodb-6.2.x" = "main", "mongodb-6.1.x" = "stable/6.1.x", ...}
+
+Once Django cuts the matching stable branch (for example ``stable/6.2.x``),
+update the mapping to point at it:
 
 .. code-block:: toml
 
    [repo.groups.django.upstream_branch]
    django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", ...}
 
-Until the mapping exists, ``dbx sync`` cannot determine the correct upstream
+Until a mapping exists, ``dbx sync`` cannot determine the correct upstream
 target for that branch and falls back to upstream's default-branch detection,
 which is almost certainly not what you want for a release branch.
 
