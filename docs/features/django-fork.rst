@@ -150,6 +150,23 @@ working tree must be clean for a real sync (each branch is checked out via
 ``git switch``), and only branches present in the ``upstream_branch`` mapping
 are synced.
 
+To sync only a subset of the mapped branches instead of all of them, use
+``--branch`` (``-B``). It behaves exactly like ``--all-branches`` — same
+rebase/force-push/restore flow, same ``--dry-run`` and ``--no-ci`` support —
+but restricts the run to the named branch(es). The flag is repeatable, and each
+name must exist in the ``upstream_branch`` mapping:
+
+.. code-block:: bash
+
+   # Sync just one release branch
+   dbx sync django -B mongodb-6.0.x
+
+   # Sync a few, in the given order
+   dbx sync django -B mongodb-6.0.x -B mongodb-6.1.x
+
+   # Preview a single branch without touching the tree
+   dbx sync django -B mongodb-6.0.x --dry-run
+
 Combined with ``--dry-run``, ``--all-branches`` previews every mapped branch
 *without* checking any of them out: it fetches upstream once and compares each
 branch's ``origin`` ref against its configured upstream target directly. Because

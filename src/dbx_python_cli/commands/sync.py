@@ -88,12 +88,18 @@ def _current_branch(repo_path):
         return ""
 
 
-def _sync_all_branches(repo_info, config, verbose, force, dry_run, no_ci=False):
-    """Sync every branch in a repo's ``upstream_branch`` mapping.
+def _sync_all_branches(
+    repo_info, config, verbose, force, dry_run, no_ci=False, branch_filter=None
+):
+    """Sync branches in a repo's ``upstream_branch`` mapping.
 
     Checks out each mapped local branch in turn, runs the normal
     fetch/rebase/push sequence, and restores the originally checked-out branch
     when finished. Requires a dict-form ``upstream_branch`` mapping for the repo.
+
+    When ``branch_filter`` is a non-empty list of branch names, only those
+    branches are synced (each must exist in the mapping); otherwise every mapped
+    branch is synced.
 
     Each branch is rebased onto its upstream target, which rewrites history, so a
     plain push would always be rejected as non-fast-forward. Force-push (via the
@@ -121,7 +127,21 @@ def _sync_all_branches(repo_info, config, verbose, force, dry_run, no_ci=False):
         )
         raise typer.Exit(1)
 
-    branches = list(mapping.keys())
+    if branch_filter:
+        unknown = [b for b in branch_filter if b not in mapping]
+        if unknown:
+            typer.echo(
+                f"❌ Error: branch(es) not in upstream_branch mapping for '{name}': "
+                f"{', '.join(unknown)}",
+                err=True,
+            )
+            typer.echo(f"Available branches: {', '.join(mapping.keys())}", err=True)
+            raise typer.Exit(1)
+        # Preserve the requested order, de-duplicated.
+        seen = set()
+        branches = [b for b in branch_filter if not (b in seen or seen.add(b))]
+    else:
+        branches = list(mapping.keys())
     original_branch = _current_branch(path)
 
     typer.echo(
@@ -485,6 +505,12 @@ def sync_callback(
         "-b",
         help="Sync every branch in a repo's upstream_branch mapping (e.g. the Django fork)",
     ),
+    branch: list[str] = typer.Option(
+        None,
+        "--branch",
+        "-B",
+        help="Sync only the named branch(es) from the repo's upstream_branch mapping (repeatable)",
+    ),
     force: bool = typer.Option(
         False,
         "--force",
@@ -516,6 +542,7 @@ def sync_callback(
 
         dbx sync <repo_name>                    # Sync a single repository
         dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
+        dbx sync <repo_name> -B <branch>        # Sync only the named branch(es) from that map (repeatable)
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
@@ -599,13 +626,13 @@ def sync_callback(
             )
             return
 
-        # Handle syncing every branch in a single repo's upstream_branch mapping
-        if all_branches:
+        # Handle syncing specific/all branches in a single repo's
+        # upstream_branch mapping.
+        if all_branches or branch:
+            flag = "--all-branches" if all_branches else "--branch"
             if not repo_name:
-                typer.echo(
-                    "❌ Error: --all-branches requires a repository name", err=True
-                )
-                typer.echo("\nUsage: dbx sync <repo-name> --all-branches")
+                typer.echo(f"❌ Error: {flag} requires a repository name", err=True)
+                typer.echo(f"\nUsage: dbx sync <repo-name> {flag}")
                 raise typer.Exit(1)
 
             if group:
@@ -638,7 +665,15 @@ def sync_callback(
                 typer.echo("\nUse 'dbx list' to see available repositories")
                 raise typer.Exit(1)
 
-            _sync_all_branches(repo_info, config, verbose, force, dry_run, no_ci)
+            _sync_all_branches(
+                repo_info,
+                config,
+                verbose,
+                force,
+                dry_run,
+                no_ci,
+                branch_filter=branch or None,
+            )
             return
 
         # Handle sync with both group and repo name specified
