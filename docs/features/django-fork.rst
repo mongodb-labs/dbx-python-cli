@@ -213,15 +213,23 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
   fork branch is exercised — e.g. the backend's ``main`` pins ``mongodb-6.0.x``.
   Only ``test-python*`` workflows that actually declare a ``workflow_dispatch``
   trigger are dispatched; any that don't (push/schedule/pull_request only) are
-  reported as ``skipped (no workflow_dispatch trigger)`` instead of failing.
+  reported as ``skipped (no workflow_dispatch trigger)`` instead of failing, or
+- an **object** ``{pr = <n>, evergreen = true}`` — re-runs PR ``<n>``'s workflow
+  runs (exactly as the integer form) **and** re-triggers that PR's Evergreen
+  patch by commenting ``evergreen retry`` on it. This is needed because
+  Evergreen's PR patch, like the GitHub Actions workflows, checks out the fork
+  branch at a pinned ref, so a rebased fork branch does not re-run Evergreen on
+  its own. Set ``evergreen = false`` (or use the bare integer) to re-run only
+  GitHub Actions.
 
 .. code-block:: toml
 
    [repo.groups.django.ci_rerun.django]
    "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}   # dispatch, no PR
-   "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}      # re-run PR #422
+   "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}      # re-run PR #422 (Actions only)
    "mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 562}
-   "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = 535}
+   # Re-run Actions AND re-trigger Evergreen on PR #535:
+   "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 535, evergreen = true}}
 
 .. code-block:: text
 
@@ -233,12 +241,19 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
       test-python-replica.yml — skipped (no workflow_dispatch trigger)
    ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#422...
       #422 ✓ queued (4 workflow run(s))
+   ♻️  mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#535...
+      #535 ✓ queued (4 workflow run(s))
+   ♻️  mongodb-6.2.x → retrying Evergreen on mongodb/django-mongodb-backend#535...
+      #535 ✓ commented 'evergreen retry'
 
 This uses the ``gh`` CLI (GitHub CLI), so ``gh`` must be installed and
 authenticated. It is best-effort: a missing ``gh``, an unconfigured ``ci_rerun``
 mapping, or a GitHub API error is reported as a warning and never fails the
-sync. Pass ``--no-ci`` to skip the re-run, and note it is skipped automatically
-for ``--dry-run`` and when no branch actually synced.
+sync. The Evergreen retry uses the same ``gh`` CLI (it posts an ``evergreen
+retry`` PR comment, which Evergreen watches for), so no Evergreen token or CLI
+is required. Pass ``--no-ci`` to skip all of the above (Actions re-runs and
+Evergreen retries alike), and note it is skipped automatically for ``--dry-run``
+and when no branch actually synced.
 
 .. note::
 

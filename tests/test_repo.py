@@ -1662,6 +1662,93 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
                 )
 
 
+def test_repo_sync_all_branches_retries_evergreen(tmp_path, temp_repos_dir):
+    """An ``{pr, evergreen = true}`` target re-runs Actions AND comments 'evergreen retry'."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {{"mongodb/django-mongodb-backend" = {{pr = 422, evergreen = true}}}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("shutil.which", return_value="/usr/bin/gh"):
+            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+                mock_get_path.return_value = config_path
+
+                def mock_run_side_effect(*args, **kwargs):
+                    cmd = args[0]
+                    if cmd[0] == "gh":
+                        if "pr" in cmd and "view" in cmd:
+                            return subprocess.CompletedProcess(
+                                cmd, 0, stdout='{"headRefOid": "abc123"}', stderr=""
+                            )
+                        if "api" in cmd and "-X" not in cmd:
+                            return subprocess.CompletedProcess(
+                                cmd, 0, stdout="[555]", stderr=""
+                            )
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "switch" in cmd:
+                        state["current"] = cmd[-1]
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "branch" in cmd and "--show-current" in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                        )
+                    if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout="origin\nupstream\n", stderr=""
+                        )
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+                mock_run.side_effect = mock_run_side_effect
+
+                result = runner.invoke(app, ["sync", "django", "--all-branches"])
+                assert result.exit_code == 0
+
+                gh_cmds = [
+                    c[0][0] for c in mock_run.call_args_list if c[0][0][0] == "gh"
+                ]
+
+                # The Actions rerun still happens (PR is also re-queued).
+                assert any(
+                    "-X" in cmd and cmd[-1].endswith("/rerun") for cmd in gh_cmds
+                )
+
+                # The 'evergreen retry' comment is posted on the PR.
+                comment_calls = [
+                    cmd for cmd in gh_cmds if "pr" in cmd and "comment" in cmd
+                ]
+                assert comment_calls
+                assert "422" in comment_calls[0]
+                assert "evergreen retry" in comment_calls[0]
+                assert "mongodb/django-mongodb-backend" in comment_calls[0]
+
+                output = result.stdout + result.stderr
+                assert (
+                    "retrying Evergreen on mongodb/django-mongodb-backend#422" in output
+                )
+
+
 def test_repo_sync_all_branches_no_ci_skips_rerun(tmp_path, temp_repos_dir):
     """--no-ci suppresses the downstream CI re-run."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"

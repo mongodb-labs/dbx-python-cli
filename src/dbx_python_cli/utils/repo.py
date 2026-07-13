@@ -454,15 +454,18 @@ def get_ci_rerun_targets(config, group_name, repo_name, branch):
 
     Configure in ``[repo.groups.<group>.ci_rerun.<synced-repo>]`` keyed by fork
     branch; each value maps ``owner/name`` GitHub repo to a target that is either
-    an integer **PR number** (re-run that PR's workflow runs) or a string **git
-    ref** (dispatch the repo's ``test-python*`` workflows on that backend branch).
-    A list may mix both forms:
+    an integer **PR number** (re-run that PR's workflow runs), a string **git
+    ref** (dispatch the repo's ``test-python*`` workflows on that backend branch),
+    or an **object** ``{pr = <n>, evergreen = true}`` to also re-trigger the PR's
+    Evergreen patch (by commenting ``evergreen retry``). A list may mix all forms:
 
     .. code-block:: toml
 
         [repo.groups.django.ci_rerun.django]
         "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
         "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}
+        # Re-run GitHub Actions *and* re-trigger Evergreen on PR 422:
+        "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 422, evergreen = true}}
 
     Args:
         config: Configuration dictionary
@@ -471,8 +474,9 @@ def get_ci_rerun_targets(config, group_name, repo_name, branch):
         branch: The fork branch that just synced (e.g., 'mongodb-6.1.x')
 
     Returns:
-        dict[str, dict]: ``owner/name`` -> ``{"prs": [int, ...], "refs": [str, ...]}``
-        (empty dict if unconfigured)
+        dict[str, dict]: ``owner/name`` -> ``{"prs": [int, ...], "refs": [str, ...],
+        "evergreen_prs": [int, ...]}`` (empty dict if unconfigured). ``evergreen_prs``
+        is the subset of ``prs`` that also want an ``evergreen retry`` comment.
     """
     groups = get_repo_groups(config)
     if group_name not in groups:
@@ -485,6 +489,7 @@ def get_ci_rerun_targets(config, group_name, repo_name, branch):
         items = value if isinstance(value, list) else [value]
         prs = []
         refs = []
+        evergreen_prs = []
         for item in items:
             # bool is an int subclass; exclude it so `true`/`false` never parse as a PR.
             if isinstance(item, bool):
@@ -493,7 +498,17 @@ def get_ci_rerun_targets(config, group_name, repo_name, branch):
                 prs.append(item)
             elif isinstance(item, str):
                 refs.append(item)
-        result[target] = {"prs": prs, "refs": refs}
+            elif isinstance(item, dict):
+                # Object form: {pr = <n>, evergreen = <bool>}. The PR still gets
+                # its GitHub Actions runs re-queued (as a bare int would); the
+                # evergreen flag additionally re-triggers the Evergreen patch.
+                pr = item.get("pr")
+                if isinstance(pr, bool) or not isinstance(pr, int):
+                    continue
+                prs.append(pr)
+                if item.get("evergreen"):
+                    evergreen_prs.append(pr)
+        result[target] = {"prs": prs, "refs": refs, "evergreen_prs": evergreen_prs}
     return result
 
 
