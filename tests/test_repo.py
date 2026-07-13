@@ -1400,6 +1400,100 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
             assert all("--force-with-lease" in cmd for cmd in push_calls)
 
 
+def test_repo_sync_branch_filter(tmp_path, temp_repos_dir):
+    """--branch syncs only the named mapped branch(es) and restores the original."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            mock_get_path.return_value = config_path
+
+            def mock_run_side_effect(*args, **kwargs):
+                cmd = args[0]
+                if "switch" in cmd:
+                    state["current"] = cmd[-1]
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                elif "branch" in cmd and "--show-current" in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                    )
+                elif "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                    return subprocess.CompletedProcess(
+                        cmd, 0, stdout="origin\nupstream\n", stderr=""
+                    )
+                else:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            mock_run.side_effect = mock_run_side_effect
+
+            result = runner.invoke(app, ["sync", "django", "-B", "mongodb-6.0.x"])
+            assert result.exit_code == 0
+
+            switch_targets = [
+                c[0][0][-1] for c in mock_run.call_args_list if "switch" in c[0][0]
+            ]
+            # Only the requested branch was checked out; original restored last.
+            assert "mongodb-6.0.x" in switch_targets
+            assert "mongodb-5.2.x" not in switch_targets
+            assert switch_targets[-1] == "main"
+
+            rebase_targets = [
+                c[0][0][-1] for c in mock_run.call_args_list if "rebase" in c[0][0]
+            ]
+            assert rebase_targets == ["upstream/stable/6.0.x"]
+
+
+def test_repo_sync_branch_filter_unknown_branch(tmp_path, temp_repos_dir):
+    """--branch with a name outside the upstream_branch mapping errors out."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        mock_get_path.return_value = config_path
+        result = runner.invoke(app, ["sync", "django", "-B", "nope"])
+        assert result.exit_code == 1
+        assert "not in upstream_branch mapping" in result.output
+
+
 def test_repo_sync_all_branches_aborts_failed_rebase(tmp_path, temp_repos_dir):
     """A failed rebase under --all-branches is aborted so remaining branches still run."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
