@@ -209,13 +209,18 @@ django = "mongodb-6.0.x"
 #     PR with a prior run; updates the PR's own status checks), or
 #   * a string git ref      — dispatches the repo's `test-python*` workflows on
 #     that backend branch via workflow_dispatch (no PR needed; each backend branch
-#     pins the fork branch it tests via `ref:`, so the ref selects the fork branch).
-# A list may mix both forms.
+#     pins the fork branch it tests via `ref:`, so the ref selects the fork branch), or
+#   * an object {pr = <n>, evergreen = true} — re-runs PR <n>'s workflow runs (as
+#     the bare integer does) AND re-triggers that PR's Evergreen patch by commenting
+#     `evergreen retry` on it (Evergreen, like Actions, pins the fork branch at a ref,
+#     so a rebased branch won't re-run it otherwise). Set evergreen = false / use the
+#     bare integer for Actions only.
+# A list may mix these forms.
 [repo.groups.django.ci_rerun.django]
 "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
-"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}
-"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 562}
-"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = 535}
+"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = {pr = 422, evergreen = true}}
+"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 562, evergreen = true}}
+"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 535, evergreen = true}}
 
 # Environment variables for test runs
 [repo.groups.django.test_env]
