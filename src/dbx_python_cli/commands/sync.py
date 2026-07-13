@@ -271,10 +271,13 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
     """Re-run downstream CI for the branches that synced, per the ci_rerun mapping.
 
     Each fork branch maps to a downstream target that is either a **PR number**
-    (re-run that PR's workflow runs) or a **git ref** (dispatch the repo's
+    (re-run that PR's workflow runs), a **git ref** (dispatch the repo's
     ``test-python*`` workflows on that backend branch via ``workflow_dispatch`` —
-    no PR needed). Only branches that actually rebased are processed; a branch
-    that failed or was skipped triggers nothing.
+    no PR needed), or a PR number flagged for **Evergreen** (additionally comment
+    ``evergreen retry`` to re-trigger the PR's Evergreen patch, since a rebased
+    fork branch pinned by the PR does not re-trigger Evergreen on its own). Only
+    branches that actually rebased are processed; a branch that failed or was
+    skipped triggers nothing.
 
     Best-effort: this never fails the sync. A missing ``gh`` CLI, an unconfigured
     ``ci_rerun`` mapping, or a GitHub API error is reported as a warning and
@@ -303,6 +306,11 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
                 if key not in seen:
                     seen.add(key)
                     actions.append((branch, target, "ref", ref))
+            for number in spec["evergreen_prs"]:
+                key = (target, "evergreen", number)
+                if key not in seen:
+                    seen.add(key)
+                    actions.append((branch, target, "evergreen", number))
 
     if not actions:
         return
@@ -326,6 +334,8 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
     for branch, target, kind, value in actions:
         if kind == "pr":
             _rerun_pr_ci(target, value, branch, verbose, _gh_json)
+        elif kind == "evergreen":
+            _retry_evergreen(target, value, branch, verbose)
         else:
             _dispatch_workflows(target, value, branch, verbose, _gh_json)
 
@@ -387,6 +397,40 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
     else:
         typer.echo(
             f"   #{number} ⚠️  no runs re-queued (already running or no permission)",
+            err=True,
+        )
+
+
+def _retry_evergreen(target, number, branch, verbose):
+    """Re-trigger a PR's Evergreen patch by commenting ``evergreen retry``.
+
+    Evergreen's PR patch checks out the backend PR at a pinned fork ref, so a
+    rebased (force-pushed) fork branch does not re-run Evergreen on its own.
+    Commenting ``evergreen retry`` on the PR aborts any existing patch for the
+    head commit and starts a fresh one. Best-effort: never fails the sync.
+    """
+    typer.echo(f"♻️  {branch} → retrying Evergreen on {target}#{number}...")
+    try:
+        subprocess.run(
+            [
+                "gh",
+                "pr",
+                "comment",
+                str(number),
+                "--repo",
+                target,
+                "--body",
+                "evergreen retry",
+            ],
+            check=True,
+            capture_output=not verbose,
+            text=True,
+        )
+        typer.echo(f"   #{number} ✓ commented 'evergreen retry'")
+    except subprocess.CalledProcessError as e:
+        typer.echo(
+            f"   #{number} ⚠️  could not comment 'evergreen retry': "
+            f"{e.stderr if not verbose else ''}",
             err=True,
         )
 
@@ -525,7 +569,7 @@ def sync_callback(
     no_ci: bool = typer.Option(
         False,
         "--no-ci",
-        help="Skip re-running downstream CI after --all-branches (see ci_rerun config)",
+        help="Skip re-running downstream CI (GitHub Actions + Evergreen retry) after --all-branches (see ci_rerun config)",
     ),
 ):
     """Sync repository with upstream by fetching, rebasing, and pushing.
