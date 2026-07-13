@@ -154,6 +154,9 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Sync every branch in a repo's upstream_branch mapping (e.g. the Django fork)
    dbx sync django --all-branches
 
+   # Sync only specific branch(es) from that mapping (repeatable)
+   dbx sync django -B mongodb-6.0.x
+
    # Sync all branches but skip re-running downstream CI
    dbx sync django --all-branches --no-ci
 
