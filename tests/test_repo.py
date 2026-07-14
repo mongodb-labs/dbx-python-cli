@@ -2007,6 +2007,107 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
                 )
 
 
+def test_repo_sync_dispatch_skips_stale_workflow_missing_at_ref(
+    tmp_path, temp_repos_dir
+):
+    """A workflow whose file 404s at the ref (stale registry entry) is skipped,
+    not attempted and surfaced as a dispatch failure."""
+    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir_str = str(temp_repos_dir).replace("\\", "/")
+    config_content = f"""
+[repo]
+base_dir = "{repos_dir_str}"
+
+[repo.groups.django]
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+]
+
+[repo.groups.django.upstream_branch]
+django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
+
+[repo.groups.django.ci_rerun.django]
+"mongodb-6.0.x" = {{"mongodb/django-mongodb-backend" = "main"}}
+"""
+    config_path.write_text(config_content)
+
+    repo_dir = temp_repos_dir / "django" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    state = {"current": "main"}
+
+    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("shutil.which", return_value="/usr/bin/gh"):
+            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+                mock_get_path.return_value = config_path
+
+                def mock_run_side_effect(*args, **kwargs):
+                    cmd = args[0]
+                    if cmd[0] == "gh":
+                        if "api" in cmd and any(
+                            "actions/workflows" in str(x) for x in cmd
+                        ):
+                            return subprocess.CompletedProcess(
+                                cmd,
+                                0,
+                                stdout='[".github/workflows/test-python.yml", '
+                                '".github/workflows/test-python1.yml"]',
+                                stderr="",
+                            )
+                        if "api" in cmd and any("contents/" in str(x) for x in cmd):
+                            path = next(x for x in cmd if "contents/" in str(x))
+                            # test-python1.yml no longer exists at `ref` → 404.
+                            if "test-python1" in path:
+                                raise subprocess.CalledProcessError(
+                                    1,
+                                    cmd,
+                                    output="",
+                                    stderr="gh: Not Found (HTTP 404)",
+                                )
+                            yaml_bytes = b"on:\n  workflow_dispatch:\n"
+                            return subprocess.CompletedProcess(
+                                cmd,
+                                0,
+                                stdout=base64.b64encode(yaml_bytes).decode(),
+                                stderr="",
+                            )
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "switch" in cmd:
+                        state["current"] = cmd[-1]
+                        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                    if "branch" in cmd and "--show-current" in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout=f"{state['current']}\n", stderr=""
+                        )
+                    if "remote" in cmd and "add" not in cmd and "show" not in cmd:
+                        return subprocess.CompletedProcess(
+                            cmd, 0, stdout="origin\nupstream\n", stderr=""
+                        )
+                    return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+                mock_run.side_effect = mock_run_side_effect
+
+                result = runner.invoke(app, ["sync", "django", "--all-branches"])
+                assert result.exit_code == 0
+
+                gh_cmds = [
+                    c[0][0] for c in mock_run.call_args_list if c[0][0][0] == "gh"
+                ]
+                dispatches = [
+                    cmd for cmd in gh_cmds if "workflow" in cmd and "run" in cmd
+                ]
+                # The stale workflow was never attempted (no 422-inducing dispatch).
+                assert len(dispatches) == 1
+                assert "test-python.yml" in dispatches[0]
+
+                output = result.stdout + result.stderr
+                assert "test-python.yml ✓ queued" in output
+                assert "test-python1.yml — skipped (not present on main)" in output
+                assert "dispatch failed" not in output
+
+
 def test_repo_sync_all_branches_dry_run(tmp_path, temp_repos_dir):
     """--all-branches --dry-run previews every branch without switching or rebasing."""
     config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"

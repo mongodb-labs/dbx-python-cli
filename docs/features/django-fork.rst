@@ -213,7 +213,10 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
   fork branch is exercised — e.g. the backend's ``main`` pins ``mongodb-6.0.x``.
   Only ``test-python*`` workflows that actually declare a ``workflow_dispatch``
   trigger are dispatched; any that don't (push/schedule/pull_request only) are
-  reported as ``skipped (no workflow_dispatch trigger)`` instead of failing, or
+  reported as ``skipped (no workflow_dispatch trigger)`` instead of failing.
+  Stale registry entries — workflows whose file has been renamed or deleted and
+  no longer exists at the ref — are likewise reported as
+  ``skipped (not present on <ref>)`` rather than attempted, or
 - an **object** ``{pr = <n>, evergreen = true}`` — re-runs PR ``<n>``'s workflow
   runs (exactly as the integer form) **and** re-triggers that PR's Evergreen
   patch by commenting ``evergreen retry`` on it. This is needed because
@@ -239,6 +242,7 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
       test-python.yml ✓ queued
       test-python-geo.yml ✓ queued
       test-python-replica.yml — skipped (no workflow_dispatch trigger)
+      test-python1.yml — skipped (not present on main)
    ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#422...
       #422 ✓ queued (4 workflow run(s))
    ♻️  mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#535...
