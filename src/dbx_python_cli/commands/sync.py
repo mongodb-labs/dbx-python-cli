@@ -487,6 +487,18 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
             # Avoid a YAML dependency: a workflow can only be dispatched on a ref
             # if its definition mentions the `workflow_dispatch` trigger at all.
             has_dispatch = "workflow_dispatch" in body
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr or ""
+            # A 404 means the workflow file no longer exists at `ref` — a stale
+            # entry in the Actions registry (renamed/deleted workflow). It can
+            # never be dispatched on this ref, so skip it quietly rather than
+            # attempting a dispatch that is guaranteed to 422.
+            if "404" in stderr or "Not Found" in stderr:
+                typer.echo(f"   {name} — skipped (not present on {ref})")
+                continue
+            if verbose:
+                typer.echo(f"   [verbose] could not inspect {name}: {e}", err=True)
+            has_dispatch = True  # transient/other error: fall back to attempting
         except Exception as e:  # noqa: BLE001 — best-effort; still try to dispatch
             if verbose:
                 typer.echo(f"   [verbose] could not inspect {name}: {e}", err=True)
