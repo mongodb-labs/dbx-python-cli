@@ -1264,7 +1264,15 @@ def _show_commit_comparison(
             if verbose or commits_behind > 0 or commits_ahead > 0:
                 # Show commits that would be applied from upstream
                 if commits_behind > 0:
-                    typer.echo(f"\nCommits from {rebase_target} that would be applied:")
+                    if commits_behind > 10:
+                        typer.echo(
+                            f"\nCommits from {rebase_target} that would be applied"
+                            f" (first 10 of {commits_behind}):"
+                        )
+                    else:
+                        typer.echo(
+                            f"\nCommits from {rebase_target} that would be applied:"
+                        )
                     result = subprocess.run(
                         [
                             "git",
@@ -1273,6 +1281,8 @@ def _show_commit_comparison(
                             "log",
                             "--oneline",
                             "--no-decorate",
+                            "-n",
+                            "10",
                             f"{origin_branch}..{rebase_target}",
                         ],
                         check=True,
@@ -1285,9 +1295,15 @@ def _show_commit_comparison(
 
                 # Show commits in origin that would be rebased
                 if commits_ahead > 0:
-                    typer.echo(
-                        f"\nCommits in origin/{current_branch} that would be rebased:"
-                    )
+                    if commits_ahead > 10:
+                        typer.echo(
+                            f"\nCommits in origin/{current_branch} that would be rebased"
+                            f" (first 10 of {commits_ahead}):"
+                        )
+                    else:
+                        typer.echo(
+                            f"\nCommits in origin/{current_branch} that would be rebased:"
+                        )
                     result = subprocess.run(
                         [
                             "git",
@@ -1296,6 +1312,8 @@ def _show_commit_comparison(
                             "log",
                             "--oneline",
                             "--no-decorate",
+                            "-n",
+                            "10",
                             f"{rebase_target}..{origin_branch}",
                         ],
                         check=True,
