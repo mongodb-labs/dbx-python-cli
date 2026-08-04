@@ -219,8 +219,9 @@ django = "mongodb-6.0.x"
 [repo.groups.django.ci_rerun.django]
 "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
 "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = {pr = 422, evergreen = true}}
-"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 562, evergreen = true}}
-"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 535, evergreen = true}}
+"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 607, evergreen = true}}
+# 535 was closed and superseded by 602 for the same head branch (django62).
+"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 602, evergreen = true}}
 
 # Environment variables for test runs
 [repo.groups.django.test_env]
