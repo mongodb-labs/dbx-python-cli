@@ -335,20 +335,70 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
         if kind == "pr":
             _rerun_pr_ci(target, value, branch, verbose, _gh_json)
         elif kind == "evergreen":
-            _retry_evergreen(target, value, branch, verbose)
+            _retry_evergreen(target, value, branch, verbose, _gh_json)
         else:
             _dispatch_workflows(target, value, branch, verbose, _gh_json)
 
 
+def _gh_error_message(stderr):
+    """Extract the API error message from ``gh``'s stderr.
+
+    ``gh api`` reports failures as ``gh: <message> (HTTP <code>)`` on stderr,
+    sometimes preceded by the raw JSON body. Pull out the human-readable part so
+    callers can report *why* GitHub refused instead of guessing.
+    """
+    for line in reversed((stderr or "").strip().splitlines()):
+        line = line.strip()
+        if line.startswith("gh: "):
+            return line[4:].strip()
+    return (stderr or "").strip().splitlines()[-1].strip() if stderr else ""
+
+
+def _pr_state(target, number, _gh_json):
+    """Return a PR's state (``OPEN``/``CLOSED``/``MERGED``), or None if unknown.
+
+    Best-effort: a lookup failure returns None so callers proceed rather than
+    skipping work over a transient API error.
+    """
+    import json
+
+    try:
+        pr = _gh_json(["pr", "view", str(number), "--repo", target, "--json", "state"])
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        return None
+    return pr.get("state") if isinstance(pr, dict) else None
+
+
 def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
-    """Re-run the workflow runs attached to an open PR's head commit."""
+    """Re-run the workflow runs attached to an open PR's head commit.
+
+    A closed or merged PR is reported and skipped: its CI would not gate
+    anything, and a stale ``ci_rerun`` mapping pointing at a superseded PR is
+    a configuration bug worth surfacing rather than silently acting on.
+    """
     import json
 
     typer.echo(f"♻️  {branch} → re-running CI on {target}#{number}...")
     try:
         pr = _gh_json(
-            ["pr", "view", str(number), "--repo", target, "--json", "headRefOid"]
+            [
+                "pr",
+                "view",
+                str(number),
+                "--repo",
+                target,
+                "--json",
+                "headRefOid,state",
+            ]
         )
+        state = pr.get("state") if isinstance(pr, dict) else None
+        if state and state != "OPEN":
+            typer.echo(
+                f"   #{number} ⚠️  PR is {state.lower()} — skipping "
+                f"(update the ci_rerun mapping for '{branch}')",
+                err=True,
+            )
+            return
         head_sha = pr.get("headRefOid") if isinstance(pr, dict) else None
         if not head_sha:
             raise ValueError("no head commit returned")
@@ -370,6 +420,7 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
         return
 
     requeued = 0
+    reasons = []
     for run_id in runs:
         try:
             subprocess.run(
@@ -381,11 +432,14 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
                     f"repos/{target}/actions/runs/{run_id}/rerun",
                 ],
                 check=True,
-                capture_output=not verbose,
+                capture_output=True,
                 text=True,
             )
             requeued += 1
         except subprocess.CalledProcessError as e:
+            reason = _gh_error_message(e.stderr)
+            if reason and reason not in reasons:
+                reasons.append(reason)
             if verbose:
                 typer.echo(
                     f"   [verbose] rerun failed for run {run_id}: {e.stderr}",
@@ -394,22 +448,47 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
 
     if requeued:
         typer.echo(f"   #{number} ✓ queued ({requeued} workflow run(s))")
+        return
+
+    # Report what GitHub actually said. The common refusals are meaningfully
+    # different: runs older than GitHub's 30-day retry window can never be
+    # re-run (the PR needs a fresh push instead), whereas a missing
+    # `actions: write` scope is fixable by re-authenticating.
+    if reasons:
+        typer.echo(f"   #{number} ⚠️  no runs re-queued: {reasons[0]}", err=True)
+        for extra in reasons[1:]:
+            typer.echo(f"      also: {extra}", err=True)
+        if any("over a month ago" in r for r in reasons):
+            typer.echo(
+                "      → runs are past GitHub's 30-day retry window; push to the "
+                f"PR branch to get fresh Actions runs on #{number}",
+                err=True,
+            )
     else:
-        typer.echo(
-            f"   #{number} ⚠️  no runs re-queued (already running or no permission)",
-            err=True,
-        )
+        typer.echo(f"   #{number} ⚠️  no runs re-queued", err=True)
 
 
-def _retry_evergreen(target, number, branch, verbose):
+def _retry_evergreen(target, number, branch, verbose, _gh_json=None):
     """Re-trigger a PR's Evergreen patch by commenting ``evergreen retry``.
 
     Evergreen's PR patch checks out the backend PR at a pinned fork ref, so a
     rebased (force-pushed) fork branch does not re-run Evergreen on its own.
     Commenting ``evergreen retry`` on the PR aborts any existing patch for the
     head commit and starts a fresh one. Best-effort: never fails the sync.
+
+    A closed or merged PR is skipped: Evergreen does not run patches for it, so
+    the comment would be noise on a PR nobody is watching.
     """
     typer.echo(f"♻️  {branch} → retrying Evergreen on {target}#{number}...")
+    if _gh_json is not None:
+        state = _pr_state(target, number, _gh_json)
+        if state and state != "OPEN":
+            typer.echo(
+                f"   #{number} ⚠️  PR is {state.lower()} — skipping "
+                f"(update the ci_rerun mapping for '{branch}')",
+                err=True,
+            )
+            return
     try:
         subprocess.run(
             [
