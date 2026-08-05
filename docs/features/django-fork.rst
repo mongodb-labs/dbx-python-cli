@@ -211,6 +211,7 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
   backend branch via ``workflow_dispatch`` (no PR needed). Each backend branch
   pins the fork branch it tests via ``ref:``, so the backend ref selects which
   fork branch is exercised — e.g. the backend's ``main`` pins ``mongodb-6.0.x``.
+  See `Which backend branch pins which fork branch`_ for the full mapping.
   Only ``test-python*`` workflows that actually declare a ``workflow_dispatch``
   trigger are dispatched; any that don't (push/schedule/pull_request only) are
   reported as ``skipped (no workflow_dispatch trigger)`` instead of failing.
@@ -229,10 +230,16 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
 
    [repo.groups.django.ci_rerun.django]
    "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}   # dispatch, no PR
-   "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 422}      # re-run PR #422 (Actions only)
-   "mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 562}
-   # Re-run Actions AND re-trigger Evergreen on PR #535:
-   "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 535, evergreen = true}}
+   "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = 1111}     # re-run PR #1111 (Actions only)
+   "mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = 2222}
+   # Re-run Actions AND re-trigger Evergreen on PR #3333:
+   "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 3333, evergreen = true}}
+
+The PR numbers above are placeholders — substitute the real ones in your own
+config. They have to stay integers: an integer is read as a PR number and a
+quoted string as a git ref, so ``"1111"`` would mean something entirely
+different. See ``[repo.groups.django.ci_rerun.django]`` in the bundled
+``config.toml`` for the current live mapping.
 
 .. code-block:: text
 
@@ -243,12 +250,12 @@ maps an ``owner/name`` GitHub repo to a target that is **either**:
       test-python-geo.yml ✓ queued
       test-python-replica.yml — skipped (no workflow_dispatch trigger)
       test-python1.yml — skipped (not present on main)
-   ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#422...
-      #422 ✓ queued (4 workflow run(s))
-   ♻️  mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#535...
-      #535 ✓ queued (4 workflow run(s))
-   ♻️  mongodb-6.2.x → retrying Evergreen on mongodb/django-mongodb-backend#535...
-      #535 ✓ commented 'evergreen retry'
+   ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#1111...
+      #1111 ✓ queued (4 workflow run(s))
+   ♻️  mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#3333...
+      #3333 ✓ queued (4 workflow run(s))
+   ♻️  mongodb-6.2.x → retrying Evergreen on mongodb/django-mongodb-backend#3333...
+      #3333 ✓ commented 'evergreen retry'
 
 This uses the ``gh`` CLI (GitHub CLI), so ``gh`` must be installed and
 authenticated. It is best-effort: a missing ``gh``, an unconfigured ``ci_rerun``
@@ -361,6 +368,59 @@ suite, and the backend supplies the database engine and settings. The
   a workflow on a given backend ref exercises the fork branch that ref pins — the
   basis for the ``ci_rerun`` "ref" form (e.g. the backend's ``main`` pins
   ``mongodb-6.0.x``).
+
+Which backend branch pins which fork branch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The pinned pairs, and which ``test-python*`` workflows exist on each backend
+branch (older release branches predate the geo, Atlas, and encryption
+workflows):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 22 58
+
+   * - Backend branch
+     - Pinned fork ``ref:``
+     - ``test-python*`` workflows present
+   * - ``main``
+     - ``mongodb-6.0.x``
+     - ``test-python``, ``-geo``, ``-atlas``, ``-encryption``
+   * - ``5.2.x``
+     - ``mongodb-5.2.x``
+     - ``test-python``, ``-geo``, ``-atlas``
+   * - ``5.1.x``
+     - ``mongodb-5.1.x``
+     - ``test-python``
+   * - ``5.0.x``
+     - ``mongodb-5.0.x``
+     - ``test-python``
+
+This table is a snapshot — the ``ref:`` values are bumped as the backend moves
+to newer Django releases, so confirm against the workflow files before relying
+on it. To check a single branch:
+
+.. code-block:: bash
+
+   git show upstream/main:.github/workflows/test-python.yml | grep -A2 "mongodb-forks/django"
+
+Two consequences for validating a rebase:
+
+- **Only the pinned pairs are reachable.** The workflows take no
+  ``workflow_dispatch`` inputs — the fork ``ref:`` is hardcoded — so there is no
+  way to dispatch, say, the backend's ``main`` against ``mongodb-5.2.x``. To
+  exercise a fork branch through backend CI you dispatch on the backend branch
+  that pins it, which means one dispatch per branch and no arbitrary
+  (backend, fork branch) combinations. Testing an unpinned pair requires either
+  editing the ``ref:`` on a scratch backend branch or reproducing the run
+  locally (below).
+- **Fork branches with no live upstream target are never re-triggered.**
+  ``mongodb-5.0.x`` and ``mongodb-5.1.x`` exist on the fork but are deliberately
+  absent from the ``upstream_branch`` mapping, because Django's
+  ``stable/5.0.x`` / ``stable/5.1.x`` are gone (end of life). ``--all-branches``
+  therefore never rebases them and their ``ci_rerun`` entries would never fire —
+  correctly, since those branches are frozen. Only the mapped branches need
+  ``ci_rerun`` coverage.
 
 To reproduce a backend PR run locally against a fork branch you have rebased,
 mirror those steps: check out the fork branch in your ``django`` group clone,
