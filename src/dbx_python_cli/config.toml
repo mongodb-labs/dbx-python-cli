@@ -218,7 +218,8 @@ django = "mongodb-6.0.x"
 # A list may mix these forms.
 [repo.groups.django.ci_rerun.django]
 "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "main"}
-"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = {pr = 422, evergreen = true}}
+# 422 was closed and superseded by 608 for the same work (django61 → django61-ci-refresh).
+"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = {pr = 608, evergreen = true}}
 "mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 607, evergreen = true}}
 # 535 was closed and superseded by 602 for the same head branch (django62).
 "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 602, evergreen = true}}
