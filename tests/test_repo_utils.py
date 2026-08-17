@@ -243,6 +243,50 @@ def test_expand_env_var_value_with_tilde(tmp_path):
     assert expected_suffix in expanded
 
 
+def _fake_windows_os():
+    """Stand-in for the ``os`` module with Windows path semantics.
+
+    ``ntpath`` is what ``os.path`` is on Windows, so wrapping it lets the
+    Windows-only branch of _expand_env_var_value be exercised on any platform.
+    """
+    import ntpath
+    from types import SimpleNamespace
+
+    return SimpleNamespace(sep=ntpath.sep, path=ntpath)
+
+
+def test_expand_env_var_value_windows_uses_native_separator(monkeypatch):
+    """A {base_dir} path is normalised to the native separator on Windows.
+
+    Config files write these placeholders with forward slashes, which on Windows
+    would otherwise yield a mixed-separator path. ``ntpath`` stands in for ``os``
+    so this exercises the Windows branch on any platform.
+    """
+    monkeypatch.setattr("dbx_python_cli.utils.repo.os", _fake_windows_os())
+    expanded = _expand_env_var_value(
+        "{base_dir}/{group}/drivers-evergreen-tools", r"C:\repos", "pymongo"
+    )
+    assert expanded == r"C:\repos\pymongo\drivers-evergreen-tools"
+
+
+def test_expand_env_var_value_windows_preserves_url(monkeypatch):
+    """Values without {base_dir} are left alone, even on Windows.
+
+    Normalising every value would collapse the "//" in a connection string.
+    """
+    monkeypatch.setattr("dbx_python_cli.utils.repo.os", _fake_windows_os())
+    expanded = _expand_env_var_value(
+        "mongodb://localhost:27017", r"C:\repos", "pymongo"
+    )
+    assert expanded == "mongodb://localhost:27017"
+
+
+def test_expand_env_var_value_preserves_url(tmp_path):
+    """A connection string is not mangled by placeholder expansion."""
+    value = "mongodb://localhost:27017"
+    assert _expand_env_var_value(value, tmp_path, "pymongo") == value
+
+
 def test_expand_env_var_value_plain_string(tmp_path):
     """Test _expand_env_var_value with a plain string."""
     value = "plain_value"
