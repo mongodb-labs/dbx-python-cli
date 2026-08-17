@@ -1,5 +1,6 @@
 """Repository utilities and helper functions."""
 
+import os
 import subprocess
 import tomllib
 from pathlib import Path
@@ -643,6 +644,15 @@ def _expand_env_var_value(value, base_dir, group_name):
     # corrupting values like "mongodb://localhost:27017".
     if expanded.startswith("~"):
         expanded = str(Path(expanded).expanduser())
+
+    # A value built from {base_dir} is a filesystem path, and config files write
+    # these with forward slashes ("{base_dir}/{group}/drivers-evergreen-tools").
+    # On Windows that leaves a mixed-separator path ("C:\repos/pymongo/..."), so
+    # normalise to the native separator. Gated on the placeholder having been
+    # present so non-path values are untouched — normalising every value would
+    # corrupt URLs like "mongodb://localhost:27017" by collapsing the "//".
+    if "{base_dir}" in value and os.sep != "/":
+        expanded = os.path.normpath(expanded)
 
     return expanded
 
