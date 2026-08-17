@@ -367,7 +367,7 @@ suite, and the backend supplies the database engine and settings. The
 - Because each backend branch's workflow pins its own fork ``ref:``, dispatching
   a workflow on a given backend ref exercises the fork branch that ref pins — the
   basis for the ``ci_rerun`` "ref" form (e.g. the backend's ``main`` pins
-  ``mongodb-6.0.x``).
+  ``mongodb-6.1.x``, and its ``6.0.x`` branch pins ``mongodb-6.0.x``).
 
 Which backend branch pins which fork branch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -384,6 +384,9 @@ workflows):
      - Pinned fork ``ref:``
      - ``test-python*`` workflows present
    * - ``main``
+     - ``mongodb-6.1.x``
+     - ``test-python``, ``-geo``, ``-atlas``, ``-encryption``
+   * - ``6.0.x``
      - ``mongodb-6.0.x``
      - ``test-python``, ``-geo``, ``-atlas``, ``-encryption``
    * - ``5.2.x``
