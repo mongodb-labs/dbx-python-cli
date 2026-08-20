@@ -279,6 +279,29 @@ you want to keep green/red (the run attaches to that PR); use a **ref** to
 validate a rebase with no PR involved, or when no suitable PR run exists yet
 (for example the backend's ``main``, which pins ``mongodb-6.0.x``).
 
+.. warning::
+
+   **A re-run only revalidates the PR as it currently stands.** ``ci_rerun``
+   re-runs the existing workflow runs on the target PR; it does not update that
+   PR first. If the PR's head branch has fallen behind its base, the re-run
+   faithfully reproduces the stale result — including failures that were already
+   fixed on the base branch. A red check after a re-run is therefore not
+   necessarily caused by the fork rebase.
+
+   Before trusting a re-run, confirm the target PR is current::
+
+      gh api repos/mongodb/django-mongodb-backend/compare/<base>...<owner>:<repo>:<head> \
+        -q '"ahead=\(.ahead_by) behind=\(.behind_by) \(.status)"'
+
+   A non-zero ``behind`` means the PR needs rebasing on its base before its
+   checks mean anything. Note that ``mergeable: MERGEABLE`` does **not** imply
+   the branch is current — it only means there are no merge conflicts, so a
+   badly stale PR still reports as mergeable.
+
+   This bites documentation checks in particular: the backend builds its docs
+   with ``sphinx -W`` (warnings as errors), so a docs fix that has landed on the
+   base branch will keep failing on every stale PR until each one is rebased.
+
 Adding a new release branch
 ----------------------------
 
