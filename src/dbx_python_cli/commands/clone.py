@@ -18,6 +18,7 @@ from dbx_python_cli.utils.repo import (
 from dbx_python_cli.utils.repo import (
     switch_to_branch as _switch_to_branch,
 )
+from dbx_python_cli.utils.worktree import has_remote
 
 
 def sync_repo_after_clone(
@@ -778,18 +779,28 @@ def clone_callback(
                     if clone_success and repo.should_create_upstream_worktree(
                         config, config_group, repo_name
                     ):
-                        wt_ok, wt_message = create_upstream_worktree(
-                            repo_path, repo_name, config_group, config, verbose
-                        )
-                        if wt_ok:
-                            typer.echo(
-                                f"  🌿 {repo_name}: upstream worktree at {wt_message}"
-                            )
+                        # Without an 'upstream' remote (e.g. cloned without
+                        # --fork) there is nothing to track, so this is a
+                        # no-op rather than a failure worth warning about.
+                        if not has_remote(repo_path, "upstream"):
+                            if verbose:
+                                typer.echo(
+                                    f"  [verbose] {repo_name}: no 'upstream' remote, "
+                                    "skipping upstream worktree"
+                                )
                         else:
-                            typer.echo(
-                                f"  ⚠️  {repo_name}: upstream worktree skipped ({wt_message})",
-                                err=True,
+                            wt_ok, wt_message = create_upstream_worktree(
+                                repo_path, repo_name, config_group, config, verbose
                             )
+                            if wt_ok:
+                                typer.echo(
+                                    f"  🌿 {repo_name}: upstream worktree at {wt_message}"
+                                )
+                            else:
+                                typer.echo(
+                                    f"  ⚠️  {repo_name}: upstream worktree skipped ({wt_message})",
+                                    err=True,
+                                )
 
                     # Track successful clone for auto-install
                     if clone_success:
