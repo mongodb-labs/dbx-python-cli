@@ -63,8 +63,12 @@ def fork_and_upstream(tmp_path):
     group_dir = base_dir / "django"
     group_dir.mkdir(parents=True)
 
+    # --initial-branch pins the name rather than inheriting the machine's
+    # init.defaultBranch, which is `master` on the CI runners. Without it the
+    # bare repo's HEAD points at an unborn `master` while the only real branch
+    # is `main`, so upstream/HEAD cannot be resolved.
     origin = tmp_path / "origin.git"
-    _git("init", "-q", "--bare", str(origin), cwd=tmp_path)
+    _git("init", "-q", "--bare", "--initial-branch=main", str(origin), cwd=tmp_path)
 
     seed = tmp_path / "seed"
     _git("clone", "-q", str(origin), str(seed), cwd=tmp_path)
