@@ -1,5 +1,6 @@
 """Tests for the worktree command module and worktree utilities."""
 
+import os
 import subprocess
 from unittest.mock import patch
 
@@ -22,10 +23,31 @@ from dbx_python_cli.utils.worktree import (
 runner = CliRunner()
 
 
+# CI runners have no global git identity, so commits fail with exit 128 unless
+# one is supplied. Setting it in the environment keeps it scoped to these tests
+# rather than writing to the developer's global config.
+_GIT_ENV = {
+    **os.environ,
+    "GIT_AUTHOR_NAME": "dbx tests",
+    "GIT_AUTHOR_EMAIL": "dbx-tests@example.com",
+    "GIT_COMMITTER_NAME": "dbx tests",
+    "GIT_COMMITTER_EMAIL": "dbx-tests@example.com",
+    # A developer's global commit.gpgsign would otherwise prompt or fail here.
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "commit.gpgsign",
+    "GIT_CONFIG_VALUE_0": "false",
+}
+
+
 def _git(*args, cwd):
     """Run a git command, raising on failure."""
     return subprocess.run(
-        ["git", *args], cwd=str(cwd), check=True, capture_output=True, text=True
+        ["git", *args],
+        cwd=str(cwd),
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_GIT_ENV,
     )
 
 
