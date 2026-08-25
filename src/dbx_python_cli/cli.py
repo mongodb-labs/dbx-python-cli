@@ -25,6 +25,7 @@ from dbx_python_cli.commands import (
     switch,
     sync,
     test,
+    worktree,
 )
 
 
@@ -77,6 +78,7 @@ app.add_typer(status.app, name="status")
 app.add_typer(switch.app, name="switch")
 app.add_typer(sync.app, name="sync")
 app.add_typer(test.app, name="test")
+app.add_typer(worktree.app, name="worktree")
 
 
 def version_callback(value: bool):

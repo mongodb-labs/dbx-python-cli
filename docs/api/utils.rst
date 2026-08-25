@@ -34,3 +34,11 @@ dbx_python_cli.utils.venv module
    :members:
    :undoc-members:
    :show-inheritance:
+
+dbx_python_cli.utils.worktree module
+------------------------------------
+
+.. automodule:: dbx_python_cli.utils.worktree
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -241,6 +241,79 @@ completes — equivalent to running ``dbx sync mongo-python-driver`` right after
 - Like ``dbx sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
 - Pass ``--no-sync`` to ``dbx clone`` to skip this for a single invocation even when configured
 
+.. _upstream-worktrees:
+
+Upstream Worktrees
+~~~~~~~~~~~~~~~~~~
+
+A git worktree lets a single clone keep several branches checked out at once, in
+separate directories sharing one object store. That makes it possible to develop
+against a fork *and* its upstream without cloning the upstream separately.
+
+List a repo in ``upstream_worktree`` to have ``dbx clone`` create one:
+
+.. code-block:: toml
+
+   [repo.groups.django]
+   upstream_worktree = ["django"]
+
+Cloning then produces a sibling directory checked out on the upstream default
+branch, under a branch named ``upstream-<default branch>`` so it cannot collide
+with a same-named branch tracking ``origin``:
+
+.. code-block:: text
+
+   base_dir/django/django/            # fork clone, on its preferred branch
+   base_dir/django/django-upstream/   # worktree, on upstream-main
+
+Manage worktrees for any repo with ``dbx worktree``:
+
+.. code-block:: bash
+
+   dbx worktree add <repo> --upstream        # upstream default branch
+   dbx worktree add <repo> <branch>          # an existing branch, alongside the current one
+   dbx worktree add <repo> <branch> -u       # an upstream branch
+   dbx worktree list <repo>                  # every checkout (* marks the primary clone)
+   dbx worktree remove <repo> [<label>]      # defaults to the `upstream` worktree
+
+**Notes:**
+
+- Requires an ``upstream`` remote; on clone this comes from the ``upstream`` config key
+- Worktree directories are named ``<repo>-<label>``, where ``label`` defaults to the branch name with ``/`` replaced by ``-``
+- A branch can only be checked out in one worktree at a time; ``dbx worktree add`` reports git's refusal rather than moving it
+- ``dbx remove`` unregisters worktrees via ``git worktree remove`` and removes them before the clone they belong to
+
+Which commands see worktrees
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commands that only read are happy to include worktrees; commands that write to
+a checkout skip them:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Command
+     - Worktrees
+     - Why
+   * - ``dbx status``, ``dbx log``, ``dbx branch``
+     - included
+     - Read-only, and seeing the upstream checkout's state is useful
+   * - ``dbx sync``
+     - skipped
+     - Rebasing a worktree onto upstream and force-pushing it to ``origin`` would push upstream's history into the fork
+   * - ``dbx switch -g <group>``
+     - skipped
+     - A branch can only be checked out in one worktree at a time, so a bulk switch would fail or move a checkout in use
+   * - ``dbx install -g <group>``
+     - skipped
+     - A worktree shares its clone's package name; installing it would replace the clone's editable install in the group venv
+
+``dbx sync`` refuses a worktree even when you name one explicitly, because the
+force-push is not recoverable. ``dbx switch <worktree> <branch>`` is allowed —
+it is reversible, and git refuses on its own if the branch is checked out
+elsewhere.
+
 .. _config-driven-upstream:
 
 Config-Driven Upstream Remotes
@@ -428,6 +501,7 @@ Per-group keys of note:
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
 - ``sync_after_clone`` — list of repo names to automatically ``dbx sync`` immediately after cloning (see :ref:`sync-after-clone`)
+- ``upstream_worktree`` — list of repo names that get an upstream git worktree created on clone (see :ref:`upstream-worktrees`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
 - ``install_dirs`` — sub-directory paths for repos that contain multiple packages
 - ``build_commands`` — shell commands run before installation (e.g. a Rust or CMake build)

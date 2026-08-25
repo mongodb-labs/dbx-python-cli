@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 
+from dbx_python_cli.commands.worktree import create_upstream_worktree
 from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.repo import (
     get_group_dir,
@@ -13,6 +14,8 @@ from dbx_python_cli.utils.repo import (
     get_upstream_url,
     is_flat_mode,
     should_sync_after_clone,
+)
+from dbx_python_cli.utils.repo import (
     switch_to_branch as _switch_to_branch,
 )
 
@@ -769,6 +772,24 @@ def clone_callback(
                         sync_repo_after_clone(
                             repo_path, repo_name, config_group, config, verbose
                         )
+
+                    # Create the upstream worktree if configured, so the fork
+                    # and its upstream can both be worked on from this clone.
+                    if clone_success and repo.should_create_upstream_worktree(
+                        config, config_group, repo_name
+                    ):
+                        wt_ok, wt_message = create_upstream_worktree(
+                            repo_path, repo_name, config_group, config, verbose
+                        )
+                        if wt_ok:
+                            typer.echo(
+                                f"  🌿 {repo_name}: upstream worktree at {wt_message}"
+                            )
+                        else:
+                            typer.echo(
+                                f"  ⚠️  {repo_name}: upstream worktree skipped ({wt_message})",
+                                err=True,
+                            )
 
                     # Track successful clone for auto-install
                     if clone_success:

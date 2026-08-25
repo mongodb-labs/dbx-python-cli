@@ -172,6 +172,10 @@ repos = [
 no_fork = ["django"]
 # Automatically sync with upstream immediately after cloning
 sync_after_clone = ["django-mongodb-backend"]
+# Create a sibling `<repo>-upstream` git worktree after cloning, so the fork
+# and its upstream can both be developed from a single clone (one object store,
+# two working trees). The worktree checks out `upstream-<default branch>`.
+upstream_worktree = ["django"]
 
 # Upstream remote URL for fork repos (added as `upstream` remote on clone)
 # Use this when the group contains forks that need to track the original repo.

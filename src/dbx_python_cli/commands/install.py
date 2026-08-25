@@ -494,7 +494,11 @@ def install_callback(
                     )
                     raise typer.Exit(1)
 
-                group_repos = [r for r in all_repos if r["group"] == grp]
+                # Worktrees share their clone's package name; installing one would
+                # replace the primary checkout's editable install in the group venv.
+                group_repos = [
+                    r for r in all_repos if r["group"] == grp and not r.get("worktree")
+                ]
                 if not group_repos:
                     typer.echo(
                         f"❌ Error: No repositories found in group '{grp}'", err=True
@@ -509,7 +513,11 @@ def install_callback(
 
             # Show options for all groups
             for grp in groups:
-                group_repos = [r for r in all_repos if r["group"] == grp]
+                # Worktrees share their clone's package name; installing one would
+                # replace the primary checkout's editable install in the group venv.
+                group_repos = [
+                    r for r in all_repos if r["group"] == grp and not r.get("worktree")
+                ]
 
                 if len(groups) > 1:
                     typer.echo(f"{'#' * 60}")
@@ -676,7 +684,11 @@ def install_callback(
                 typer.echo(f"❌ Error: Group '{grp}' not found in {base_dir}", err=True)
                 raise typer.Exit(1)
 
-            group_repos = [r for r in all_repos if r["group"] == grp]
+            # Worktrees share their clone's package name; installing one would
+            # replace the primary checkout's editable install in the group venv.
+            group_repos = [
+                r for r in all_repos if r["group"] == grp and not r.get("worktree")
+            ]
             if not group_repos:
                 typer.echo(
                     f"❌ Error: No repositories found in group '{grp}'", err=True
@@ -696,7 +708,11 @@ def install_callback(
 
         for grp in groups:
             group_path = get_group_dir(base_dir, grp, flat)
-            group_repos = [r for r in all_repos if r["group"] == grp]
+            # Worktrees share their clone's package name; installing one would
+            # replace the primary checkout's editable install in the group venv.
+            group_repos = [
+                r for r in all_repos if r["group"] == grp and not r.get("worktree")
+            ]
 
             if len(groups) > 1:
                 typer.echo(f"\n{'#' * 60}")

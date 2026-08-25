@@ -42,6 +42,10 @@ organisation rather than a personal account:
    [repo.groups.django.preferred_branch]
    django = "mongodb-6.0.x"
 
+   # Add a `django-upstream` worktree on clone so the fork and upstream Django
+   # can both be worked on from one clone
+   upstream_worktree = ["django"]
+
 Each key plays a specific role in fork maintenance:
 
 ``no_fork``
@@ -65,6 +69,11 @@ Each key plays a specific role in fork maintenance:
 ``preferred_branch``
    The branch ``dbx clone`` switches to automatically after cloning.
 
+``upstream_worktree``
+   Lists repos that get a sibling git worktree checked out on the upstream
+   default branch immediately after cloning. See
+   :ref:`django-fork-upstream-worktree`.
+
 Cloning the fork
 ----------------
 
@@ -86,6 +95,86 @@ To clone only the Django fork itself:
 .. code-block:: bash
 
    dbx clone django
+
+.. _django-fork-upstream-worktree:
+
+Developing against the fork and upstream from one clone
+-------------------------------------------------------
+
+Fork maintenance regularly needs both sides at once: reading upstream Django to
+see what changed, and editing the fork branch to adapt to it. A second clone
+would mean a second full fetch of Django's history and two object stores to keep
+current.
+
+A git *worktree* avoids that. One clone can have several branches checked out at
+the same time, each in its own directory, all sharing a single ``.git`` object
+store. Because ``upstream_worktree = ["django"]`` is set, ``dbx clone`` creates
+one automatically:
+
+.. code-block:: text
+
+   ~/Developer/mongodb/django/
+     django/            # primary clone, on mongodb-6.0.x (origin = mongodb-forks)
+     django-upstream/   # worktree, on upstream-main (tracks upstream/main)
+
+The worktree's branch is named ``upstream-<default branch>`` rather than just
+``main``, so it cannot collide with a branch of the same name already tracking
+``origin`` in the fork.
+
+Fetching in either directory updates the shared object store, so comparisons
+between the two are local and immediate:
+
+.. code-block:: bash
+
+   cd ~/Developer/mongodb/django/django
+   git log upstream-main..mongodb-6.0.x        # what the fork adds
+   git diff upstream-main -- django/db/models  # what the fork changed
+
+Managing worktrees manually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``dbx worktree`` manages worktrees for any repo, whether or not
+``upstream_worktree`` is configured:
+
+.. code-block:: bash
+
+   # Add the upstream worktree (django-upstream, on the upstream default branch)
+   dbx worktree add django --upstream
+
+   # Check out a specific upstream branch (django-stable-6.1.x)
+   dbx worktree add django stable/6.1.x --upstream
+
+   # Check out an existing fork branch alongside the current one
+   dbx worktree add django mongodb-6.2.x
+
+   # Override the directory suffix
+   dbx worktree add django stable/6.1.x --upstream --label 61
+
+   # Show every checkout attached to the clone (* marks the primary one)
+   dbx worktree list django
+
+   # Remove by directory suffix (defaults to `upstream`)
+   dbx worktree remove django
+   dbx worktree remove django 61 --force
+
+Removal goes through ``git worktree remove`` so the registration inside the
+primary clone is cleaned up too; deleting the directory by hand would leave a
+stale entry that blocks recreating the worktree later. ``dbx remove`` handles
+this as well, removing worktrees before the clone they belong to.
+
+A branch can only be checked out in one worktree at a time. ``dbx worktree add``
+reports git's refusal rather than working around it, so the fork branch you are
+editing is never silently moved out from under you.
+
+.. note::
+
+   ``django-upstream`` is skipped by ``dbx sync``, ``dbx switch -g django`` and
+   ``dbx install -g django`` — see :ref:`upstream-worktrees` for why. It still
+   appears in ``dbx status``, ``dbx log`` and ``dbx branch``, which only read.
+
+   In particular, the fork clone stays the installed one: a Django worktree has
+   the same package name, so installing it would replace the fork checkout as
+   the live ``django`` package in the group venv.
 
 Syncing a branch with upstream
 ------------------------------
