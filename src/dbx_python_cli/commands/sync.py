@@ -10,6 +10,7 @@ import typer
 
 from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.output import paginate_output, should_use_pager
+from dbx_python_cli.utils.repo import is_worktree
 
 app = typer.Typer(
     help="Sync repositories with upstream",
@@ -710,7 +711,8 @@ def sync_callback(
     )
 
     def _enrich(repo_list):
-        """Attach upstream_branch from config to each repo_info dict."""
+        """Drop worktrees, then attach upstream_branch from config to each repo."""
+        repo_list = [r for r in repo_list if not r.get("worktree")]
         for r in repo_list:
             r["upstream_branch"] = get_upstream_branch(config, r["group"], r["name"])
         return repo_list
@@ -956,6 +958,14 @@ def _sync_repository(
     Returns:
         "synced", "skipped", "failed", or "dry_run"
     """
+    # Worktrees track a branch of the clone they belong to (typically an upstream
+    # branch). Rebasing one onto upstream and force-pushing it to origin would
+    # push upstream's history into the fork, so sync never touches them; sync the
+    # primary clone instead.
+    if is_worktree(repo_path):
+        typer.echo(f"⏭️  Skipping {repo_name} (worktree)")
+        return "skipped"
+
     if dry_run:
         typer.echo(f"🔍 Checking {repo_name}")
     else:

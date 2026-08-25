@@ -130,3 +130,11 @@ dbx_python_cli.commands.test module
    :members:
    :undoc-members:
    :show-inheritance:
+
+dbx_python_cli.commands.worktree module
+---------------------------------------
+
+.. automodule:: dbx_python_cli.commands.worktree
+   :members:
+   :undoc-members:
+   :show-inheritance:

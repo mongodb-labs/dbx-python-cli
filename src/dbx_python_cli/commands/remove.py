@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from dbx_python_cli.utils import repo
+from dbx_python_cli.utils.worktree import prune_worktrees, remove_worktree
 
 app = typer.Typer(
     help="Remove repositories or repository groups",
@@ -180,13 +181,32 @@ def remove_callback(
     failed_count = 0
 
     typer.echo()
+    # Remove worktrees before their primary clones: `git worktree remove` needs
+    # the clone's .git directory, and deleting the clone first would strand the
+    # worktree with a dangling gitdir pointer.
+    repos_to_remove = sorted(
+        repos_to_remove, key=lambda r: not r.get("worktree", False)
+    )
     for repo_info in repos_to_remove:
         repo_path = Path(repo_info["path"])
         try:
-            if verbose:
-                typer.echo(f"[verbose] Removing directory: {repo_path}")
-
-            shutil.rmtree(repo_path)
+            if repo_info.get("worktree"):
+                if verbose:
+                    typer.echo(f"[verbose] Removing worktree: {repo_path}")
+                # --force: the confirmation prompt above is the safety gate, and
+                # git otherwise refuses whenever the worktree is dirty.
+                ok, message = remove_worktree(
+                    repo_path, repo_path, force=True, verbose=verbose
+                )
+                if not ok:
+                    raise RuntimeError(message)
+            else:
+                if verbose:
+                    typer.echo(f"[verbose] Removing directory: {repo_path}")
+                # Drop registrations for worktrees removed above so the clone's
+                # metadata is consistent if anything later inspects it.
+                prune_worktrees(repo_path, verbose=verbose)
+                shutil.rmtree(repo_path)
             typer.echo(f"✅ Removed {repo_info['name']} ({repo_info['group']})")
             removed_count += 1
         except Exception as e:

@@ -2,10 +2,10 @@
 
 import os
 import subprocess
-import tomllib
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
+import tomllib
 import typer
 
 
@@ -58,6 +58,15 @@ def get_group_dir(base_dir, group, flat=False):
 def get_repo_dir(base_dir, group, repo_name, flat=False):
     """Return the repo directory path regardless of layout mode."""
     return base_dir / repo_name if flat else base_dir / group / repo_name
+
+
+def is_worktree(path):
+    """Return True if *path* is a linked git worktree rather than a primary clone.
+
+    Git marks a linked worktree by writing ``.git`` as a *file* holding a
+    ``gitdir:`` pointer; a primary clone has ``.git`` as a directory.
+    """
+    return (Path(path) / ".git").is_file()
 
 
 def get_projects_dir(base_dir, flat=False):
@@ -388,6 +397,34 @@ def get_upstream_branch(config, group_name, repo_name, current_branch=None):
     if isinstance(value, dict) and current_branch is not None:
         return value.get(current_branch)
     return value
+
+
+def should_create_upstream_worktree(config, group_name, repo_name):
+    """Check whether a repo should get an upstream worktree created on clone.
+
+    When enabled, ``dbx clone`` adds a sibling worktree checked out on the
+    upstream remote's default branch, so a fork can be developed against its
+    upstream from a single clone (one object store, two working trees).
+
+    Configure in ``[repo.groups.<group>]`` as a list of repo names:
+
+    .. code-block:: toml
+
+        [repo.groups.django]
+        upstream_worktree = ["django"]
+
+    Args:
+        config: Configuration dictionary
+        group_name: Name of the group (e.g., 'django')
+        repo_name: Name of the repository (e.g., 'django')
+
+    Returns:
+        bool: True if an upstream worktree should be created after cloning
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return False
+    return repo_name in groups[group_name].get("upstream_worktree", [])
 
 
 def should_sync_after_clone(config, group_name, repo_name):
@@ -732,10 +769,24 @@ def find_all_repos(base_dir, config=None):
                 continue
             if (repo_dir / ".git").exists():
                 group = repo_to_group.get(repo_dir.name, "")
-                repos.append({"name": repo_dir.name, "path": repo_dir, "group": group})
+                repos.append(
+                    {
+                        "name": repo_dir.name,
+                        "path": repo_dir,
+                        "group": group,
+                        "worktree": is_worktree(repo_dir),
+                    }
+                )
             elif (repo_dir / "manage.py").exists():
                 # Django projects: identified by manage.py, live directly in base_dir
-                repos.append({"name": repo_dir.name, "path": repo_dir, "group": ""})
+                repos.append(
+                    {
+                        "name": repo_dir.name,
+                        "path": repo_dir,
+                        "group": "",
+                        "worktree": False,
+                    }
+                )
         return repos
 
     # Grouped layout: base_dir/<group>/<repo>
@@ -750,6 +801,7 @@ def find_all_repos(base_dir, config=None):
                                 "name": repo_dir.name,
                                 "path": repo_dir,
                                 "group": group_dir.name,
+                                "worktree": is_worktree(repo_dir),
                             }
                         )
                     # Also check if it's a project (has pyproject.toml but no .git)
@@ -763,6 +815,7 @@ def find_all_repos(base_dir, config=None):
                                 "name": repo_dir.name,
                                 "path": repo_dir,
                                 "group": "projects",
+                                "worktree": False,
                             }
                         )
     return repos

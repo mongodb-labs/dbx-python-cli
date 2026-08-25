@@ -120,9 +120,13 @@ def switch_callback(
             typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
             raise typer.Exit(1)
 
-        # Find all repos in the group
+        # Find all repos in the group. Worktrees are excluded: a branch can only
+        # be checked out in one worktree at a time, so a bulk switch would either
+        # fail on them or move a checkout the user is working in.
         all_repos = find_all_repos(base_dir, config)
-        group_repos = [r for r in all_repos if r["group"] == group]
+        group_repos = [
+            r for r in all_repos if r["group"] == group and not r.get("worktree")
+        ]
 
         if not group_repos:
             typer.echo(

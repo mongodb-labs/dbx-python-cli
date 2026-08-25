@@ -97,6 +97,11 @@ Related subcommands that share a common domain:
    dbx project list
    dbx project remove
 
+   # Git worktree management
+   dbx worktree add django --upstream
+   dbx worktree list django
+   dbx worktree remove django
+
 Command Groups (Two Levels)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
