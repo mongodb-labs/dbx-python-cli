@@ -90,7 +90,14 @@ def _current_branch(repo_path):
 
 
 def _sync_all_branches(
-    repo_info, config, verbose, force, dry_run, no_ci=False, branch_filter=None
+    repo_info,
+    config,
+    verbose,
+    force,
+    dry_run,
+    no_ci=False,
+    branch_filter=None,
+    no_backport_report=False,
 ):
     """Sync branches in a repo's ``upstream_branch`` mapping.
 
@@ -188,6 +195,8 @@ def _sync_all_branches(
 
         summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
         typer.echo(summary)
+        if not no_backport_report:
+            _print_backport_report(repo_info, config, mapping, branches, verbose)
         return
 
     try:
@@ -266,6 +275,13 @@ def _sync_all_branches(
     # only re-validated when those PRs' CI is re-run (see get_ci_rerun_targets).
     if not no_ci and synced_branches:
         _rerun_downstream_ci(config, group, name, synced_branches, verbose)
+
+    # Rebasing the fork branches only aligns them with upstream's *current* tip;
+    # it says nothing about whether the released backend already contains those
+    # commits. Report that gap so a fix backported upstream after the last
+    # release (e.g. a 5.2.x security fix landing after backend 5.2.4) is noticed.
+    if not no_backport_report:
+        _print_backport_report(repo_info, config, mapping, branches, verbose)
 
 
 def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose=False):
@@ -658,6 +674,11 @@ def sync_callback(
         "--dry-run",
         help="Show what would be synced without making changes",
     ),
+    no_backport_report: bool = typer.Option(
+        False,
+        "--no-backport-report",
+        help="Skip the report of upstream commits landed since the latest downstream release (see release_repo config)",
+    ),
     no_ci: bool = typer.Option(
         False,
         "--no-ci",
@@ -679,6 +700,7 @@ def sync_callback(
         dbx sync <repo_name>                    # Sync a single repository
         dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
         dbx sync <repo_name> -B <branch>        # Sync only the named branch(es) from that map (repeatable)
+        dbx sync <repo_name> -b --no-backport-report  # Sync all branches, skip the release-gap report
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
@@ -810,6 +832,7 @@ def sync_callback(
                 dry_run,
                 no_ci,
                 branch_filter=branch or None,
+                no_backport_report=no_backport_report,
             )
             return
 
@@ -1420,3 +1443,260 @@ def _show_commit_comparison(
             f"❌ Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
             err=True,
         )
+
+
+def _git_out(path, args, check=True):
+    """Run a git command in ``path`` and return its stdout, stripped."""
+    return subprocess.run(
+        ["git", "-C", str(path), *args],
+        check=check,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _branch_series(branch):
+    """Return the ``X.Y`` release series a fork branch tracks, or None.
+
+    ``mongodb-5.2.x`` → ``"5.2"``. Branches that do not follow the
+    ``<prefix>-<major>.<minor>.x`` convention have no derivable series.
+    """
+    import re
+
+    match = re.search(r"(\d+)\.(\d+)\.x$", branch)
+    return f"{match.group(1)}.{match.group(2)}" if match else None
+
+
+def _django_dev_version(path):
+    """Return the in-development version on ``upstream/main`` (e.g. ``"6.2"``).
+
+    Read from ``django/__init__.py`` so the report can name the cycle a commit
+    came from even before that cycle's stable branch is cut. Falls back to
+    ``"main"`` when the file or ref cannot be read.
+    """
+    import re
+
+    try:
+        content = _git_out(path, ["show", "upstream/main:django/__init__.py"])
+    except subprocess.CalledProcessError:
+        return "main"
+    match = re.search(r"VERSION\s*=\s*\(\s*(\d+)\s*,\s*(\d+)", content)
+    return f"{match.group(1)}.{match.group(2)}" if match else "main"
+
+
+def _upstream_cycles(path):
+    """Return ``(cycles, dev_label)`` describing upstream's release cycles.
+
+    ``cycles`` is a list of ``(version, label, forkpoint)`` ascending by version,
+    one per live ``upstream/stable/X.Y.x`` branch, where ``forkpoint`` is the
+    ``main`` commit that branch was cut from. A commit is part of the ``X.Y``
+    cycle when it is an ancestor of that branch's fork point but of no earlier
+    one, so the ascending order makes the first match the right answer.
+
+    ``dev_label`` is the cycle for commits newer than every fork point, i.e. the
+    version currently in development on ``main``.
+    """
+    import re
+
+    cycles = []
+    refs = _git_out(
+        path,
+        [
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "refs/remotes/upstream/stable",
+        ],
+    )
+    for ref in refs.splitlines():
+        match = re.search(r"(\d+)\.(\d+)\.x$", ref.strip())
+        if not match:
+            continue
+        version = (int(match.group(1)), int(match.group(2)))
+        try:
+            forkpoint = _git_out(path, ["merge-base", "upstream/main", ref.strip()])
+        except subprocess.CalledProcessError:
+            continue
+        if forkpoint:
+            cycles.append((version, f"{version[0]}.{version[1]}", forkpoint))
+    cycles.sort(key=lambda c: c[0])
+    return cycles, _django_dev_version(path)
+
+
+def _classify_cycle(path, source_sha, cycles, dev_label, cache):
+    """Return the upstream dev cycle label a backport's source commit belongs to."""
+    if source_sha in cache:
+        return cache[source_sha]
+
+    label = dev_label
+    for _version, cycle_label, forkpoint in cycles:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(path),
+                "merge-base",
+                "--is-ancestor",
+                source_sha,
+                forkpoint,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            label = cycle_label
+            break
+    cache[source_sha] = label
+    return label
+
+
+def _latest_release_tag(release_path, series):
+    """Return ``(tag, iso_date)`` for the highest ``<series>.<patch>`` tag, or None."""
+    import re
+
+    try:
+        tags = _git_out(release_path, ["tag", "-l", f"{series}.*"])
+    except subprocess.CalledProcessError:
+        return None
+
+    pattern = re.compile(rf"^{re.escape(series)}\.(\d+)$")
+    matched = [(int(m.group(1)), t) for t in tags.split() if (m := pattern.match(t))]
+    if not matched:
+        return None
+
+    tag = max(matched)[1]
+    try:
+        date = _git_out(release_path, ["log", "-1", "--format=%cI", tag])
+    except subprocess.CalledProcessError:
+        return None
+    return tag, date
+
+
+def _new_upstream_commits(path, upstream_ref, since_iso):
+    """Return ``(sha, short, date, subject, body)`` for commits on ``upstream_ref``
+    committed after ``since_iso``."""
+    log = _git_out(
+        path,
+        [
+            "log",
+            f"upstream/{upstream_ref}",
+            f"--since={since_iso}",
+            "--date=short",
+            "--format=\x01%H\x02%h\x02%cd\x02%s\x02%b",
+        ],
+    )
+    commits = []
+    for entry in log.split("\x01")[1:]:
+        parts = entry.split("\x02", 4)
+        if len(parts) == 5:
+            commits.append(tuple(p.strip() for p in parts))
+    return commits
+
+
+def _print_backport_report(repo_info, config, mapping, branches, verbose=False):
+    """Report upstream commits that landed after the matching downstream release.
+
+    For each synced fork branch, compare its upstream target against the highest
+    release tag of the same series in the group's ``release_repo`` and list the
+    commits upstream has that the release does not, each labelled with the
+    upstream dev cycle it was backported from. This is what catches, say, a
+    security fix backported to Django's ``stable/5.2.x`` after
+    django-mongodb-backend 5.2.4 shipped.
+
+    Best-effort: any missing configuration or git failure is reported as a
+    warning rather than failing the sync.
+    """
+    import re
+
+    from dbx_python_cli.utils.repo import find_repo_by_name, get_release_repo
+
+    path = repo_info["path"]
+    name = repo_info["name"]
+    group = repo_info.get("group", "")
+
+    release_name = get_release_repo(config, group, name)
+    if not release_name:
+        if verbose:
+            typer.echo(
+                f"[verbose] No release_repo configured for '{name}' — "
+                "skipping backport report"
+            )
+        return
+
+    base_dir = repo.get_base_dir(config)
+    release_info = find_repo_by_name(release_name, base_dir, config)
+    if not release_info:
+        typer.echo(
+            f"⚠️  Skipping backport report: release repo '{release_name}' not found "
+            f"locally (clone it or unset release_repo)",
+            err=True,
+        )
+        return
+
+    release_path = release_info["path"]
+    # Release tags may have been cut since this clone last fetched; a stale tag
+    # list would silently over-report commits as "new since the release".
+    try:
+        subprocess.run(
+            ["git", "-C", str(release_path), "fetch", "--tags", "--quiet"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if verbose:
+            typer.echo(f"[verbose] Could not fetch tags for {release_name}: {e.stderr}")
+
+    try:
+        cycles, dev_label = _upstream_cycles(path)
+    except subprocess.CalledProcessError as e:
+        typer.echo(
+            f"⚠️  Skipping backport report: could not read upstream cycles "
+            f"({e.stderr.strip() if e.stderr else e})",
+            err=True,
+        )
+        return
+
+    typer.echo(f"\n📋 Upstream commits since the latest {release_name} release:\n")
+
+    cache = {}
+    backport_re = re.compile(r"[Bb]ackport of ([0-9a-f]{7,40}) from main")
+
+    for branch in branches:
+        upstream_ref = mapping[branch]
+        typer.echo(f"🌿 {branch} → upstream/{upstream_ref}")
+
+        series = _branch_series(branch)
+        if not series:
+            typer.echo(f"   ⚠️  Cannot derive a release series from '{branch}'")
+            continue
+
+        release = _latest_release_tag(release_path, series)
+        if not release:
+            typer.echo(f"   ⚠️  No {series}.* release tag in {release_name} yet")
+            continue
+
+        tag, since = release
+        try:
+            commits = _new_upstream_commits(path, upstream_ref, since)
+        except subprocess.CalledProcessError as e:
+            typer.echo(
+                f"   ⚠️  Could not read upstream/{upstream_ref} "
+                f"({e.stderr.strip() if e.stderr else e})",
+                err=True,
+            )
+            continue
+
+        typer.echo(f"   {release_name} {tag} ({since[:10]}) … upstream tip")
+        if not commits:
+            typer.echo("   ✅ nothing new upstream")
+            continue
+
+        typer.echo(f"   {len(commits)} new commit(s):")
+        for _sha, short, date, subject, body in commits:
+            match = backport_re.search(body)
+            if match:
+                label = f"{_classify_cycle(path, match.group(1), cycles, dev_label, cache)} cycle"
+            else:
+                label = "unannotated"
+            typer.echo(f"     [{label}] {short} {date} {subject}")

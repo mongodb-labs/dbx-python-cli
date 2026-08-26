@@ -391,6 +391,64 @@ validate a rebase with no PR involved, or when no suitable PR run exists yet
    with ``sphinx -W`` (warnings as errors), so a docs fix that has landed on the
    base branch will keep failing on every stale PR until each one is rebased.
 
+Spotting upstream fixes released after the backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Rebasing a fork branch aligns it with upstream's *current* tip, which says
+nothing about whether the **released** backend contains those commits. A
+security fix backported to Django's ``stable/5.2.x`` the day after
+django-mongodb-backend 5.2.4 shipped is on the fork branch, in CI, and absent
+from every installed copy of the backend — and nothing in the sync output would
+have said so.
+
+So after a successful ``--all-branches`` (or ``--branch``) sync, ``dbx sync``
+compares each mapped branch's upstream target against the highest release tag of
+the same series in the group's ``release_repo`` and lists what upstream has that
+the release does not:
+
+.. code-block:: text
+
+   📋 Upstream commits since the latest django-mongodb-backend release:
+
+   🌿 mongodb-6.1.x → upstream/stable/6.1.x
+      django-mongodb-backend 6.1.0 (2026-08-17) … upstream tip
+      2 new commit(s):
+        [6.2 cycle] cabad83ed1 2026-08-18 [6.1.x] Fixed #37259 -- Restored support for old-signature Model.from_db() overrides.
+        [unannotated] 0db5e72fe6 2026-08-18 [6.1.x] Post-release version bump.
+
+   🌿 mongodb-5.2.x → upstream/stable/5.2.x
+      django-mongodb-backend 5.2.4 (2026-08-24) … upstream tip
+      ✅ nothing new upstream
+
+The release series comes from the branch name (``mongodb-5.2.x`` → the highest
+``5.2.<patch>`` tag), so no extra per-branch configuration is needed; a branch
+tracking an unreleased version (``mongodb-6.2.x`` → ``main``) reports that no
+tag exists yet. The comparison uses committer dates, so a commit is "new" when
+it landed on the stable branch after the release tag was cut.
+
+Each commit is labelled with the upstream **dev cycle** it was backported from.
+Django annotates every backport with ``Backport of <sha> from main.``, so the
+source commit's position on ``main`` — relative to the fork points of the
+``upstream/stable/X.Y.x`` branches — identifies the cycle it was written in.
+A ``[6.2 cycle]`` label on a ``stable/5.2.x`` commit is normal and simply means
+the fix was authored during 6.2 development and backported to 5.2; commits with
+no annotation (version bumps, per-branch release chores) are labelled
+``[unannotated]``.
+
+Configure the release repo per synced repo:
+
+.. code-block:: toml
+
+   [repo.groups.django.release_repo]
+   django = "django-mongodb-backend"
+
+The report is best-effort and never fails the sync: an unset ``release_repo``,
+an un-cloned release repo, or a git error is reported as a warning and skipped.
+It fetches tags in the release repo first so a stale clone does not over-report.
+Pass ``--no-backport-report`` to skip it, and note it also runs under
+``--dry-run`` (where it is the only thing that touches the network beyond the
+single upstream fetch).
+
 Adding a new release branch
 ----------------------------
 

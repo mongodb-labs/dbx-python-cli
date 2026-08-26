@@ -210,6 +210,14 @@ django = ["-v", "2"]
 [repo.groups.django.preferred_branch]
 django = "mongodb-6.0.x"
 
+# Downstream repo (in this group) that is released from the synced fork. After
+# `dbx sync <repo> --all-branches`, each mapped fork branch is compared against the
+# matching release tag in this repo (mongodb-5.2.x -> the highest 5.2.* tag), and any
+# upstream commits that landed after that release are reported, labelled with the
+# upstream dev cycle they were backported from. Pass --no-backport-report to skip.
+[repo.groups.django.release_repo]
+django = "django-mongodb-backend"
+
 # Per-branch downstream CI to re-run after that branch rebases, but only when the
 # branch actually synced. Keyed by the synced repo, then by the fork branch; the
 # value maps each `owner/name` GitHub repo to a target that is either:
