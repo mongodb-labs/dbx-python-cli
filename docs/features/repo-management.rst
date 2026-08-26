@@ -506,7 +506,7 @@ Per-group keys of note:
 - ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
-- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dbx sync --all-branches`` reports the upstream commits each mapped branch gained after that release (see :doc:`django-fork`)
+- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dbx sync --all-branches`` reports the upstream commits each mapped branch gained after that release, bucketed into security fixes / ticket fixes / chores (see :doc:`django-fork`)
 - ``sync_after_clone`` — list of repo names to automatically ``dbx sync`` immediately after cloning (see :ref:`sync-after-clone`)
 - ``upstream_worktree`` — list of repo names that get an upstream git worktree created on clone (see :ref:`upstream-worktrees`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``

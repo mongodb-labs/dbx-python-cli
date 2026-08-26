@@ -2,8 +2,10 @@
 
 import base64
 import io
+import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import typer
@@ -98,6 +100,8 @@ def _sync_all_branches(
     no_ci=False,
     branch_filter=None,
     no_backport_report=False,
+    show_all=False,
+    security_only=False,
 ):
     """Sync branches in a repo's ``upstream_branch`` mapping.
 
@@ -196,7 +200,15 @@ def _sync_all_branches(
         summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
         typer.echo(summary)
         if not no_backport_report:
-            _print_backport_report(repo_info, config, mapping, branches, verbose)
+            _print_backport_report(
+                repo_info,
+                config,
+                mapping,
+                branches,
+                verbose,
+                show_all=show_all,
+                security_only=security_only,
+            )
         return
 
     try:
@@ -281,7 +293,15 @@ def _sync_all_branches(
     # commits. Report that gap so a fix backported upstream after the last
     # release (e.g. a 5.2.x security fix landing after backend 5.2.4) is noticed.
     if not no_backport_report:
-        _print_backport_report(repo_info, config, mapping, branches, verbose)
+        _print_backport_report(
+            repo_info,
+            config,
+            mapping,
+            branches,
+            verbose,
+            show_all=show_all,
+            security_only=security_only,
+        )
 
 
 def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose=False):
@@ -679,6 +699,16 @@ def sync_callback(
         "--no-backport-report",
         help="Skip the report of upstream commits landed since the latest downstream release (see release_repo config)",
     ),
+    all_commits: bool = typer.Option(
+        False,
+        "--all",
+        help="List every commit in the release-gap report, including the chores hidden by default",
+    ),
+    security_only: bool = typer.Option(
+        False,
+        "--security-only",
+        help="In the release-gap report, list only commits fixing a CVE (overridden by --all)",
+    ),
     no_ci: bool = typer.Option(
         False,
         "--no-ci",
@@ -701,6 +731,8 @@ def sync_callback(
         dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
         dbx sync <repo_name> -B <branch>        # Sync only the named branch(es) from that map (repeatable)
         dbx sync <repo_name> -b --no-backport-report  # Sync all branches, skip the release-gap report
+        dbx sync <repo_name> -b --dry-run --all       # Release-gap report only, every commit
+        dbx sync <repo_name> -b --dry-run --security-only  # Release-gap report only, CVE fixes
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
@@ -833,6 +865,8 @@ def sync_callback(
                 no_ci,
                 branch_filter=branch or None,
                 no_backport_report=no_backport_report,
+                show_all=all_commits,
+                security_only=security_only,
             )
             return
 
@@ -1593,7 +1627,64 @@ def _new_upstream_commits(path, upstream_ref, since_iso):
     return commits
 
 
-def _print_backport_report(repo_info, config, mapping, branches, verbose=False):
+# Django's stable branches follow a tight commit-subject convention, which is
+# enough to sort the release-gap report into "act on this" and "branch
+# mechanics". Ordered most- to least-urgent; the report prints them in this
+# order and hides ``chore`` unless asked.
+_BUCKETS = (
+    ("security", "🔴 security"),
+    ("fix", "🔧 fixes"),
+    ("other", "❓ unclassified"),
+    ("chore", "🧹 chores"),
+)
+
+_SECURITY_RE = re.compile(r"^Fixed CVE-\d{4}-\d+", re.IGNORECASE)
+_FIX_RE = re.compile(r"^Fixed #\d+")
+_CHORE_RES = (
+    # "Added CVE-x, CVE-y to security archive." names CVEs but is a docs commit,
+    # so it has to be matched before anything keying off "CVE".
+    re.compile(r"^Added CVE-.*security archive", re.IGNORECASE),
+    re.compile(r"^Post-release version bump"),
+    re.compile(r"^Bumped (version|minimum)"),
+    re.compile(r"^Added (stub )?release note"),
+    re.compile(r"^Added release date"),
+    re.compile(r"^Updated translations"),
+    re.compile(r"^Updated ticket"),
+    re.compile(r"^Fixed typo"),
+    # A "Refs #NNNN" follow-up amends a fix that is already listed on its own.
+    re.compile(r"^Refs #\d+"),
+)
+
+
+def _classify_commit(subject):
+    """Bucket an upstream commit subject as security/fix/chore/other.
+
+    Heuristic, and deliberately conservative: anything that does not match a
+    known convention lands in ``other`` and stays visible, so a change in
+    upstream's commit style shows up as unclassified commits rather than
+    silently vanishing from the report.
+    """
+    # Stable-branch commits are prefixed with the series, e.g. "[6.0.x] ".
+    subject = re.sub(r"^\[[0-9]+\.[0-9]+\.x\]\s*", "", subject).strip()
+    for pattern in _CHORE_RES:
+        if pattern.search(subject):
+            return "chore"
+    if _SECURITY_RE.search(subject):
+        return "security"
+    if _FIX_RE.search(subject):
+        return "fix"
+    return "other"
+
+
+def _print_backport_report(
+    repo_info,
+    config,
+    mapping,
+    branches,
+    verbose=False,
+    show_all=False,
+    security_only=False,
+):
     """Report upstream commits that landed after the matching downstream release.
 
     For each synced fork branch, compare its upstream target against the highest
@@ -1603,11 +1694,13 @@ def _print_backport_report(repo_info, config, mapping, branches, verbose=False):
     security fix backported to Django's ``stable/5.2.x`` after
     django-mongodb-backend 5.2.4 shipped.
 
+    Commits are grouped by :func:`_classify_commit` so the security fixes and
+    ticket fixes -- the release-decision material -- are not buried in version
+    bumps and translation updates.
+
     Best-effort: any missing configuration or git failure is reported as a
     warning rather than failing the sync.
     """
-    import re
-
     from dbx_python_cli.utils.repo import find_repo_by_name, get_release_repo
 
     path = repo_info["path"]
@@ -1692,11 +1785,38 @@ def _print_backport_report(repo_info, config, mapping, branches, verbose=False):
             typer.echo("   ✅ nothing new upstream")
             continue
 
-        typer.echo(f"   {len(commits)} new commit(s):")
+        entries = []
         for _sha, short, date, subject, body in commits:
             match = backport_re.search(body)
             if match:
                 label = f"{_classify_cycle(path, match.group(1), cycles, dev_label, cache)} cycle"
             else:
                 label = "unannotated"
-            typer.echo(f"     [{label}] {short} {date} {subject}")
+            entries.append((_classify_commit(subject), label, short, date, subject))
+
+        counts = Counter(bucket for bucket, *_ in entries)
+        # Summarise against len(commits), not the sum of the buckets: if upstream
+        # changes its commit conventions the total still moves, which is the
+        # signal that the classification needs revisiting.
+        summary = ", ".join(
+            f"{counts[bucket]} {name.split(' ', 1)[1]}"
+            for bucket, name in _BUCKETS
+            if counts[bucket]
+        )
+        typer.echo(f"   {len(commits)} new commit(s): {summary}")
+
+        hidden = 0
+        for bucket, heading in _BUCKETS:
+            group = [e for e in entries if e[0] == bucket]
+            if not group:
+                continue
+            if not show_all and (
+                (security_only and bucket != "security") or bucket == "chore"
+            ):
+                hidden += len(group)
+                continue
+            typer.echo(f"   {heading}")
+            for _bucket, label, short, date, subject in group:
+                typer.echo(f"     [{label}] {short} {date} {subject}")
+        if hidden:
+            typer.echo(f"   ({hidden} more hidden — pass --all)")

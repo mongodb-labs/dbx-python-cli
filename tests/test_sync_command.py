@@ -3,6 +3,8 @@
 import subprocess
 from unittest import mock
 
+import pytest
+
 from dbx_python_cli.commands.sync import (
     _gh_error_message,
     _pr_state,
@@ -196,7 +198,7 @@ def _report_git_stub(commits_by_ref, tags="5.2.4\n"):
     return side_effect
 
 
-def _run_report(side_effect, mapping, config=None):
+def _run_report(side_effect, mapping, config=None, **kwargs):
     from dbx_python_cli.commands import sync
 
     repo_info = {"path": "/repos/django", "name": "django", "group": "django"}
@@ -215,29 +217,108 @@ def _run_report(side_effect, mapping, config=None):
         ),
     ):
         sync._print_backport_report(
-            repo_info, config or {}, mapping, list(mapping.keys())
+            repo_info, config or {}, mapping, list(mapping.keys()), **kwargs
         )
 
 
-def test_print_backport_report_lists_new_commits_with_cycle_labels(capsys):
-    commit = (
-        "\x01deadbeefcafe\x02deadbee\x022026-08-25\x02"
-        "[5.2.x] Fixed CVE-2026-1 -- Something.\x02"
-        "Backport of abc1234def from main."
-    )
-    unannotated = (
-        "\x01aaaabbbbcccc\x02aaaabbb\x022026-08-25\x02"
-        "[5.2.x] Post-release version bump.\x02"
-    )
+@pytest.mark.parametrize(
+    ("subject", "expected"),
+    [
+        (
+            "[6.0.x] Fixed CVE-2026-15920 -- Made display_for_field() validate.",
+            "security",
+        ),
+        ("Fixed CVE-2026-15920 -- No series prefix.", "security"),
+        # Names CVEs but only edits the security archive doc, so it is a chore.
+        (
+            "[6.0.x] Added CVE-2026-15307, and CVE-2026-15920 to security archive.",
+            "chore",
+        ),
+        ("[6.0.x] Fixed #37259 -- Restored old-signature from_db() overrides.", "fix"),
+        ("[6.0.x] Post-release version bump.", "chore"),
+        ("[6.0.x] Bumped version for 6.0.4 release.", "chore"),
+        ("[6.0.x] Added stub release notes for 6.0.5.", "chore"),
+        ("[6.0.x] Updated translations from Transifex.", "chore"),
+        ("[6.0.x] Refs #35844 -- Followed up on the earlier fix.", "chore"),
+        ("[6.0.x] Something upstream has never said before.", "other"),
+    ],
+)
+def test_classify_commit(subject, expected):
+    from dbx_python_cli.commands.sync import _classify_commit
+
+    assert _classify_commit(subject) == expected
+
+
+_SECURITY = (
+    "\x01deadbeefcafe\x02deadbee\x022026-08-25\x02"
+    "[5.2.x] Fixed CVE-2026-1 -- Something.\x02"
+    "Backport of abc1234def from main."
+)
+_CHORE = (
+    "\x01aaaabbbbcccc\x02aaaabbb\x022026-08-25\x02"
+    "[5.2.x] Post-release version bump.\x02"
+)
+
+
+def test_print_backport_report_groups_commits_and_hides_chores(capsys):
     _run_report(
-        _report_git_stub({"upstream/stable/5.2.x": commit + unannotated}),
+        _report_git_stub({"upstream/stable/5.2.x": _SECURITY + _CHORE}),
         {"mongodb-5.2.x": "stable/5.2.x"},
     )
     out = capsys.readouterr().out
     assert "django-mongodb-backend 5.2.4 (2026-08-24)" in out
-    assert "2 new commit(s)" in out
+    assert "2 new commit(s): 1 security, 1 chores" in out
+    assert "🔴 security" in out
     assert "[5.2 cycle] deadbee 2026-08-25 [5.2.x] Fixed CVE-2026-1" in out
+    # The chore is counted in the summary but not listed.
+    assert "aaaabbb" not in out
+    assert "(1 more hidden — pass --all)" in out
+
+
+def test_print_backport_report_all_lists_chores(capsys):
+    _run_report(
+        _report_git_stub({"upstream/stable/5.2.x": _SECURITY + _CHORE}),
+        {"mongodb-5.2.x": "stable/5.2.x"},
+        show_all=True,
+    )
+    out = capsys.readouterr().out
     assert "[unannotated] aaaabbb" in out
+    assert "hidden" not in out
+
+
+def test_print_backport_report_security_only_filters(capsys):
+    _run_report(
+        _report_git_stub({"upstream/stable/5.2.x": _SECURITY + _CHORE}),
+        {"mongodb-5.2.x": "stable/5.2.x"},
+        security_only=True,
+    )
+    out = capsys.readouterr().out
+    assert "deadbee" in out
+    assert "aaaabbb" not in out
+
+
+def test_print_backport_report_all_overrides_security_only(capsys):
+    _run_report(
+        _report_git_stub({"upstream/stable/5.2.x": _SECURITY + _CHORE}),
+        {"mongodb-5.2.x": "stable/5.2.x"},
+        show_all=True,
+        security_only=True,
+    )
+    assert "aaaabbb" in capsys.readouterr().out
+
+
+def test_print_backport_report_keeps_unclassified_commits_visible(capsys):
+    novel = (
+        "\x01ffff0000eeee\x02ffff000\x022026-08-25\x02"
+        "[5.2.x] Some brand new convention.\x02"
+    )
+    _run_report(
+        _report_git_stub({"upstream/stable/5.2.x": novel}),
+        {"mongodb-5.2.x": "stable/5.2.x"},
+    )
+    out = capsys.readouterr().out
+    assert "1 new commit(s): 1 unclassified" in out
+    assert "ffff000" in out
 
 
 def test_print_backport_report_reports_clean_branch(capsys):

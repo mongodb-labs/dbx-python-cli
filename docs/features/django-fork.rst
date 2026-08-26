@@ -410,15 +410,86 @@ the release does not:
 
    📋 Upstream commits since the latest django-mongodb-backend release:
 
-   🌿 mongodb-6.1.x → upstream/stable/6.1.x
-      django-mongodb-backend 6.1.0 (2026-08-17) … upstream tip
-      2 new commit(s):
-        [6.2 cycle] cabad83ed1 2026-08-18 [6.1.x] Fixed #37259 -- Restored support for old-signature Model.from_db() overrides.
-        [unannotated] 0db5e72fe6 2026-08-18 [6.1.x] Post-release version bump.
+   🌿 mongodb-6.0.x → upstream/stable/6.0.x
+      django-mongodb-backend 6.0.4 (2026-07-14) … upstream tip
+      25 new commit(s): 4 security, 10 fixes, 5 unclassified, 6 chores
+      🔴 security
+        [6.2 cycle] 13debb622a 2026-08-04 [6.0.x] Fixed CVE-2026-15920 -- Made display_for_field() validate URLs before rendering admin links.
+        ...
+      🔧 fixes
+        [6.2 cycle] 6dbc7498b1 2026-07-31 [6.0.x] Fixed #37235 -- Added compatibility for sqlparse 0.5.5.
+        ...
+      ❓ unclassified
+        [6.2 cycle] 994db70ddb 2026-07-14 [6.0.x] Closed temporary files in GDALRasterTests.
+      (6 more hidden — pass --all)
 
    🌿 mongodb-5.2.x → upstream/stable/5.2.x
       django-mongodb-backend 5.2.4 (2026-08-24) … upstream tip
       ✅ nothing new upstream
+
+Finding the release candidates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The commits are bucketed by subject so the release-decision material is not
+buried in version bumps and translation updates:
+
+``🔴 security``
+   Subjects matching ``Fixed CVE-YYYY-NNNNN``. These are the commits that make
+   a patch release urgent.
+
+``🔧 fixes``
+   Subjects matching ``Fixed #NNNNN``. Together with the security bucket this is
+   the release-notes candidate set for the next patch release of that series.
+
+``❓ unclassified``
+   Everything that matches no known convention. Shown by default and on purpose
+   — see the caveat below.
+
+``🧹 chores``
+   Version bumps, stub release notes, release dates, translation updates,
+   ``Refs #NNNNN`` follow-ups to a fix that is already listed on its own, and
+   ``Added CVE-… to security archive`` (which names CVEs but only edits a docs
+   page). Hidden by default and reported as a count.
+
+Two flags tune the listing:
+
+``--all``
+   List every commit, including the chores. Overrides ``--security-only``.
+
+``--security-only``
+   List only the CVE fixes — the "do I need to cut a release right now?" check.
+   Note this is a filter, not a judgement: a plain ``Fixed #NNNNN`` can be
+   release-worthy too, which is why the default sorts security first rather than
+   hiding everything else.
+
+Combined with ``--dry-run`` these make the report a read-only query::
+
+   dbx sync django --all-branches --dry-run                  # what is pending?
+   dbx sync django --all-branches --dry-run --security-only  # anything urgent?
+   dbx sync django --all-branches --dry-run --all            # the full list
+
+To judge a commit, take the short sha into the fork clone as usual
+(``git -C <fork> show <sha>``); the report prints sha, date and subject
+precisely so it hands off to normal git.
+
+.. warning::
+
+   The bucketing is a heuristic keyed to Django's *current* commit-subject
+   conventions, and it is deliberately conservative: anything unrecognised lands
+   in ``unclassified`` and stays visible rather than being quietly filed as a
+   chore. Expect real commits there — "Fixed minor typos in docs and
+   docstrings" and "Closed temporary files in GDALRasterTests" both land in
+   ``unclassified`` today, because narrowing the chore patterns enough to catch
+   them would risk hiding genuine fixes.
+
+   The summary line always counts ``len(commits)`` independently of the buckets,
+   so if upstream changes its conventions the total still moves and a spike in
+   ``unclassified`` is the signal that the patterns need revisiting.
+
+   Bucketing changes only *presentation*. It does not make the report more
+   correct: "new" is still computed by committer date against the release tag,
+   so if a listed commit looks like it should already be released, confirm with
+   ``git -C <release-repo> tag --contains <sha>`` before acting on it.
 
 The release series comes from the branch name (``mongodb-5.2.x`` → the highest
 ``5.2.<patch>`` tag), so no extra per-branch configuration is needed; a branch
@@ -445,7 +516,7 @@ Configure the release repo per synced repo:
 The report is best-effort and never fails the sync: an unset ``release_repo``,
 an un-cloned release repo, or a git error is reported as a warning and skipped.
 It fetches tags in the release repo first so a stale clone does not over-report.
-Pass ``--no-backport-report`` to skip it, and note it also runs under
+Pass ``--no-backport-report`` to skip it entirely, and note it also runs under
 ``--dry-run`` (where it is the only thing that touches the network beyond the
 single upstream fetch).
 
