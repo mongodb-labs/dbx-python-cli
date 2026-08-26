@@ -160,6 +160,10 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Sync all branches but skip re-running downstream CI
    dbx sync django --all-branches --no-ci
 
+   # Sync all branches but skip the report of upstream commits landed since the
+   # latest downstream release
+   dbx sync django --all-branches --no-backport-report
+
    # Preview what would be synced without making changes
    dbx sync mongo-python-driver --dry-run
 
@@ -279,6 +283,8 @@ Manage worktrees for any repo with ``dbx worktree``:
 **Notes:**
 
 - Requires an ``upstream`` remote; on clone this comes from the ``upstream`` config key
+- When a listed repo ends up without an ``upstream`` remote (cloned without ``--fork``, say),
+  ``dbx clone`` skips the worktree silently — pass ``--verbose`` to see the skip noted
 - Worktree directories are named ``<repo>-<label>``, where ``label`` defaults to the branch name with ``/`` replaced by ``-``
 - A branch can only be checked out in one worktree at a time; ``dbx worktree add`` reports git's refusal rather than moving it
 - ``dbx remove`` unregisters worktrees via ``git worktree remove`` and removes them before the clone they belong to
@@ -500,6 +506,7 @@ Per-group keys of note:
 - ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
+- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dbx sync --all-branches`` reports the upstream commits each mapped branch gained after that release (see :doc:`django-fork`)
 - ``sync_after_clone`` — list of repo names to automatically ``dbx sync`` immediately after cloning (see :ref:`sync-after-clone`)
 - ``upstream_worktree`` — list of repo names that get an upstream git worktree created on clone (see :ref:`upstream-worktrees`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``

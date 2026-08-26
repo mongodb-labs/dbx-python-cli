@@ -1116,3 +1116,24 @@ def list_repos(base_dir, format_style="default", config=None):
                 else:
                     lines.append(f"{continuation}{repo_prefix} {repo_name}")
         return "\n".join(lines)
+
+
+def get_release_repo(config, group_name, repo_name):
+    """Return the downstream repo whose release tags gate ``repo_name``, or None.
+
+    Names the sibling repo in the same group that is *released* from the synced
+    fork, so ``dbx sync --all-branches`` can report which upstream commits landed
+    on each stable branch after the matching downstream release was cut (e.g.
+    Django's ``stable/5.2.x`` versus django-mongodb-backend 5.2.4).
+
+    Configure in ``[repo.groups.<group>.release_repo]``:
+
+    .. code-block:: toml
+
+        [repo.groups.django.release_repo]
+        django = "django-mongodb-backend"
+    """
+    groups = get_repo_groups(config)
+    if group_name not in groups:
+        return None
+    return groups[group_name].get("release_repo", {}).get(repo_name)
