@@ -5,7 +5,6 @@ the suite could not see: a flag that does not exist, a flag declared twice, or a
 deliberate typer.Exit reported as an internal error.
 """
 
-import click
 import pytest
 from typer.main import get_command
 from typer.testing import CliRunner
@@ -16,10 +15,15 @@ runner = CliRunner()
 
 
 def _walk_commands(command, path=("dbx",)):
+    """Yield (path, command) for the whole command tree.
+
+    Group membership is duck-typed rather than checked against click.Group so
+    this module needs nothing beyond typer, which is the only declared runtime
+    dependency that pulls click in.
+    """
     yield path, command
-    if isinstance(command, click.Group):
-        for name, sub in command.commands.items():
-            yield from _walk_commands(sub, (*path, name))
+    for name, sub in getattr(command, "commands", {}).items():
+        yield from _walk_commands(sub, (*path, name))
 
 
 def test_no_command_declares_a_flag_twice():
@@ -27,17 +31,22 @@ def test_no_command_declares_a_flag_twice():
 
     `dbx sync` declared --all twice (all-groups and all-commits); click bound
     --all to the later one, so the documented `dbx sync --all` became a no-op.
+    Inspecting the declared options catches this without relying on click
+    emitting a warning at parser-construction time.
     """
-    import warnings
-
     duplicates = []
     for path, command in _walk_commands(get_command(app)):
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            command.make_parser(click.Context(command))
-        for warning in caught:
-            if "used more than once" in str(warning.message):
-                duplicates.append((" ".join(path), str(warning.message)))
+        seen = {}
+        for param in command.params:
+            for flag in [*param.opts, *param.secondary_opts]:
+                if not flag.startswith("-"):
+                    continue  # positional argument, not a flag
+                if flag in seen:
+                    duplicates.append(
+                        f"{' '.join(path)}: {flag} declared by both "
+                        f"'{seen[flag]}' and '{param.name}'"
+                    )
+                seen[flag] = param.name
     assert duplicates == []
 
 
