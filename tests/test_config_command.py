@@ -103,7 +103,7 @@ def test_validate_accepts_the_shipped_default_config():
     import dbx_python_cli
 
     shipped = Path(dbx_python_cli.__file__).parent / "config.toml"
-    config = tomllib.loads(shipped.read_text())
+    config = tomllib.loads(shipped.read_text(encoding="utf-8"))
 
     result = _validate(config)
     assert result.exit_code == 0, result.stdout
@@ -130,7 +130,7 @@ def test_validate_known_group_keys_cover_every_key_the_code_reads():
     for path in src.rglob("*.py"):
         if "templates" in str(path):
             continue
-        read_keys.update(pattern.findall(path.read_text()))
+        read_keys.update(pattern.findall(path.read_text(encoding="utf-8")))
 
     known = validate_cmd.__globals__.get("KNOWN_GROUP_KEYS")
     if known is None:
