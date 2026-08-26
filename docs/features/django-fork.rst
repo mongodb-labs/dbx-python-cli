@@ -421,7 +421,7 @@ the release does not:
         ...
       ❓ unclassified
         [6.2 cycle] 994db70ddb 2026-07-14 [6.0.x] Closed temporary files in GDALRasterTests.
-      (6 more hidden — pass --all)
+      (6 more hidden — pass --all-commits)
 
    🌿 mongodb-5.2.x → upstream/stable/5.2.x
       django-mongodb-backend 5.2.4 (2026-08-24) … upstream tip
@@ -453,8 +453,10 @@ buried in version bumps and translation updates:
 
 Two flags tune the listing:
 
-``--all``
+``--all-commits``
    List every commit, including the chores. Overrides ``--security-only``.
+   (Named ``--all-commits`` rather than ``--all`` because ``dbx sync -a``/``--all``
+   already means "sync every repository in every group".)
 
 ``--security-only``
    List only the CVE fixes — the "do I need to cut a release right now?" check.
@@ -466,7 +468,7 @@ Combined with ``--dry-run`` these make the report a read-only query::
 
    dbx sync django --all-branches --dry-run                  # what is pending?
    dbx sync django --all-branches --dry-run --security-only  # anything urgent?
-   dbx sync django --all-branches --dry-run --all            # the full list
+   dbx sync django --all-branches --dry-run --all-commits    # the full list
 
 To judge a commit, take the short sha into the fork clone as usual
 (``git -C <fork> show <sha>``); the report prints sha, date and subject

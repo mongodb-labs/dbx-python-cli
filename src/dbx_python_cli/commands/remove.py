@@ -8,7 +8,57 @@ from typing import List, Optional
 import typer
 
 from dbx_python_cli.utils import repo
-from dbx_python_cli.utils.worktree import prune_worktrees, remove_worktree
+from dbx_python_cli.utils.worktree import (
+    list_worktrees,
+    prune_worktrees,
+    remove_worktree,
+)
+
+
+def _attached_worktrees(repo_info, already_selected):
+    """Return repo_info dicts for the linked worktrees of a primary clone.
+
+    A worktree's ``.git`` file points into its clone's object store, so deleting
+    the clone on its own leaves the worktree directory intact but permanently
+    broken — and unreachable by ``dbx worktree remove``, which needs the clone.
+    Removing a clone therefore has to take its worktrees with it.
+    """
+    repo_path = Path(repo_info["path"])
+    selected = {Path(r["path"]).resolve() for r in already_selected}
+
+    found = []
+    for entry in list_worktrees(repo_path):
+        path = Path(entry["path"])
+        if path.resolve() == repo_path.resolve() or path.resolve() in selected:
+            continue
+        if not path.exists():
+            continue
+        found.append(
+            {
+                "name": path.name,
+                "path": path,
+                "group": repo_info.get("group", ""),
+                "worktree": True,
+            }
+        )
+    return found
+
+
+def _group_dir_extras(group_dir, repos_to_remove):
+    """Return entries in a group directory that are not one of the listed repos.
+
+    Removing a group deletes the whole directory, which also holds the
+    group-level ``.venv`` that ``dbx clone`` creates plus anything else the user
+    left there. Those are not repositories, so they never appear in the repo
+    list — name them explicitly rather than deleting them unannounced.
+    """
+    if not group_dir.exists():
+        return []
+    repo_paths = {Path(r["path"]).resolve() for r in repos_to_remove}
+    return sorted(
+        entry for entry in group_dir.iterdir() if entry.resolve() not in repo_paths
+    )
+
 
 app = typer.Typer(
     help="Remove repositories or repository groups",
@@ -153,12 +203,39 @@ def remove_callback(
         typer.echo("   or: dbx list")
         raise typer.Exit(1)
 
+    # Pull in the worktrees attached to any primary clone being removed. Left
+    # behind, they would point at a deleted object store and no dbx command
+    # could clean them up.
+    for repo_info in list(repos_to_remove):
+        if repo_info.get("worktree"):
+            continue
+        for worktree_info in _attached_worktrees(repo_info, repos_to_remove):
+            typer.echo(
+                f"ℹ️  Also removing worktree '{worktree_info['name']}' "
+                f"(attached to {repo_info['name']})"
+            )
+            repos_to_remove.append(worktree_info)
+
     # Show what will be removed
     typer.echo(f"📦 Repositories to remove: {len(repos_to_remove)}\n")
     for repo_info in repos_to_remove:
-        typer.echo(f"  • {repo_info['name']} ({repo_info['group']})")
+        label = " [worktree]" if repo_info.get("worktree") else ""
+        typer.echo(f"  • {repo_info['name']} ({repo_info['group']}){label}")
         if verbose:
             typer.echo(f"    Path: {repo_info['path']}")
+
+    # Removing a group deletes its whole directory, including anything in it
+    # that is not a repository (notably the group-level venv).
+    group_extras = []
+    if group and not flat:
+        group_extras = _group_dir_extras(base_dir / group, repos_to_remove)
+        if group_extras:
+            typer.echo(
+                f"\n⚠️  Removing group '{group}' also deletes the group directory "
+                f"{base_dir / group}, including:"
+            )
+            for entry in group_extras:
+                typer.echo(f"  • {entry.name}")
 
     # Short-circuit for dry run — print list and exit without deleting
     if dry_run:
@@ -187,6 +264,9 @@ def remove_callback(
     repos_to_remove = sorted(
         repos_to_remove, key=lambda r: not r.get("worktree", False)
     )
+    # Paths whose worktree removal failed. Deleting the clone anyway would
+    # strand them with a dangling gitdir, so its removal is skipped instead.
+    failed_worktrees = []
     for repo_info in repos_to_remove:
         repo_path = Path(repo_info["path"])
         try:
@@ -199,8 +279,21 @@ def remove_callback(
                     repo_path, repo_path, force=True, verbose=verbose
                 )
                 if not ok:
+                    failed_worktrees.append(repo_path.resolve())
                     raise RuntimeError(message)
             else:
+                still_attached = {
+                    Path(w["path"]).resolve()
+                    for w in _attached_worktrees(repo_info, [])
+                }
+                if still_attached & set(failed_worktrees):
+                    typer.echo(
+                        f"⏭️  Skipping {repo_info['name']}: its worktree(s) could not "
+                        f"be removed, and deleting the clone would break them",
+                        err=True,
+                    )
+                    failed_count += 1
+                    continue
                 if verbose:
                     typer.echo(f"[verbose] Removing directory: {repo_path}")
                 # Drop registrations for worktrees removed above so the clone's
@@ -222,8 +315,10 @@ def remove_callback(
         raise typer.Exit(1)
 
     # When removing an entire group, also remove the group directory itself
-    # (not applicable in flat mode — repos live directly in base_dir)
-    if group and not flat and failed_count == 0:
+    # (not applicable in flat mode — repos live directly in base_dir). Anything
+    # in it that is not a repo was listed as `group_extras` before confirming.
+    # Unreachable when failed_count > 0: that path exits above.
+    if group and not flat:
         group_dir = base_dir / group
         if group_dir.exists():
             try:

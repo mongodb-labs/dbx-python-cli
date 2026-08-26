@@ -936,11 +936,11 @@ def install_callback(
         django_group_path = base_dir / "django"
         if django_group_path.exists():
             fallback_paths = [django_group_path]
-    python_path, venv_type = get_venv_info(
-        repo_path, group_path, base_path=base_dir, fallback_paths=fallback_paths
-    )
-
-    # Check if this repo should skip installation
+    # Check if this repo should skip installation. This has to happen *before*
+    # get_venv_info(), which exits the process when no venv is found: a repo
+    # configured to skip installation does not need one, and reporting "no
+    # virtual environment" for it would be misleading. The group-install path
+    # checks skip first for the same reason.
     if should_skip_install(config, repo["group"], repo["name"]):
         typer.echo(
             f"⏭️  Repository '{repo['name']}' is configured to skip installation."
@@ -949,6 +949,10 @@ def install_callback(
             f"To install it anyway, remove it from skip_install in config.toml for group '{repo['group']}'."
         )
         raise typer.Exit(0)
+
+    python_path, venv_type = get_venv_info(
+        repo_path, group_path, base_path=base_dir, fallback_paths=fallback_paths
+    )
 
     if verbose:
         typer.echo(f"[verbose] Venv type: {venv_type}")

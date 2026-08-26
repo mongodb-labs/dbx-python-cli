@@ -705,13 +705,13 @@ def sync_callback(
     ),
     all_commits: bool = typer.Option(
         False,
-        "--all",
+        "--all-commits",
         help="List every commit in the release-gap report, including the chores hidden by default",
     ),
     security_only: bool = typer.Option(
         False,
         "--security-only",
-        help="In the release-gap report, list only commits fixing a CVE (overridden by --all)",
+        help="In the release-gap report, list only commits fixing a CVE (overridden by --all-commits)",
     ),
     no_ci: bool = typer.Option(
         False,
@@ -735,7 +735,7 @@ def sync_callback(
         dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
         dbx sync <repo_name> -B <branch>        # Sync only the named branch(es) from that map (repeatable)
         dbx sync <repo_name> -b --no-backport-report  # Sync all branches, skip the release-gap report
-        dbx sync <repo_name> -b --dry-run --all       # Release-gap report only, every commit
+        dbx sync <repo_name> -b --dry-run --all-commits  # Release-gap report only, every commit
         dbx sync <repo_name> -b --dry-run --security-only  # Release-gap report only, CVE fixes
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
@@ -989,6 +989,10 @@ def sync_callback(
         else:
             typer.echo("\n✨ Done!")
 
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow every deliberate exit and re-report it as "❌ Error: 1".
+        raise
     except Exception as e:
         typer.echo(f"❌ Error: {e}", err=True)
         raise typer.Exit(1)

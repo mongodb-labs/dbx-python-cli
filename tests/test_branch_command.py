@@ -209,7 +209,11 @@ def test_verbose_flag_with_branch_command(tmp_path, temp_repos_dir, mock_config)
 
 
 def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
-    """Test that -a triggers all-groups mode (use -v for showing all branches)."""
+    """Test that --all-repos triggers all-groups mode.
+
+    -a is deliberately *not* claimed by dbx: it belongs to git branch and is
+    passed straight through (see test_branch_dash_a_is_passed_through_to_git).
+    """
     config = {
         "repo": {
             "base_dir": str(temp_repos_dir),
@@ -235,7 +239,7 @@ def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
                         mock_run.return_value = MagicMock(
                             returncode=0, stdout="  main\n* feature\n", stderr=""
                         )
-                        result = runner.invoke(app, ["branch", "-a"])
+                        result = runner.invoke(app, ["branch", "--all-repos"])
                         assert result.exit_code == 0
                         # Should show branches for all groups
                         assert "Running git branch in" in result.stdout
@@ -304,7 +308,7 @@ def test_branch_with_group_and_verbose(tmp_path, temp_repos_dir, mock_config):
 
 
 def test_branch_all_groups(tmp_path, temp_repos_dir, mock_config):
-    """Test running branch with -a flag to show branches for all groups."""
+    """Test running branch with --all-repos to show branches for all groups."""
     config = {
         "repo": {
             "base_dir": str(temp_repos_dir),
@@ -346,7 +350,7 @@ def test_branch_all_groups(tmp_path, temp_repos_dir, mock_config):
                         mock_run.return_value = MagicMock(
                             returncode=0, stdout="  main\n* feature\n", stderr=""
                         )
-                        result = runner.invoke(app, ["branch", "-a"])
+                        result = runner.invoke(app, ["branch", "--all-repos"])
                         assert result.exit_code == 0
                         # Should run on all repos across all groups (2 pymongo + 1 django = 3)
                         assert (
@@ -387,7 +391,7 @@ def test_branch_all_groups_excludes_global(tmp_path, temp_repos_dir, mock_config
                         mock_run.return_value = MagicMock(
                             returncode=0, stdout="  main\n* feature\n", stderr=""
                         )
-                        result = runner.invoke(app, ["branch", "-a"])
+                        result = runner.invoke(app, ["branch", "--all-repos"])
                         assert result.exit_code == 0
                         # Should only run on pymongo group (2 repos), not global
                         assert (
@@ -395,3 +399,144 @@ def test_branch_all_groups_excludes_global(tmp_path, temp_repos_dir, mock_config
                             in result.stdout
                         )
                         assert mock_run.call_count == 2
+
+
+def _branch_config(temp_repos_dir):
+    return {
+        "repo": {
+            "base_dir": str(temp_repos_dir),
+            "groups": {
+                "pymongo": {
+                    "repos": [
+                        "https://github.com/mongodb/mongo-python-driver.git",
+                        "https://github.com/mongodb/specifications.git",
+                    ]
+                }
+            },
+        }
+    }
+
+
+def test_branch_dash_a_is_passed_through_to_git(tmp_path, temp_repos_dir, mock_config):
+    """`-a` belongs to git branch, not dbx.
+
+    It used to be dbx's own --all short flag, so `dbx branch <repo> -a` silently
+    ignored <repo> and fanned the command out to every cloned repository.
+    """
+    config = _branch_config(temp_repos_dir)
+    with patch(
+        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(
+                    returncode=0, stdout="  main\n", stderr=""
+                )
+                result = runner.invoke(app, ["branch", "mongo-python-driver", "-a"])
+
+    assert result.exit_code == 0
+    # Exactly one repo touched, and -a reached git rather than being consumed.
+    mock_run.assert_called_once()
+    assert "-a" in mock_run.call_args[0][0]
+    assert "mongo-python-driver" in str(mock_run.call_args)
+    assert "repository(ies)" not in strip_ansi(result.stdout)
+
+
+def test_branch_mutating_fanout_prompts_before_running(
+    tmp_path, temp_repos_dir, mock_config
+):
+    """A group-wide `branch -D` asks for confirmation and aborts on "no"."""
+    config = _branch_config(temp_repos_dir)
+    with patch(
+        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+            with patch(
+                "dbx_python_cli.commands.branch.get_repo_groups",
+                return_value=config["repo"]["groups"],
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(
+                        returncode=0, stdout="", stderr=""
+                    )
+                    result = runner.invoke(
+                        app, ["branch", "-g", "pymongo", "-D", "old"], input="n\n"
+                    )
+
+    output = strip_ansi(result.stdout)
+    assert "About to run 'git branch -D old'" in output
+    assert "2 repository(ies)" in output
+    assert "Aborted." in output
+    # Nothing was deleted.
+    mock_run.assert_not_called()
+
+
+def test_branch_mutating_fanout_runs_after_confirmation(
+    tmp_path, temp_repos_dir, mock_config
+):
+    """Confirming the prompt lets the mutating fan-out proceed."""
+    config = _branch_config(temp_repos_dir)
+    with patch(
+        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+            with patch(
+                "dbx_python_cli.commands.branch.get_repo_groups",
+                return_value=config["repo"]["groups"],
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(
+                        returncode=0, stdout="", stderr=""
+                    )
+                    result = runner.invoke(
+                        app, ["branch", "-g", "pymongo", "-D", "old"], input="y\n"
+                    )
+
+    assert result.exit_code == 0
+    assert mock_run.call_count == 2
+
+
+def test_branch_mutating_fanout_yes_skips_prompt(tmp_path, temp_repos_dir, mock_config):
+    """-y bypasses the confirmation for scripted use."""
+    config = _branch_config(temp_repos_dir)
+    with patch(
+        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+            with patch(
+                "dbx_python_cli.commands.branch.get_repo_groups",
+                return_value=config["repo"]["groups"],
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(
+                        returncode=0, stdout="", stderr=""
+                    )
+                    result = runner.invoke(
+                        app, ["branch", "-g", "pymongo", "-D", "old", "-y"]
+                    )
+
+    assert result.exit_code == 0
+    assert "About to run" not in strip_ansi(result.stdout)
+    assert mock_run.call_count == 2
+
+
+def test_branch_listing_fanout_does_not_prompt(tmp_path, temp_repos_dir, mock_config):
+    """A non-mutating fan-out (plain listing) is not gated behind a prompt."""
+    config = _branch_config(temp_repos_dir)
+    with patch(
+        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+            with patch(
+                "dbx_python_cli.commands.branch.get_repo_groups",
+                return_value=config["repo"]["groups"],
+            ):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(
+                        returncode=0, stdout="  main\n", stderr=""
+                    )
+                    result = runner.invoke(app, ["branch", "-g", "pymongo"])
+
+    assert result.exit_code == 0
+    assert "About to run" not in strip_ansi(result.stdout)
+    assert mock_run.call_count == 2
