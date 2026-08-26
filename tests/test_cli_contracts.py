@@ -70,10 +70,22 @@ def test_project_open_dash_h_shows_help():
     assert "Usage" in result.stdout
 
 
-def test_sync_all_commits_flag_is_distinct_from_all():
-    result = runner.invoke(app, ["sync", "--help"])
-    assert result.exit_code == 0
-    assert "--all-commits" in result.stdout
+def test_sync_all_and_all_commits_are_separate_flags():
+    """`--all` must still mean all-groups; the report flag is `--all-commits`.
+
+    Asserts against the declared params rather than the rendered help: rich
+    wraps and colourises help output based on terminal width, so a substring
+    check passes locally and fails in CI.
+    """
+    sync = dict(_walk_commands(get_command(app)))[("dbx", "sync")]
+    flags = {
+        flag: param.name
+        for param in sync.params
+        for flag in [*param.opts, *param.secondary_opts]
+    }
+    assert flags["--all"] == "all_groups"
+    assert flags["-a"] == "all_groups"
+    assert flags["--all-commits"] == "all_commits"
 
 
 @pytest.mark.parametrize(
