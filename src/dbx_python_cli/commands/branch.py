@@ -43,9 +43,18 @@ def branch_callback(
     ),
     all_groups: bool = typer.Option(
         False,
-        "--all",
-        "-a",
+        # Deliberately not "-a"/"--all": those are git branch's own flags for
+        # listing remote-tracking branches. Claiming them here meant
+        # `dbx branch <repo> -a` silently ignored <repo> and fanned the command
+        # out to every cloned repository instead.
+        "--all-repos",
         help="Run git branch in all repositories across all groups",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Skip the confirmation prompt when running a mutating git branch operation across multiple repositories",
     ),
 ):
     """Run git branch in a cloned repository or group of repositories.
@@ -54,19 +63,28 @@ def branch_callback(
 
         dbx branch <repo_name> [git_args...]
         dbx branch -g <group_name> [git_args...]
-        dbx branch -a [git_args...]
+        dbx branch --all-repos [git_args...]
+
+    Any flag dbx does not define is passed straight through to git, so
+    ``dbx branch <repo> -a`` lists remote-tracking branches the way plain
+    ``git branch -a`` does. Use ``--all-repos`` to fan the command out across
+    every cloned repository.
+
+    Mutating operations (-d/-D/-m/-M/-c/-C/-u/...) run against more than one
+    repository ask for confirmation first; pass -y to skip the prompt.
 
     Examples::
 
         dbx branch mongo-python-driver                 # Show local branches
-        dbx -v branch mongo-python-driver              # Show all branches (local and remote)
+        dbx branch mongo-python-driver -a              # Show all branches (local and remote)
+        dbx -v branch mongo-python-driver              # Same, via verbose mode
         dbx branch mongo-python-driver -d feature      # Delete branch 'feature'
         dbx branch mongo-python-driver -D feature      # Force delete branch 'feature'
         dbx branch -g pymongo                          # Show branches for all repos in group
         dbx -v branch -g pymongo                       # Show all branches for all repos in group
-        dbx branch -g pymongo -d old-feature           # Delete 'old-feature' in all repos
-        dbx branch -a                                  # Show branches for all repos in all groups
-        dbx -v branch -a                               # Show all branches for all repos in all groups
+        dbx branch -g pymongo -d old-feature           # Delete 'old-feature' in all repos (prompts)
+        dbx branch --all-repos                         # Show branches for all repos in all groups
+        dbx -v branch --all-repos                      # Show all branches for all repos in all groups
     """
     # Get verbose flag from parent context
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
@@ -134,6 +152,11 @@ def branch_callback(
             typer.echo("\nClone repositories using: dbx clone -a")
             raise typer.Exit(1)
 
+        if is_mutating and not yes:
+            _confirm_fanout(
+                target_repos, git_args, f"across {len(non_global_groups)} group(s)"
+            )
+
         # Organize repos by group
         repos_by_group = {}
         for repo_info in target_repos:
@@ -188,6 +211,9 @@ def branch_callback(
             typer.echo(f"\nClone repositories using: dbx clone -g {group}")
             raise typer.Exit(1)
 
+        if is_mutating and not yes:
+            _confirm_fanout(group_repos, git_args, f"in group '{group}'")
+
         # Collect output in a buffer for pagination
         output_buffer = []
         output_buffer.append(
@@ -208,10 +234,12 @@ def branch_callback(
 
     # Require repo_name if not using group or all_groups
     if not repo_name:
-        typer.echo("❌ Error: Repository name, group, or --all is required", err=True)
+        typer.echo(
+            "❌ Error: Repository name, group, or --all-repos is required", err=True
+        )
         typer.echo("\nUsage: dbx branch <repo_name> [git_args...]")
         typer.echo("   or: dbx branch -g <group> [git_args...]")
-        typer.echo("   or: dbx branch -a [git_args...]")
+        typer.echo("   or: dbx branch --all-repos [git_args...]")
         raise typer.Exit(1)
 
     # Find the repository
@@ -260,6 +288,27 @@ def _run_git_branch(
         typer.echo(
             f"❌ {name}: git branch failed with exit code {result.returncode}", err=True
         )
+
+
+def _confirm_fanout(target_repos, git_args, scope):
+    """Confirm before running a mutating git branch operation across many repos.
+
+    Listing branches everywhere is harmless, but a fan-out of -d/-D/-m/-u is
+    not: it rewrites or deletes a branch in every repository at once, and git
+    itself has no undo for `branch -D`. Show what will run and where, and make
+    the user say yes.
+    """
+    typer.echo(
+        f"⚠️  About to run 'git branch {' '.join(git_args)}' in "
+        f"{len(target_repos)} repository(ies) {scope}:\n"
+    )
+    for repo_info in target_repos:
+        typer.echo(f"  • {repo_info['name']} ({repo_info['group']})")
+    typer.echo("")
+    if not typer.confirm("Continue?"):
+        typer.echo("Aborted.")
+        raise typer.Exit(1)
+    typer.echo("")
 
 
 def _run_git_branch_to_string(

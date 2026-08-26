@@ -244,3 +244,111 @@ def test_remove_both_repo_and_group_flag_error(mock_config):
         assert result.exit_code == 1
         stderr = strip_ansi(result.stderr)
         assert "Cannot specify both repository names and -g flag" in stderr
+
+
+def test_remove_clone_also_removes_its_worktrees(mock_config, temp_repos_dir):
+    """Removing a primary clone must take its linked worktrees with it.
+
+    A worktree's .git file points into the clone's object store, so deleting the
+    clone alone left a directory where every git command fails and which no dbx
+    command could clean up.
+    """
+    clone = temp_repos_dir / "django" / "django-mongodb-backend"
+    worktree = temp_repos_dir / "django" / "django-mongodb-backend-upstream"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {clone}/.git/worktrees/upstream\n")
+
+    removed = []
+
+    def fake_remove_worktree(repo_path, worktree_path, force=False, verbose=False):
+        removed.append(("worktree", str(worktree_path)))
+        return True, ""
+
+    with patch(
+        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+    ):
+        with patch(
+            "dbx_python_cli.commands.remove.list_worktrees",
+            return_value=[
+                {"path": clone, "branch": "main", "head": None, "bare": False},
+                {"path": worktree, "branch": "upstream", "head": None, "bare": False},
+            ],
+        ):
+            with patch(
+                "dbx_python_cli.commands.remove.remove_worktree",
+                side_effect=fake_remove_worktree,
+            ):
+                with patch("dbx_python_cli.commands.remove.prune_worktrees"):
+                    with patch("shutil.rmtree") as mock_rmtree:
+                        result = runner.invoke(
+                            app, ["remove", "-f", "django-mongodb-backend"]
+                        )
+
+    output = strip_ansi(result.stdout)
+    assert result.exit_code == 0, output
+    assert "Also removing worktree 'django-mongodb-backend-upstream'" in output
+    # The worktree went through `git worktree remove`, not a blind rmtree...
+    assert removed == [("worktree", str(worktree))]
+    # ...and the clone itself was still removed.
+    assert [str(c[0][0]) for c in mock_rmtree.call_args_list] == [str(clone)]
+
+
+def test_remove_skips_clone_when_its_worktree_cannot_be_removed(
+    mock_config, temp_repos_dir
+):
+    """If the worktree survives, deleting the clone would break it — so don't."""
+    clone = temp_repos_dir / "django" / "django-mongodb-backend"
+    worktree = temp_repos_dir / "django" / "django-mongodb-backend-upstream"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {clone}/.git/worktrees/upstream\n")
+
+    with patch(
+        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+    ):
+        with patch(
+            "dbx_python_cli.commands.remove.list_worktrees",
+            return_value=[
+                {"path": clone, "branch": "main", "head": None, "bare": False},
+                {"path": worktree, "branch": "upstream", "head": None, "bare": False},
+            ],
+        ):
+            with patch(
+                "dbx_python_cli.commands.remove.remove_worktree",
+                return_value=(False, "worktree contains modified files"),
+            ):
+                with patch("dbx_python_cli.commands.remove.prune_worktrees"):
+                    with patch("shutil.rmtree") as mock_rmtree:
+                        result = runner.invoke(
+                            app, ["remove", "-f", "django-mongodb-backend"]
+                        )
+
+    output = strip_ansi(result.stdout) + (result.stderr if result.stderr_bytes else "")
+    assert result.exit_code == 1
+    assert "Skipping django-mongodb-backend" in output
+    mock_rmtree.assert_not_called()
+
+
+def test_remove_group_lists_non_repo_contents_before_deleting(
+    mock_config, temp_repos_dir
+):
+    """`remove -g` rmtree's the whole group dir, including the group venv.
+
+    The confirmation prompt listed only repositories, so the group-level venv
+    was deleted without ever being mentioned.
+    """
+    group_venv = temp_repos_dir / "pymongo" / ".venv"
+    group_venv.mkdir()
+
+    with patch(
+        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+    ):
+        with patch("dbx_python_cli.commands.remove.list_worktrees", return_value=[]):
+            result = runner.invoke(app, ["remove", "-g", "pymongo", "--dry-run"])
+
+    output = strip_ansi(result.stdout)
+    assert result.exit_code == 0, output
+    assert "also deletes the group directory" in output
+    assert ".venv" in output
+    assert "Dry run" in output
+    # Dry run really did not delete anything.
+    assert group_venv.exists()

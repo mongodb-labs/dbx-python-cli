@@ -288,6 +288,9 @@ Manage worktrees for any repo with ``dbx worktree``:
 - Worktree directories are named ``<repo>-<label>``, where ``label`` defaults to the branch name with ``/`` replaced by ``-``
 - A branch can only be checked out in one worktree at a time; ``dbx worktree add`` reports git's refusal rather than moving it
 - ``dbx remove`` unregisters worktrees via ``git worktree remove`` and removes them before the clone they belong to
+- Removing a primary clone also removes the worktrees attached to it, since a
+  worktree left behind would point into a deleted object store; if a worktree
+  cannot be removed, the clone is left in place rather than breaking it
 
 Which commands see worktrees
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -538,6 +541,8 @@ status when errors are found.
 - Config-driven ``upstream`` remote setup without requiring ``--fork-user``
 - Sync command to fetch from upstream and rebase current branch
 - ``dbx remove`` supports ``--dry-run`` to preview what would be deleted without removing anything
+- ``dbx remove -g <group>`` deletes the whole group directory; anything in it that
+  is not a repository (notably the group-level ``.venv``) is listed before you confirm
 - Provides clear progress feedback with emoji indicators
 - Handles errors gracefully and continues with remaining repositories
 - Easy to add custom repository groups
@@ -619,8 +624,11 @@ This command will:
 **Notes:**
 
 - The command works with any repository that has been cloned using ``dbx clone``
-- You can pass any valid ``git branch`` arguments (e.g., ``-a``, ``-r``, ``-v``, ``--merged``)
-- The ``-a`` or ``--all`` flag shows all branches (local and remote) for all repositories
+- You can pass any valid ``git branch`` arguments (e.g., ``-a``, ``-r``, ``-v``, ``--merged``);
+  dbx does not claim ``-a``/``--all``, so they reach git unchanged
+- The ``--all-repos`` flag runs the command in every cloned repository across all groups
+- Mutating operations (``-d``, ``-D``, ``-m``, ``-u``, ...) applied to a group or to
+  ``--all-repos`` ask for confirmation first; pass ``-y`` to skip the prompt
 - When using with a group, the command runs in all repositories in that group
 - Projects without a ``.git`` directory will be skipped with a warning
 - Run ``dbx list`` to see all available repositories

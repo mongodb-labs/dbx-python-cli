@@ -1723,11 +1723,14 @@ def run_project(
 
         # Start frontend process in background
         typer.echo("🎨 Starting frontend development server...")
+        # Discard the watcher's output rather than piping it: nothing in this
+        # command ever reads the pipes, so once the OS buffer (~64 KB) filled,
+        # npm would block on write and silently stop rebuilding.
         frontend_proc = subprocess.Popen(
             ["npm", "run", "watch"],
             cwd=frontend_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
 
         # Handle CTRL-C to kill both processes

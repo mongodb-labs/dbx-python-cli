@@ -46,7 +46,7 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
    dbx -p config show
 
    # Combine with verbose mode
-   dbx -v -p branch -a
+   dbx -v -p branch --all-repos
 
 **When to use pager mode:**
 

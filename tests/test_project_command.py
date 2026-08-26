@@ -761,3 +761,25 @@ def test_ensure_libmongocrypt_built_skips_when_artifact_exists(tmp_path):
         result = _ensure_libmongocrypt_built(tmp_path, config)
     assert result == artifact
     mock_build.assert_not_called()
+
+
+def test_project_run_frontend_watcher_does_not_use_pipes(tmp_path):
+    """The frontend watcher's output must not be piped into a buffer nobody reads.
+
+    `npm run watch` was spawned with stdout/stderr=PIPE and never drained, so
+    once the OS pipe buffer (~64 KB) filled, npm blocked on write and silently
+    stopped rebuilding.
+    """
+    import inspect
+    import subprocess as sp
+
+    from dbx_python_cli.commands import project
+
+    source = inspect.getsource(project.run_project)
+    popen_call = source[source.index("subprocess.Popen(") :]
+    popen_call = popen_call[: popen_call.index(")\n")]
+
+    assert '"npm", "run", "watch"' in popen_call
+    assert "subprocess.PIPE" not in popen_call
+    assert popen_call.count("subprocess.DEVNULL") == 2
+    assert sp.DEVNULL != sp.PIPE
