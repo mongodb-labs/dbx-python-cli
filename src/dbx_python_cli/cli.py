@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from dbx_python_cli.commands import (
+    backports,
     branch,
     clone,
     config,
@@ -59,6 +60,7 @@ app = typer.Typer(
 )
 
 # Add subcommands (alphabetically sorted)
+app.add_typer(backports.app, name="backports")
 app.add_typer(branch.app, name="branch")
 app.add_typer(clone.app, name="clone")
 app.add_typer(config.app, name="config")

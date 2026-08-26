@@ -6,6 +6,7 @@ Features
    global-options
    repo-management
    django-fork
+   backports
    project-management
    mongodb-runner
    installation

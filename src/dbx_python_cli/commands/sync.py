@@ -12,6 +12,10 @@ import typer
 
 from dbx_python_cli.utils import repo
 from dbx_python_cli.utils.output import paginate_output, should_use_pager
+from dbx_python_cli.utils.release import BUCKETS as _BUCKETS
+from dbx_python_cli.utils.release import classify_commit as _classify_commit
+from dbx_python_cli.utils.release import git_out as _git_out
+from dbx_python_cli.utils.release import latest_release_tag as _latest_release_tag
 from dbx_python_cli.utils.repo import is_worktree
 
 app = typer.Typer(
@@ -1479,16 +1483,6 @@ def _show_commit_comparison(
         )
 
 
-def _git_out(path, args, check=True):
-    """Run a git command in ``path`` and return its stdout, stripped."""
-    return subprocess.run(
-        ["git", "-C", str(path), *args],
-        check=check,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-
 def _branch_series(branch):
     """Return the ``X.Y`` release series a fork branch tracks, or None.
 
@@ -1584,28 +1578,6 @@ def _classify_cycle(path, source_sha, cycles, dev_label, cache):
     return label
 
 
-def _latest_release_tag(release_path, series):
-    """Return ``(tag, iso_date)`` for the highest ``<series>.<patch>`` tag, or None."""
-    import re
-
-    try:
-        tags = _git_out(release_path, ["tag", "-l", f"{series}.*"])
-    except subprocess.CalledProcessError:
-        return None
-
-    pattern = re.compile(rf"^{re.escape(series)}\.(\d+)$")
-    matched = [(int(m.group(1)), t) for t in tags.split() if (m := pattern.match(t))]
-    if not matched:
-        return None
-
-    tag = max(matched)[1]
-    try:
-        date = _git_out(release_path, ["log", "-1", "--format=%cI", tag])
-    except subprocess.CalledProcessError:
-        return None
-    return tag, date
-
-
 def _new_upstream_commits(path, upstream_ref, since_iso):
     """Return ``(sha, short, date, subject, body)`` for commits on ``upstream_ref``
     committed after ``since_iso``."""
@@ -1625,55 +1597,6 @@ def _new_upstream_commits(path, upstream_ref, since_iso):
         if len(parts) == 5:
             commits.append(tuple(p.strip() for p in parts))
     return commits
-
-
-# Django's stable branches follow a tight commit-subject convention, which is
-# enough to sort the release-gap report into "act on this" and "branch
-# mechanics". Ordered most- to least-urgent; the report prints them in this
-# order and hides ``chore`` unless asked.
-_BUCKETS = (
-    ("security", "🔴 security"),
-    ("fix", "🔧 fixes"),
-    ("other", "❓ unclassified"),
-    ("chore", "🧹 chores"),
-)
-
-_SECURITY_RE = re.compile(r"^Fixed CVE-\d{4}-\d+", re.IGNORECASE)
-_FIX_RE = re.compile(r"^Fixed #\d+")
-_CHORE_RES = (
-    # "Added CVE-x, CVE-y to security archive." names CVEs but is a docs commit,
-    # so it has to be matched before anything keying off "CVE".
-    re.compile(r"^Added CVE-.*security archive", re.IGNORECASE),
-    re.compile(r"^Post-release version bump"),
-    re.compile(r"^Bumped (version|minimum)"),
-    re.compile(r"^Added (stub )?release note"),
-    re.compile(r"^Added release date"),
-    re.compile(r"^Updated translations"),
-    re.compile(r"^Updated ticket"),
-    re.compile(r"^Fixed typo"),
-    # A "Refs #NNNN" follow-up amends a fix that is already listed on its own.
-    re.compile(r"^Refs #\d+"),
-)
-
-
-def _classify_commit(subject):
-    """Bucket an upstream commit subject as security/fix/chore/other.
-
-    Heuristic, and deliberately conservative: anything that does not match a
-    known convention lands in ``other`` and stays visible, so a change in
-    upstream's commit style shows up as unclassified commits rather than
-    silently vanishing from the report.
-    """
-    # Stable-branch commits are prefixed with the series, e.g. "[6.0.x] ".
-    subject = re.sub(r"^\[[0-9]+\.[0-9]+\.x\]\s*", "", subject).strip()
-    for pattern in _CHORE_RES:
-        if pattern.search(subject):
-            return "chore"
-    if _SECURITY_RE.search(subject):
-        return "security"
-    if _FIX_RE.search(subject):
-        return "fix"
-    return "other"
 
 
 def _print_backport_report(

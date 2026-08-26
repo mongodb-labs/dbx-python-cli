@@ -27,6 +27,7 @@ The most frequently used commands should be at the top level:
 
 - ``dbx clone`` — Clone repositories from a group
 - ``dbx sync`` — Sync repositories with upstream
+- ``dbx backports`` — List commits on main that have not reached a release branch
 - ``dbx install`` — Install packages
 - ``dbx test`` — Run tests
 - ``dbx list`` — List cloned repositories
@@ -61,6 +62,7 @@ Single-action commands that are frequently used or domain-agnostic:
    dbx status      Git status across repositories
    dbx switch      Switch git branches across repositories
    dbx sync        Sync repositories with upstream
+   dbx backports   List backport candidates for a release branch
    dbx test        Run tests in a repository
 
 Command Groups (One Level)
