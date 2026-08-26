@@ -33,16 +33,21 @@ jobs:
       run: |
         python -m pytest --cov=dbx_python_cli --cov-report=xml --cov-report=term --junitxml=junit.xml -o junit_family=legacy
 
+    # Codecov uploads are disabled until CODECOV_TOKEN is set as a repository
+    # secret. Without it every upload fails with "Token required because branch
+    # is protected" — non-fatal (fail_ci_if_error: false) but it means the
+    # Codecov data has been silently stale, and the error is noise in every job
+    # log. To re-enable: add the secret, then drop the `if: false` lines below.
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      if: false && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Upload test results to Codecov
-      if: ${{ !cancelled() }}
+      if: ${{ false && !cancelled() }}
       uses: codecov/test-results-action@v1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
