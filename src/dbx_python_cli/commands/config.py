@@ -321,6 +321,7 @@ def validate(ctx: typer.Context):
         "no_fork",
         "upstream",
         "upstream_branch",
+        "upstream_worktree",
         "sync_after_clone",
         "install_extras",
         "install_groups",
@@ -331,6 +332,9 @@ def validate(ctx: typer.Context):
         "test_runner_args",
         "test_env",
         "sys_path",
+        "editor",
+        "ci_rerun",
+        "release_repo",
     }
 
     KNOWN_PROJECT_KEYS = {"default_env", "mongodb"}

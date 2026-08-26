@@ -45,6 +45,10 @@ def test_validate_all_known_group_keys_accepted():
                     "test_runner_args": {},
                     "test_env": {},
                     "sys_path": {},
+                    "upstream_worktree": ["django"],
+                    "editor": "code",
+                    "ci_rerun": {},
+                    "release_repo": {},
                 }
             },
         }
@@ -84,3 +88,58 @@ def test_validate_flags_unknown_top_level_key():
     result = _validate(config)
     assert result.exit_code == 1
     assert "[unknown] top-level key: [made_up_section]" in result.stdout
+
+
+def test_validate_accepts_the_shipped_default_config():
+    """The config dbx itself ships (and `dbx config init` copies) must validate.
+
+    KNOWN_GROUP_KEYS drifted behind the keys the code actually reads, so
+    `dbx config validate` failed on the project's own config file, which made it
+    useless as a pre-flight check.
+    """
+    import tomllib
+    from pathlib import Path
+
+    import dbx_python_cli
+
+    shipped = Path(dbx_python_cli.__file__).parent / "config.toml"
+    config = tomllib.loads(shipped.read_text())
+
+    result = _validate(config)
+    assert result.exit_code == 0, result.stdout
+    assert "no unknown or deprecated keys" in result.stdout
+
+
+def test_validate_known_group_keys_cover_every_key_the_code_reads():
+    """Guard against the same drift recurring.
+
+    Every per-group key read anywhere in the package must be in the validator's
+    allow-list, otherwise a working config is reported as invalid.
+    """
+    import re
+    from pathlib import Path
+
+    import dbx_python_cli
+    from dbx_python_cli.commands.config import validate as validate_cmd
+
+    src = Path(dbx_python_cli.__file__).parent
+    pattern = re.compile(
+        r"""(?:groups\[[a-z_]+\]|group_name\]|gconfig|group_config)\.get\(\s*["']([a-z_]+)["']"""
+    )
+    read_keys = set()
+    for path in src.rglob("*.py"):
+        if "templates" in str(path):
+            continue
+        read_keys.update(pattern.findall(path.read_text()))
+
+    known = validate_cmd.__globals__.get("KNOWN_GROUP_KEYS")
+    if known is None:
+        # KNOWN_GROUP_KEYS is a local; recover it from the function's constants.
+        known = next(
+            set(const)
+            for const in validate_cmd.__code__.co_consts
+            if isinstance(const, frozenset) and "repos" in const
+        )
+
+    missing = read_keys - set(known)
+    assert missing == set(), f"group keys read but not accepted by validate: {missing}"

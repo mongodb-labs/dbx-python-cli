@@ -37,6 +37,21 @@ def _release_branches(path, remote):
     return found
 
 
+def _resolve_since(path, since):
+    """Return an ISO date for ``since``, resolving it as a git ref when possible.
+
+    ``--since`` accepts "a git ref or date". Git's own ``--since=`` only takes a
+    date and quietly misreads a tag as one, so a ref is resolved to the commit
+    date of what it points at; anything that is not a ref is passed through
+    untouched for git's approxidate parser to handle.
+    """
+    try:
+        git_out(path, ["rev-parse", "--verify", "-q", f"{since}^{{commit}}"])
+        return git_out(path, ["log", "-1", "--format=%cI", since]) or since
+    except subprocess.CalledProcessError:
+        return since
+
+
 def _candidates(path, remote, source, target, since_iso):
     """Return ``(sha, date, subject)`` for source commits missing from target.
 
@@ -172,8 +187,16 @@ def backports(
         if all_commits:
             typer.echo("   since the branch point")
         elif since:
-            since_iso = since
-            typer.echo(f"   since {since}")
+            # --since is documented as "a git ref or date", but git log --since
+            # only understands dates and silently *misparses* a tag rather than
+            # rejecting it ("5.2.3" reads as a 2003 date, leaving the window
+            # effectively unbounded). Resolve refs to their commit date first so
+            # a tag bounds the window the way the user expects.
+            since_iso = _resolve_since(path, since)
+            if since_iso != since:
+                typer.echo(f"   since {since} ({since_iso[:10]})")
+            else:
+                typer.echo(f"   since {since}")
         else:
             release = latest_release_tag(path, series)
             if not release:

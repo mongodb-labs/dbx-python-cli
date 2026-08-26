@@ -1768,7 +1768,10 @@ def run_project(
 
 @app.command("open")
 def open_browser(
-    host: str = typer.Option("localhost", "--host", "-h", help="Host to open"),
+    # No "-h" short flag: the app reserves it for --help (see help_option_names
+    # above), and claiming it here makes `dbx project open -h` fail with
+    # "Option '-h' requires an argument" instead of printing help.
+    host: str = typer.Option("localhost", "--host", help="Host to open"),
     port: int = typer.Option(8000, "--port", "-p", help="Port to open"),
 ):
     """

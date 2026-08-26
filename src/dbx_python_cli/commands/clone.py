@@ -307,8 +307,9 @@ def clone_callback(
     ),
     fork: bool = typer.Option(
         True,
-        "--fork",
-        help="Clone from your fork instead of upstream (uses fork_user from config)",
+        "--fork/--no-fork",
+        help="Clone from your fork instead of upstream (uses fork_user from config). "
+        "Pass --no-fork to clone the configured URL directly.",
     ),
     fork_user: str = typer.Option(
         None,
@@ -969,6 +970,10 @@ def clone_callback(
                     "\nTip: Run 'dbx install <repo>' to install skipped repositories manually"
                 )
 
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow every deliberate exit and re-report it as "Error: 1".
+        raise
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)

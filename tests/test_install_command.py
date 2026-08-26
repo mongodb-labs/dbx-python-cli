@@ -704,3 +704,41 @@ docs = ["sphinx"]
             assert "Extras: aws, test" in result.stdout
             assert "Dependency groups: dev" in result.stdout
             assert "Dependency groups: dev, docs" in result.stdout
+
+
+def test_install_skip_install_repo_without_a_venv(tmp_path):
+    """A repo configured to skip installation exits cleanly with no venv present.
+
+    The skip check used to run *after* get_venv_info(), which exits the process
+    when no virtual environment is found, so `dbx install <repo>` on a
+    skip_install repo failed with "No virtual environment found" instead of
+    reporting that the repo is deliberately skipped.
+    """
+    base_dir = tmp_path / "repos"
+    repo_dir = base_dir / "django-3p" / "django"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+
+    config = {
+        "repo": {
+            "base_dir": str(base_dir),
+            "groups": {
+                "django-3p": {
+                    "repos": ["https://github.com/django/django.git"],
+                    "skip_install": ["django"],
+                }
+            },
+        }
+    }
+
+    # Force "no venv anywhere": otherwise the interpreter running the tests is
+    # itself in a venv and get_venv_info() succeeds, hiding the ordering bug.
+    with patch("dbx_python_cli.utils.repo.get_config_path"):
+        with patch("dbx_python_cli.commands.install.get_config", return_value=config):
+            with patch("dbx_python_cli.utils.venv._is_venv", return_value=False):
+                result = runner.invoke(app, ["install", "django"])
+
+    output = strip_ansi(result.stdout) + (result.stderr if result.stderr_bytes else "")
+    assert result.exit_code == 0, output
+    assert "configured to skip installation" in output
+    assert "No virtual environment found" not in output

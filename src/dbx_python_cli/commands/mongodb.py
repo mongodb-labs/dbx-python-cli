@@ -238,6 +238,11 @@ def ensure_mongodb_docker(env: dict, config: dict) -> dict:
         typer.echo("💡 Install Docker: https://docs.docker.com/get-docker/", err=True)
         typer.echo("no db running", err=True)
         raise typer.Exit(code=1)
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow the deliberate exits above and replace their
+        # remediation hints with a bare "Failed to start ...: 1".
+        raise
     except Exception as e:
         typer.echo(f"❌ Failed to start Docker MongoDB: {e}", err=True)
         typer.echo("no db running", err=True)
@@ -491,6 +496,11 @@ def ensure_mongodb_atlas_local(env: dict, config: dict) -> dict:
         typer.echo("💡 Install Docker: https://docs.docker.com/get-docker/", err=True)
         typer.echo("no db running", err=True)
         raise typer.Exit(code=1)
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow the deliberate exits above and replace their
+        # remediation hints with a bare "Failed to start ...: 1".
+        raise
     except Exception as e:
         typer.echo(f"❌ Failed to start Atlas Local: {e}", err=True)
         typer.echo("no db running", err=True)
@@ -612,6 +622,11 @@ def ensure_mongodb_runner(env: dict, config: dict) -> dict:
         typer.echo("💡 Install Node.js/npm: https://nodejs.org/", err=True)
         typer.echo("no db running", err=True)
         raise typer.Exit(code=1)
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow the deliberate exits above and replace their
+        # remediation hints with a bare "Failed to start ...: 1".
+        raise
     except Exception as e:
         typer.echo(f"❌ Failed to start mongodb-runner: {e}", err=True)
         typer.echo("no db running", err=True)
