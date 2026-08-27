@@ -160,9 +160,9 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Sync all branches but skip re-running downstream CI
    dbx sync django --all-branches --no-ci
 
-   # Sync all branches but skip the report of upstream commits landed since the
-   # latest downstream release
-   dbx sync django --all-branches --no-backport-report
+   # Sync all branches and report upstream commits landed since the latest
+   # downstream release
+   dbx sync django --all-branches --backport-report
 
    # Preview what would be synced without making changes
    dbx sync mongo-python-driver --dry-run

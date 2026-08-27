@@ -210,11 +210,11 @@ django = ["-v", "2"]
 [repo.groups.django.preferred_branch]
 django = "mongodb-6.0.x"
 
-# Downstream repo (in this group) that is released from the synced fork. After
-# `dbx sync <repo> --all-branches`, each mapped fork branch is compared against the
-# matching release tag in this repo (mongodb-5.2.x -> the highest 5.2.* tag), and any
-# upstream commits that landed after that release are reported, labelled with the
-# upstream dev cycle they were backported from. Pass --no-backport-report to skip.
+# Downstream repo (in this group) that is released from the synced fork. With
+# `dbx sync <repo> --all-branches --backport-report`, each mapped fork branch is
+# compared against the matching release tag in this repo (mongodb-5.2.x -> the highest
+# 5.2.* tag), and any upstream commits that landed after that release are reported,
+# labelled with the upstream dev cycle they were backported from. Off by default.
 [repo.groups.django.release_repo]
 django = "django-mongodb-backend"
 

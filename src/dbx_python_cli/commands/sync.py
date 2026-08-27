@@ -103,7 +103,7 @@ def _sync_all_branches(
     dry_run,
     no_ci=False,
     branch_filter=None,
-    no_backport_report=False,
+    backport_report=False,
     show_all=False,
     security_only=False,
 ):
@@ -203,7 +203,7 @@ def _sync_all_branches(
 
         summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
         typer.echo(summary)
-        if not no_backport_report:
+        if backport_report:
             _print_backport_report(
                 repo_info,
                 config,
@@ -296,7 +296,7 @@ def _sync_all_branches(
     # it says nothing about whether the released backend already contains those
     # commits. Report that gap so a fix backported upstream after the last
     # release (e.g. a 5.2.x security fix landing after backend 5.2.4) is noticed.
-    if not no_backport_report:
+    if backport_report:
         _print_backport_report(
             repo_info,
             config,
@@ -698,10 +698,10 @@ def sync_callback(
         "--dry-run",
         help="Show what would be synced without making changes",
     ),
-    no_backport_report: bool = typer.Option(
+    backport_report: bool = typer.Option(
         False,
-        "--no-backport-report",
-        help="Skip the report of upstream commits landed since the latest downstream release (see release_repo config)",
+        "--backport-report",
+        help="Report upstream commits landed since the latest downstream release (see release_repo config)",
     ),
     all_commits: bool = typer.Option(
         False,
@@ -734,9 +734,9 @@ def sync_callback(
         dbx sync <repo_name>                    # Sync a single repository
         dbx sync <repo_name> --all-branches     # Sync every branch in the repo's upstream_branch map
         dbx sync <repo_name> -B <branch>        # Sync only the named branch(es) from that map (repeatable)
-        dbx sync <repo_name> -b --no-backport-report  # Sync all branches, skip the release-gap report
-        dbx sync <repo_name> -b --dry-run --all-commits  # Release-gap report only, every commit
-        dbx sync <repo_name> -b --dry-run --security-only  # Release-gap report only, CVE fixes
+        dbx sync <repo_name> -b --backport-report  # Sync all branches, plus the release-gap report
+        dbx sync <repo_name> -b --dry-run --backport-report --all-commits  # Release-gap report, every commit
+        dbx sync <repo_name> -b --dry-run --backport-report --security-only  # Release-gap report, CVE fixes
         dbx sync -g <group>                     # Sync all repos in a group
         dbx sync -a                             # Sync all repos in all groups
         dbx sync -g <group> <repo_name>         # Sync specific repo in a group
@@ -868,7 +868,7 @@ def sync_callback(
                 dry_run,
                 no_ci,
                 branch_filter=branch or None,
-                no_backport_report=no_backport_report,
+                backport_report=backport_report,
                 show_all=all_commits,
                 security_only=security_only,
             )

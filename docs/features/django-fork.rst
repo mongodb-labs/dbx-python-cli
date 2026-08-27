@@ -401,10 +401,10 @@ django-mongodb-backend 5.2.4 shipped is on the fork branch, in CI, and absent
 from every installed copy of the backend — and nothing in the sync output would
 have said so.
 
-So after a successful ``--all-branches`` (or ``--branch``) sync, ``dbx sync``
-compares each mapped branch's upstream target against the highest release tag of
-the same series in the group's ``release_repo`` and lists what upstream has that
-the release does not:
+So on request — pass ``--backport-report`` to an ``--all-branches`` (or
+``--branch``) sync — ``dbx sync`` compares each mapped branch's upstream target
+against the highest release tag of the same series in the group's
+``release_repo`` and lists what upstream has that the release does not:
 
 .. code-block:: text
 
@@ -451,7 +451,8 @@ buried in version bumps and translation updates:
    ``Added CVE-… to security archive`` (which names CVEs but only edits a docs
    page). Hidden by default and reported as a count.
 
-Two flags tune the listing:
+``--all-commits`` and ``--security-only`` tune the listing (both imply
+nothing on their own — the report still needs ``--backport-report``):
 
 ``--all-commits``
    List every commit, including the chores. Overrides ``--security-only``.
@@ -466,9 +467,9 @@ Two flags tune the listing:
 
 Combined with ``--dry-run`` these make the report a read-only query::
 
-   dbx sync django --all-branches --dry-run                  # what is pending?
-   dbx sync django --all-branches --dry-run --security-only  # anything urgent?
-   dbx sync django --all-branches --dry-run --all-commits    # the full list
+   dbx sync django --all-branches --dry-run --backport-report                  # what is pending?
+   dbx sync django --all-branches --dry-run --backport-report --security-only  # anything urgent?
+   dbx sync django --all-branches --dry-run --backport-report --all-commits    # the full list
 
 To judge a commit, take the short sha into the fork clone as usual
 (``git -C <fork> show <sha>``); the report prints sha, date and subject
@@ -518,9 +519,9 @@ Configure the release repo per synced repo:
 The report is best-effort and never fails the sync: an unset ``release_repo``,
 an un-cloned release repo, or a git error is reported as a warning and skipped.
 It fetches tags in the release repo first so a stale clone does not over-report.
-Pass ``--no-backport-report`` to skip it entirely, and note it also runs under
-``--dry-run`` (where it is the only thing that touches the network beyond the
-single upstream fetch).
+The report is opt-in: a plain ``dbx sync django --all-branches`` does not print
+it. It also works under ``--dry-run`` (where it is the only thing that touches
+the network beyond the single upstream fetch).
 
 Adding a new release branch
 ----------------------------
