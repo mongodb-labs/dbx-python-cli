@@ -238,7 +238,9 @@ django = "django-mongodb-backend"
 # just before that merge (per the backend's docs/internals/release-process.rst branch policy).
 "mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "6.0.x"}
 "mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = "main"}
-"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 607, evergreen = true}}
+# 607 (INTPYTHON-528 Backports for 5.2.4 LTS) merged 2026-08-21 with the 5.2.4 release;
+# 622 (INTPYTHON-1077 5.2.5 LTS backports) succeeds it as the 5.2.x head PR.
+"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 622, evergreen = true}}
 # 535 was closed and superseded by 602 for the same head branch (django62).
 "mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 602, evergreen = true}}
 
