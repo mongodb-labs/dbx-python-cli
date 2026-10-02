@@ -102,6 +102,7 @@ repos = [
     "git@github.com:mongodb/specifications.git",
     "git@github.com:mongodb-labs/mongo-arrow.git",
     "git@github.com:mongodb/winkerberos.git",
+    "git@github.com:mongodb/motor.git",
 ]
 # Automatically sync with upstream immediately after cloning
 sync_after_clone = ["mongo-python-driver"]
