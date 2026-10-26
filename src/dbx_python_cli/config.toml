@@ -138,8 +138,16 @@ libmongocrypt = [
 repos = [
     "git@github.com:mongodb-labs/pymongo-search-utils.git",
     "git@github.com:langchain-ai/langchain-mongodb.git",
-    "git@github.com:mongodb-developer/mlflow-mongodb.git",
+    "git@github.com:WavEV/mlflow-mongodb.git",
 ]
+
+# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
+# mlflow-mongodb is pinned to the WavEV fork, so --fork must not rewrite its owner.
+no_fork = ["mlflow-mongodb"]
+
+# Upstream remote URL for fork repos (added as `upstream` remote on clone)
+[repo.groups.langchain.upstream]
+mlflow-mongodb = "git@github.com:mongodb-developer/mlflow-mongodb.git"
 
 # Sub-directory configuration: specify install directories for repos with multiple packages
 [repo.groups.langchain.install_dirs]
