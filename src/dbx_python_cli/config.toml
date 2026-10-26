@@ -138,6 +138,7 @@ libmongocrypt = [
 repos = [
     "git@github.com:mongodb-labs/pymongo-search-utils.git",
     "git@github.com:langchain-ai/langchain-mongodb.git",
+    "git@github.com:mongodb-developer/mlflow-mongodb.git",
 ]
 
 # Sub-directory configuration: specify install directories for repos with multiple packages
