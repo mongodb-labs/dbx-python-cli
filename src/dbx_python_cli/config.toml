@@ -268,7 +268,15 @@ repos = [
 repos = [
     "git@github.com:mongodb-labs/full-stack-fastapi-mongodb.git",
     "git@github.com:aclark4life/create-mongo-app.git",
+    "git@github.com:mongodb/fastapi-pymongo.git",
 ]
+
+[repo.groups.abx]
+repos = [
+    "git@github.com:mongodb-labs/abx-release-tools.git",
+]
+# No Python package: the repo holds GitHub Actions, docs, and scripts.
+skip_install = ["abx-release-tools"]
 
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
