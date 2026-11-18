@@ -83,14 +83,22 @@ Extending to other repos
 ------------------------
 
 Two adapters exist. The pymongo-family adapter reads
-``.evergreen/scripts/utils.py``. The ABX adapter reads
-``.github/workflows/*.yml`` in repos that reference
-``mongodb-labs/abx-release-tools`` actions (``strands-mongodb`` and other
-ABX integrations): ``dbx infra list`` shows each action, whether it is
-pinned to a commit SHA, and the repo vars and secrets the workflow
-references, and ``dbx infra check`` flags unpinned actions and a publish
-action without ``id-token: write``. Release runs in CI, so local checks
-cover workflow hygiene only. Repos with neither adapter fall back to
+``.evergreen/scripts/utils.py``. The release adapter reads
+``.github/workflows/*.yml`` and covers the three release styles seen
+across the repos:
+
+- abx-release-tools composite actions (``strands-mongodb``)
+- repo-local composite actions under ``.github/actions``
+  (``claude-agent-sdk-mongodb-session-store``)
+- plain workflows using PyPI trusted publishing
+  (``ms-agent-framework-mongodb``)
+
+A workflow counts as a release workflow when its filename contains
+``release`` or ``publish``. ``dbx infra list`` shows each file, its ABX and
+local actions, SHA pin status, and the repo vars and secrets the workflow
+references. ``dbx infra check`` flags unpinned ABX actions and a workflow
+that publishes without ``id-token: write``. Release runs in CI, so local
+checks cover workflow hygiene only. Repos with neither adapter fall back to
 overlay-only listing.
 
 Planned: a ``dbx infra run`` orchestrator that chains ``run-server``,

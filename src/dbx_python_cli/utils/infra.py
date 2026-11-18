@@ -35,70 +35,95 @@ ABX_TOOLS_REPO = "mongodb-labs/abx-release-tools"
 _ABX_USES_RE = re.compile(
     rf"uses:\s*{re.escape(ABX_TOOLS_REPO)}/actions/([\w/-]+)@(\S+)"
 )
+# Match "./.github/actions/<name>" and the invalid "$/.github/actions/<name>"
+# form found in some repos, so the listing stays accurate either way.
+_LOCAL_ACTION_RE = re.compile(r"uses:\s*[$.]/\.github/actions/([\w/-]+)")
+_PYPI_PUBLISH_RE = re.compile(r"pypa/gh-action-pypi-publish")
+_RELEASE_FILE_RE = re.compile(r"release|publish", re.IGNORECASE)
 _SECRETS_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}")
 _VARS_REF_RE = re.compile(r"\$\{\{\s*vars\.([A-Za-z0-9_]+)\s*\}\}")
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _ID_TOKEN_RE = re.compile(r"id-token:\s*write")
 
 
-def parse_abx_release(repo_path):
-    """Parse ABX release-tool usage from a repo's GitHub workflows.
+def parse_release_workflows(repo_path):
+    """Parse release workflows from a repo's GitHub Actions configuration.
 
-    Scans ``.github/workflows/*.yml`` for ``uses:`` references to
-    mongodb-labs/abx-release-tools actions, plus the repo variables, secrets,
-    and ``id-token: write`` permission they rely on. Regex-based: no YAML
-    dependency and no workflow execution semantics assumed.
+    Covers the three release styles seen across MongoDB Python repos:
 
-    Returns None when no abx-release-tools action is referenced, otherwise::
+    - abx-release-tools composite actions (``strands-mongodb``)
+    - repo-local composite actions under ``.github/actions``
+      (``claude-agent-sdk-mongodb-session-store``)
+    - plain workflows using PyPI trusted publishing
+      (``ms-agent-framework-mongodb``)
+
+    A workflow counts as a release workflow when its filename contains
+    "release" or "publish", or when it references an abx-release-tools
+    action. Regex-based: no YAML dependency. Returns None when no release
+    workflow exists, otherwise::
 
         {
+            "files": [
+                {"file", "abx_actions", "local_actions", "vars",
+                 "secrets", "id_token_write", "publishes"},
+            ],
             "actions": {name: {"file", "ref", "pinned"}},
-            "unpinned": [names],
-            "vars": sorted([var names]),
-            "secrets": sorted([secret names]),
-            "id_token_write": bool,
+            "unpinned": [abx action names],
+            "vars": sorted([names]),
+            "secrets": sorted([names]),
         }
     """
     workflows_dir = Path(repo_path) / ".github" / "workflows"
     if not workflows_dir.is_dir():
         return None
 
+    files = []
     actions = {}
-    var_names = set()
-    secret_names = set()
-    id_token_write = False
-    found = False
 
     for workflow in sorted(workflows_dir.glob("*.y*ml")):
         try:
             text = workflow.read_text()
         except OSError:
             continue
-        uses = _ABX_USES_RE.findall(text)
-        if not uses:
+        abx_uses = _ABX_USES_RE.findall(text)
+        if not abx_uses and not _RELEASE_FILE_RE.search(workflow.name):
             continue
-        found = True
-        for action_name, ref in uses:
-            if action_name not in actions:
-                actions[action_name] = {
-                    "file": workflow.name,
-                    "ref": ref,
-                    "pinned": bool(_SHA_RE.match(ref)),
-                }
-        var_names.update(_VARS_REF_RE.findall(text))
-        secret_names.update(_SECRETS_REF_RE.findall(text))
-        if _ID_TOKEN_RE.search(text):
-            id_token_write = True
 
-    if not found:
+        abx_actions = {}
+        for action_name, ref in abx_uses:
+            abx_actions[action_name] = {
+                "ref": ref,
+                "pinned": bool(_SHA_RE.match(ref)),
+            }
+            actions.setdefault(
+                action_name,
+                {"file": workflow.name, "ref": ref, "pinned": bool(_SHA_RE.match(ref))},
+            )
+
+        publishes = bool(_PYPI_PUBLISH_RE.search(text)) or any(
+            "publish" in name for name in abx_actions
+        )
+        files.append(
+            {
+                "file": workflow.name,
+                "abx_actions": abx_actions,
+                "local_actions": sorted(set(_LOCAL_ACTION_RE.findall(text))),
+                "vars": sorted(set(_VARS_REF_RE.findall(text))),
+                "secrets": sorted(set(_SECRETS_REF_RE.findall(text))),
+                "id_token_write": bool(_ID_TOKEN_RE.search(text)),
+                "publishes": publishes,
+            }
+        )
+
+    if not files:
         return None
 
     return {
+        "files": files,
         "actions": actions,
         "unpinned": sorted(n for n, a in actions.items() if not a["pinned"]),
-        "vars": sorted(var_names),
-        "secrets": sorted(secret_names),
-        "id_token_write": id_token_write,
+        "vars": sorted({v for f in files for v in f["vars"]}),
+        "secrets": sorted({s for f in files for s in f["secrets"]}),
     }
 
 

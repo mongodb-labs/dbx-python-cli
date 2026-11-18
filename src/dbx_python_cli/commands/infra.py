@@ -54,7 +54,7 @@ def list_suites(
     """
     from dbx_python_cli.utils.infra import (
         get_infra_overlay,
-        parse_abx_release,
+        parse_release_workflows,
         parse_suite_registry,
     )
 
@@ -67,10 +67,10 @@ def list_suites(
 
     name = repo_info["name"]
     registry = parse_suite_registry(repo_info["path"])
-    abx = parse_abx_release(repo_info["path"])
+    release = parse_release_workflows(repo_info["path"])
     overlay = get_infra_overlay(config, name)
 
-    if not registry and not overlay and not abx:
+    if not registry and not overlay and not release:
         typer.echo(f"No test suite registry or [infra.{name}] overlay found.")
         typer.echo(
             "Suites are discovered from .evergreen/scripts/utils.py (pymongo-family repos)."
@@ -92,8 +92,8 @@ def list_suites(
     else:
         typer.echo(f"No suite registry in {name}")
 
-    if abx:
-        _print_abx_release(name, abx, overlay)
+    if release:
+        _print_release_workflows(name, release, overlay)
     elif not registry:
         typer.echo("Overlay domains only:\n")
 
@@ -138,25 +138,31 @@ def _print_suite_line(suite_name, facts, registry, verbose):
             typer.echo(f"      {label}: {url}")
 
 
-def _print_abx_release(name, abx, overlay):
-    """Print release domains parsed from abx-release-tools workflow references."""
-    typer.echo(
-        f"\nRelease domains for {name} (abx-release-tools, {len(abx['actions'])} action(s))"
-    )
+def _print_release_workflows(name, release, overlay):
+    """Print release workflows and the requirements each one carries."""
+    typer.echo(f"\nRelease workflows for {name} ({len(release['files'])} file(s))")
     typer.echo("Docs: https://abx-release-tools.readthedocs.io/en/latest/\n")
-    for action_name, info in sorted(abx["actions"].items()):
-        pin = "pinned" if info["pinned"] else "UNPINNED"
-        typer.echo(f"  {action_name}  [{pin} | {info['file']}]")
-    if abx["vars"]:
-        typer.echo(f"  repo vars: {', '.join(abx['vars'])}")
-    if abx["secrets"]:
-        typer.echo(f"  repo secrets: {', '.join(abx['secrets'])}")
-    if not abx["id_token_write"] and (
-        "python/publish" in abx["actions"] or "publish" in abx["actions"]
-    ):
+    for info in release["files"]:
+        typer.echo(f"  {info['file']}")
+        if info["abx_actions"]:
+            parts = []
+            for action_name, action in sorted(info["abx_actions"].items()):
+                pin = "pinned" if action["pinned"] else "UNPINNED"
+                parts.append(f"{action_name} [{pin}]")
+            typer.echo(f"    abx actions: {', '.join(parts)}")
+        if info["local_actions"]:
+            typer.echo(f"    local actions: {', '.join(info['local_actions'])}")
         typer.echo(
-            "  ⚠️  publish action present but no id-token: write permission found"
+            "    id-token: write"
+            if info["id_token_write"]
+            else "    no id-token permission"
         )
+        if info["publishes"] and not info["id_token_write"]:
+            typer.echo("    ⚠️  publishes but no id-token: write")
+    if release["vars"]:
+        typer.echo(f"  repo vars: {', '.join(release['vars'])}")
+    if release["secrets"]:
+        typer.echo(f"  repo secrets: {', '.join(release['secrets'])}")
     for label, url in ((overlay.get("release") or {}).get("links") or {}).items():
         typer.echo(f"  {label}: {url}")
 
@@ -213,7 +219,7 @@ def check(
         check_tool,
         get_infra_overlay,
         is_evergreen_host,
-        parse_abx_release,
+        parse_release_workflows,
         parse_suite_registry,
         resolve_drivers_tools,
     )
@@ -278,30 +284,30 @@ def check(
     if facts.get("evergreen_only") and not is_evergreen_host():
         _record(False, "host", "evergreen-only suite, not on an Evergreen host")
 
-    # ABX release-domain checks (repos without a suite registry).
+    # Release workflow checks (repos without a suite registry).
     if not registry:
-        abx = parse_abx_release(repo_info["path"])
-        if abx:
-            for action_name in abx["unpinned"]:
-                ref = abx["actions"][action_name]["ref"]
+        release = parse_release_workflows(repo_info["path"])
+        if release:
+            for action_name in release["unpinned"]:
+                ref = release["actions"][action_name]["ref"]
                 _record(
                     False,
                     f"action {action_name}",
                     f"not pinned to a commit SHA (ref: {ref})",
                 )
-            publishes = (
-                "python/publish" in abx["actions"] or "publish" in abx["actions"]
-            )
-            if publishes and not abx["id_token_write"]:
-                _record(
-                    False,
-                    "id-token permission",
-                    "publish action present but no id-token: write in the workflow",
+            for info in release["files"]:
+                if info["publishes"] and not info["id_token_write"]:
+                    _record(
+                        False,
+                        f"id-token permission ({info['file']})",
+                        "publishes but has no id-token: write",
+                    )
+            if release["vars"]:
+                typer.echo(f"ℹ️  repo vars referenced: {', '.join(release['vars'])}")
+            if release["secrets"]:
+                typer.echo(
+                    f"ℹ️  repo secrets referenced: {', '.join(release['secrets'])}"
                 )
-            if abx["vars"]:
-                typer.echo(f"ℹ️  repo vars referenced: {', '.join(abx['vars'])}")
-            if abx["secrets"]:
-                typer.echo(f"ℹ️  repo secrets referenced: {', '.join(abx['secrets'])}")
 
     typer.echo()
     if failures:
