@@ -7,9 +7,9 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
-from dbx_python_cli.utils.repo import is_worktree, should_create_upstream_worktree
-from dbx_python_cli.utils.worktree import (
+from drivers_python_cli.cli import app
+from drivers_python_cli.utils.repo import is_worktree, should_create_upstream_worktree
+from drivers_python_cli.utils.worktree import (
     add_worktree,
     branch_to_label,
     get_remote_head_branch,
@@ -28,10 +28,10 @@ runner = CliRunner()
 # rather than writing to the developer's global config.
 _GIT_ENV = {
     **os.environ,
-    "GIT_AUTHOR_NAME": "dbx tests",
-    "GIT_AUTHOR_EMAIL": "dbx-tests@example.com",
-    "GIT_COMMITTER_NAME": "dbx tests",
-    "GIT_COMMITTER_EMAIL": "dbx-tests@example.com",
+    "GIT_AUTHOR_NAME": "dpy tests",
+    "GIT_AUTHOR_EMAIL": "dpy-tests@example.com",
+    "GIT_COMMITTER_NAME": "dpy tests",
+    "GIT_COMMITTER_EMAIL": "dpy-tests@example.com",
     # A developer's global commit.gpgsign would otherwise prompt or fail here.
     "GIT_CONFIG_COUNT": "1",
     "GIT_CONFIG_KEY_0": "commit.gpgsign",
@@ -189,11 +189,11 @@ def test_should_create_upstream_worktree(config):
     assert should_create_upstream_worktree(config, "missing-group", "django") is False
 
 
-# --- dbx worktree ------------------------------------------------------------
+# --- dpy worktree ------------------------------------------------------------
 
 
 def test_worktree_add_upstream(config, fork_and_upstream):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         result = runner.invoke(app, ["worktree", "add", "django", "--upstream"])
 
     assert result.exit_code == 0, result.output
@@ -202,7 +202,7 @@ def test_worktree_add_upstream(config, fork_and_upstream):
 
 
 def test_worktree_add_upstream_twice_fails(config, fork_and_upstream):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         runner.invoke(app, ["worktree", "add", "django", "--upstream"])
         result = runner.invoke(app, ["worktree", "add", "django", "--upstream"])
 
@@ -211,7 +211,7 @@ def test_worktree_add_upstream_twice_fails(config, fork_and_upstream):
 
 
 def test_worktree_add_requires_branch_or_upstream(config):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         result = runner.invoke(app, ["worktree", "add", "django"])
 
     assert result.exit_code == 1
@@ -219,7 +219,7 @@ def test_worktree_add_requires_branch_or_upstream(config):
 
 
 def test_worktree_add_unknown_repo(config):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         result = runner.invoke(app, ["worktree", "add", "nope", "--upstream"])
 
     assert result.exit_code == 1
@@ -228,7 +228,7 @@ def test_worktree_add_unknown_repo(config):
 
 def test_worktree_add_without_upstream_remote(config, fork_and_upstream):
     _git("remote", "remove", "upstream", cwd=fork_and_upstream["fork"])
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         result = runner.invoke(app, ["worktree", "add", "django", "--upstream"])
 
     assert result.exit_code == 1
@@ -236,7 +236,7 @@ def test_worktree_add_without_upstream_remote(config, fork_and_upstream):
 
 
 def test_worktree_list(config, fork_and_upstream):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         runner.invoke(app, ["worktree", "add", "django", "--upstream"])
         result = runner.invoke(app, ["worktree", "list", "django"])
 
@@ -247,7 +247,7 @@ def test_worktree_list(config, fork_and_upstream):
 
 def test_worktree_remove(config, fork_and_upstream):
     path = fork_and_upstream["group_dir"] / "django-upstream"
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         runner.invoke(app, ["worktree", "add", "django", "--upstream"])
         assert path.exists()
         result = runner.invoke(app, ["worktree", "remove", "django"])
@@ -257,7 +257,7 @@ def test_worktree_remove(config, fork_and_upstream):
 
 
 def test_worktree_remove_missing(config):
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         result = runner.invoke(app, ["worktree", "remove", "django"])
 
     assert result.exit_code == 1
@@ -266,7 +266,7 @@ def test_worktree_remove_missing(config):
 
 def test_worktree_commands_reject_a_worktree_as_target(config, fork_and_upstream):
     """`django-upstream` is a worktree, not a clone, so it is not a valid target."""
-    with patch("dbx_python_cli.commands.worktree.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.worktree.get_config", return_value=config):
         runner.invoke(app, ["worktree", "add", "django", "--upstream"])
         result = runner.invoke(app, ["worktree", "list", "django-upstream"])
 
@@ -279,7 +279,7 @@ def test_worktree_commands_reject_a_worktree_as_target(config, fork_and_upstream
 
 def test_sync_skips_a_worktree(config, fork_and_upstream):
     """Rebasing a worktree onto upstream and force-pushing would corrupt the fork."""
-    from dbx_python_cli.commands.sync import _sync_repository
+    from drivers_python_cli.commands.sync import _sync_repository
 
     path = fork_and_upstream["group_dir"] / "django-upstream"
     ok, message = add_worktree(
@@ -287,7 +287,7 @@ def test_sync_skips_a_worktree(config, fork_and_upstream):
     )
     assert ok, message
 
-    with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
         status = _sync_repository(path, "django-upstream")
 
     assert status == "skipped"
@@ -296,9 +296,9 @@ def test_sync_skips_a_worktree(config, fork_and_upstream):
 
 
 def test_sync_does_not_skip_a_primary_clone(fork_and_upstream):
-    from dbx_python_cli.commands.sync import _sync_repository
+    from drivers_python_cli.commands.sync import _sync_repository
 
-    with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = ""
         mock_run.return_value.stderr = ""
@@ -317,8 +317,8 @@ def test_switch_group_skips_worktrees(config, fork_and_upstream):
     )
 
     with (
-        patch("dbx_python_cli.commands.switch.get_config", return_value=config),
-        patch("dbx_python_cli.commands.switch._run_git_switch") as mock_switch,
+        patch("drivers_python_cli.commands.switch.get_config", return_value=config),
+        patch("drivers_python_cli.commands.switch._run_git_switch") as mock_switch,
     ):
         result = runner.invoke(app, ["switch", "-g", "django", "main"])
 

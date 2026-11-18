@@ -1,0 +1,979 @@
+"""Clone command for cloning repositories."""
+
+import subprocess
+from pathlib import Path
+
+import typer
+
+from drivers_python_cli.commands.worktree import create_upstream_worktree
+from drivers_python_cli.utils import repo
+from drivers_python_cli.utils.repo import (
+    get_group_dir,
+    get_no_fork_repos,
+    get_upstream_branch,
+    get_upstream_url,
+    is_flat_mode,
+    should_sync_after_clone,
+)
+from drivers_python_cli.utils.repo import (
+    switch_to_branch as _switch_to_branch,
+)
+from drivers_python_cli.utils.worktree import has_remote
+
+
+def sync_repo_after_clone(
+    repo_path: Path,
+    repo_name: str,
+    group_name: str,
+    config,
+    verbose: bool = False,
+):
+    """Run the same fetch/rebase/push sequence as ``dpy sync`` right after cloning."""
+    from drivers_python_cli.commands.sync import _sync_repository
+
+    typer.echo(f"  🔄 Syncing {repo_name} with upstream...")
+    _sync_repository(
+        repo_path,
+        repo_name,
+        verbose=verbose,
+        upstream_branch=get_upstream_branch(config, group_name, repo_name),
+    )
+
+
+def auto_install_repo(
+    repo_path: Path,
+    repo_name: str,
+    group_name: str,
+    base_dir: Path,
+    verbose: bool = False,
+):
+    """
+    Automatically install a cloned repository.
+
+    Args:
+        repo_path: Path to the cloned repository
+        repo_name: Name of the repository
+        group_name: Name of the group the repo belongs to
+        base_dir: Path to the base directory
+        verbose: Whether to show verbose output
+    """
+    from drivers_python_cli.commands.install import (
+        _effective_install_args,
+        install_package,
+        run_build_commands,
+    )
+    from drivers_python_cli.utils.repo import (
+        get_build_commands,
+        get_install_dirs,
+        should_skip_install,
+    )
+    from drivers_python_cli.utils.venv import get_venv_info
+
+    try:
+        config = repo.get_config()
+
+        # Check if this repo should skip installation
+        if should_skip_install(config, group_name, repo_name):
+            if verbose:
+                typer.echo(
+                    f"  [verbose] Skipping install for {repo_name} (configured in skip_install)"
+                )
+            return "skipped"
+
+        # Get venv info - will use base venv if exists, then repo venv, then group venv, otherwise any active venv
+        python_path, venv_type = get_venv_info(
+            repo_path, repo_path.parent, base_path=base_dir
+        )
+
+        if verbose:
+            typer.echo(f"  [verbose] Venv type: {venv_type}, Python: {python_path}")
+
+        # Check if this repo needs build commands
+        build_commands = get_build_commands(config, group_name, repo_name)
+        if build_commands:
+            if verbose:
+                typer.echo(f"  [verbose] Running build commands for {repo_name}")
+            if not run_build_commands(repo_path, build_commands, verbose=verbose):
+                typer.echo(
+                    f"  ⚠️  Build failed for {repo_name}, skipping install", err=True
+                )
+                return False
+
+        # Check if this repo has install_dirs (multiple packages in subdirectories)
+        install_dirs = get_install_dirs(config, group_name, repo_name)
+
+        # Apply config default extras/groups
+        eff_extras, eff_groups = _effective_install_args(
+            config, group_name, repo_name, None, None
+        )
+
+        if install_dirs:
+            # Install from subdirectories
+            if verbose:
+                typer.echo(
+                    f"  [verbose] Installing {len(install_dirs)} package(s) from subdirectories"
+                )
+
+            installed_any = False
+            for install_dir in install_dirs:
+                result = install_package(
+                    repo_path,
+                    python_path,
+                    install_dir=install_dir,
+                    extras=eff_extras,
+                    groups=eff_groups,
+                    verbose=verbose,
+                )
+                if result == "failed":
+                    return False
+                if result == "success":
+                    installed_any = True
+            # No installable package found in any subdirectory
+            return True if installed_any else "skipped"
+        else:
+            # Regular repo: install from root
+            result = install_package(
+                repo_path,
+                python_path,
+                install_dir=None,
+                extras=eff_extras,
+                groups=eff_groups,
+                verbose=verbose,
+            )
+            if result == "failed":
+                return False
+            # install_package returns "skipped" when there's no setup.py /
+            # pyproject.toml to install — propagate that instead of reporting
+            # a successful install for a package that was never installed.
+            if result == "skipped":
+                return "skipped"
+
+        return True
+    except Exception as e:
+        if verbose:
+            typer.echo(f"  [verbose] Auto-install failed: {e}", err=True)
+        return False
+
+
+def ensure_group_venv(
+    group_dir: Path,
+    group_name: str,
+    verbose: bool = False,
+    python_version: str = None,
+) -> bool:
+    """
+    Ensure a group-level virtual environment exists, creating one if needed.
+
+    Args:
+        group_dir: Path to the group directory
+        group_name: Name of the group
+        verbose: Whether to show verbose output
+        python_version: Python version to use (e.g., '3.13'), or None for system default
+
+    Returns:
+        True if venv exists or was created successfully, False otherwise
+    """
+    venv_path = group_dir / ".venv"
+
+    if venv_path.exists():
+        typer.echo(f"  🐍 Using existing venv: {venv_path}")
+        return True
+
+    if python_version:
+        typer.echo(
+            f"  🐍 Creating virtual environment for group '{group_name}' (Python {python_version})..."
+        )
+    else:
+        typer.echo(f"  🐍 Creating virtual environment for group '{group_name}'...")
+
+    venv_cmd = ["uv", "venv", str(venv_path), "--no-python-downloads"]
+    if python_version:
+        venv_cmd.extend(["--python", python_version])
+
+    if verbose:
+        typer.echo(f"  [verbose] Running command: {' '.join(venv_cmd)}")
+        typer.echo(f"  [verbose] Working directory: {group_dir}")
+
+    result = subprocess.run(
+        venv_cmd,
+        cwd=str(group_dir),
+        check=False,
+        capture_output=not verbose,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        typer.echo(
+            f"  ⚠️  Failed to create virtual environment for group '{group_name}'",
+            err=True,
+        )
+        if not verbose and result.stderr:
+            typer.echo(result.stderr, err=True)
+        return False
+
+    typer.echo(f"  ✅ Virtual environment created at {venv_path}")
+    return True
+
+
+def ensure_repo_venv(
+    repo_path: Path,
+    repo_name: str,
+    verbose: bool = False,
+    python_version: str = None,
+) -> bool:
+    """
+    Ensure a repo-level virtual environment exists, creating one if needed.
+
+    Args:
+        repo_path: Path to the repository directory
+        repo_name: Name of the repository
+        verbose: Whether to show verbose output
+        python_version: Python version to use (e.g., '3.13'), or None for system default
+
+    Returns:
+        True if venv exists or was created successfully, False otherwise
+    """
+    venv_path = repo_path / ".venv"
+
+    if venv_path.exists():
+        typer.echo(f"  🐍 Using existing venv: {venv_path}")
+        return True
+
+    if python_version:
+        typer.echo(
+            f"  🐍 Creating virtual environment for repository '{repo_name}' (Python {python_version})..."
+        )
+    else:
+        typer.echo(f"  🐍 Creating virtual environment for repository '{repo_name}'...")
+
+    venv_cmd = ["uv", "venv", str(venv_path), "--no-python-downloads"]
+    if python_version:
+        venv_cmd.extend(["--python", python_version])
+
+    if verbose:
+        typer.echo(f"  [verbose] Running command: {' '.join(venv_cmd)}")
+        typer.echo(f"  [verbose] Working directory: {repo_path}")
+
+    result = subprocess.run(
+        venv_cmd,
+        cwd=str(repo_path),
+        check=False,
+        capture_output=not verbose,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        typer.echo(
+            f"  ⚠️  Failed to create virtual environment for repository '{repo_name}'",
+            err=True,
+        )
+        if not verbose and result.stderr:
+            typer.echo(result.stderr, err=True)
+        return False
+
+    typer.echo(f"  ✅ Virtual environment created at {venv_path}")
+    return True
+
+
+app = typer.Typer(
+    help="Clone repositories",
+    no_args_is_help=True,
+    invoke_without_command=True,
+    context_settings={
+        "allow_interspersed_args": False,
+        "help_option_names": ["-h", "--help"],
+    },
+)
+
+
+@app.callback()
+def clone_callback(
+    ctx: typer.Context,
+    repo_name: str = typer.Argument(
+        None,
+        help="Repository name to clone (e.g., django-mongodb-backend)",
+    ),
+    group: list[str] = typer.Option(
+        None,
+        "--group",
+        "-g",
+        help="Repository group(s) to clone (e.g., pymongo, langchain, django). Can be specified multiple times or as comma-separated values.",
+    ),
+    all_groups: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Clone all groups from configuration",
+    ),
+    fork: bool = typer.Option(
+        True,
+        "--fork/--no-fork",
+        help="Clone from your fork instead of upstream (uses fork_user from config). "
+        "Pass --no-fork to clone the configured URL directly.",
+    ),
+    fork_user: str = typer.Option(
+        None,
+        "--fork-user",
+        help="GitHub username for fork (overrides --fork and config fork_user)",
+    ),
+    no_install: bool = typer.Option(
+        False,
+        "--no-install",
+        help="Skip automatic installation after cloning",
+    ),
+    no_sync: bool = typer.Option(
+        False,
+        "--no-sync",
+        help="Skip automatic upstream sync after cloning, even if sync_after_clone is configured",
+    ),
+):
+    """Clone a repository by name, all repositories from one or more groups, or all groups."""
+    # Get verbose flag from parent context
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
+    try:
+        config = repo.get_config()
+        base_dir = repo.get_base_dir(config)
+        flat = is_flat_mode(config)
+        groups = repo.get_repo_groups(config)
+
+        if verbose:
+            typer.echo(f"[verbose] Using base directory: {base_dir}")
+            typer.echo(f"[verbose] Available groups: {list(groups.keys())}\n")
+
+        # Maps a directory group name to the config group its per-repo settings
+        # live under, when they differ (see the single-repo global-group case).
+        clone_config_groups = {}
+
+        # Handle individual repo clone
+        if repo_name:
+            # Find the repo in all groups
+            found_repo = None
+            found_group = None
+
+            for group_name, group_config in groups.items():
+                for repo_url in group_config.get("repos", []):
+                    # Extract repo name from URL
+                    url_repo_name = repo_url.split("/")[-1].replace(".git", "")
+                    if url_repo_name == repo_name:
+                        found_repo = repo_url
+                        found_group = group_name
+                        break
+                if found_repo:
+                    break
+
+            if not found_repo:
+                typer.echo(
+                    f"❌ Error: Repository '{repo_name}' not found in any group.",
+                    err=True,
+                )
+                typer.echo("\nUse 'dpy list' to see available groups and repositories")
+                raise typer.Exit(1)
+
+            # If the repo is in a global group, clone it to the first non-global group instead
+            global_group_names = repo.get_global_groups(config)
+            target_group = found_group
+
+            if found_group in global_group_names:
+                # Get group priority to determine which group to clone to
+                group_priority = repo.get_group_priority(config)
+
+                # Find the first non-global group from priority list
+                for priority_group in group_priority:
+                    if (
+                        priority_group in groups
+                        and priority_group not in global_group_names
+                    ):
+                        target_group = priority_group
+                        break
+                else:
+                    # If no prioritized group found, use the first non-global group
+                    for group_name in groups.keys():
+                        if group_name not in global_group_names:
+                            target_group = group_name
+                            break
+
+                if verbose:
+                    typer.echo(
+                        f"[verbose] Found '{repo_name}' in global group '{found_group}', "
+                        f"cloning to '{target_group}' instead"
+                    )
+            elif verbose:
+                typer.echo(f"[verbose] Found '{repo_name}' in group '{found_group}'")
+
+            # Clone single repo
+            repos_to_clone = {target_group: [found_repo]}
+            # A repo defined in a global group is cloned into a non-global
+            # directory group, but its per-repo config (upstream, preferred
+            # branch, install extras, skip_install, ...) still lives under the
+            # original group. Remember that mapping so config lookups use it.
+            if target_group != found_group:
+                clone_config_groups[target_group] = found_group
+
+        # Handle clone all groups
+        elif all_groups:
+            repos_to_clone = {}
+
+            # Get global group names first to exclude them from cloning
+            global_group_names = repo.get_global_groups(config)
+
+            # Clone all groups from configuration, excluding global groups
+            for group_name in groups.keys():
+                # Skip global groups - they should not get their own directory
+                if group_name in global_group_names:
+                    continue
+                group_repos = groups[group_name].get("repos", [])
+                if group_repos:
+                    repos_to_clone[group_name] = group_repos
+
+            if not repos_to_clone:
+                typer.echo("❌ Error: No groups found in configuration.", err=True)
+                raise typer.Exit(1)
+
+            # Append global-group repos to every non-global group being cloned.
+            if global_group_names:
+                global_urls = []
+                for gname in global_group_names:
+                    if gname in groups:
+                        global_urls.extend(groups[gname].get("repos", []))
+
+                if global_urls:
+                    for target_group in list(repos_to_clone.keys()):
+                        if target_group not in global_group_names:
+                            existing_urls = set(repos_to_clone[target_group])
+                            for url in global_urls:
+                                if url not in existing_urls:
+                                    repos_to_clone[target_group].append(url)
+                                    existing_urls.add(url)
+
+        # Handle group clone (can be multiple groups)
+        elif group:
+            repos_to_clone = {}
+
+            # Parse comma-separated values
+            group_names = []
+            for g in group:
+                # Split by comma and strip whitespace
+                group_names.extend(
+                    [name.strip() for name in g.split(",") if name.strip()]
+                )
+
+            # Validate all groups first
+            for group_name in group_names:
+                if group_name not in groups:
+                    typer.echo(
+                        f"❌ Error: Group '{group_name}' not found in configuration.",
+                        err=True,
+                    )
+                    typer.echo(
+                        f"Available groups: {', '.join(groups.keys())}", err=True
+                    )
+                    raise typer.Exit(1)
+
+                group_repos = groups[group_name].get("repos", [])
+                if not group_repos:
+                    typer.echo(
+                        f"❌ Error: No repositories found in group '{group_name}'.",
+                        err=True,
+                    )
+                    raise typer.Exit(1)
+
+                repos_to_clone[group_name] = group_repos
+
+            # Append global-group repos to every non-global group being cloned.
+            # This means e.g. `dpy clone -g django` will also clone
+            # mongo-python-driver into the django/ directory.
+            global_group_names = repo.get_global_groups(config)
+            if global_group_names:
+                global_urls = []
+                for gname in global_group_names:
+                    if gname in groups:
+                        global_urls.extend(groups[gname].get("repos", []))
+
+                if global_urls:
+                    for target_group in list(repos_to_clone.keys()):
+                        if target_group not in global_group_names:
+                            existing_urls = set(repos_to_clone[target_group])
+                            for url in global_urls:
+                                if url not in existing_urls:
+                                    repos_to_clone[target_group].append(url)
+                                    existing_urls.add(url)
+
+        else:
+            typer.echo("❌ Error: Repository name or group required", err=True)
+            typer.echo("\nUsage: dpy clone <repo-name>")
+            typer.echo("   or: dpy clone -g <group>")
+            typer.echo("   or: dpy clone -g <group1> -g <group2>")
+            typer.echo("   or: dpy clone -g <group1>,<group2>")
+            typer.echo("   or: dpy clone -a")
+            raise typer.Exit(1)
+
+        # Handle fork options
+        effective_fork_user = None
+        if fork_user:
+            # --fork-user takes precedence
+            effective_fork_user = fork_user
+        elif fork:
+            # --fork flag uses config, falls back to upstream if not set
+            effective_fork_user = config.get("repo", {}).get("fork_user")
+            if not effective_fork_user:
+                typer.echo(
+                    "⚠️  Warning: --fork is enabled but fork_user is not set in config",
+                    err=True,
+                )
+                typer.echo(
+                    "   Cloning from upstream instead. To use fork workflow, either:",
+                    err=True,
+                )
+                typer.echo(
+                    "   1. Set fork_user in config: dpy config set repo.fork_user <your-github-username>",
+                    err=True,
+                )
+                typer.echo(
+                    "   2. Use --fork-user flag: dpy clone -g <group> --fork-user <your-github-username>",
+                    err=True,
+                )
+                typer.echo(
+                    "   3. Disable fork: dpy clone -g <group> --no-fork\n", err=True
+                )
+
+        if effective_fork_user and verbose:
+            typer.echo(
+                f"[verbose] Using fork workflow with user: {effective_fork_user}\n"
+            )
+
+        # Track successfully cloned repos for auto-install
+        cloned_repos = []
+        # Capture before inner loops overwrite the repo_name variable
+        is_single_repo_clone = repo_name is not None
+
+        # Process each group
+        for group_name, repos in repos_to_clone.items():
+            # In flat mode repos land directly in base_dir; otherwise in base_dir/<group>
+            group_dir = get_group_dir(base_dir, group_name, flat)
+            group_dir.mkdir(parents=True, exist_ok=True)
+
+            # Group to read per-repo config from (differs from the directory
+            # group when a global-group repo is cloned into a non-global group).
+            config_group = clone_config_groups.get(group_name, group_name)
+
+            no_fork_repos = get_no_fork_repos(config, config_group)
+
+            # Display appropriate message
+            if len(repos) == 1:
+                single_repo_name = repos[0].split("/")[-1].replace(".git", "")
+                header_fork_user = (
+                    None if single_repo_name in no_fork_repos else effective_fork_user
+                )
+                if header_fork_user:
+                    typer.echo(
+                        f"Cloning {single_repo_name} from {header_fork_user}'s fork to {group_dir}"
+                    )
+                else:
+                    typer.echo(f"Cloning {single_repo_name} to {group_dir}")
+            else:
+                fork_repos = [
+                    r
+                    for r in repos
+                    if r.split("/")[-1].replace(".git", "") not in no_fork_repos
+                ]
+                if effective_fork_user and fork_repos:
+                    typer.echo(
+                        f"Cloning {len(repos)} repository(ies) from group '{group_name}' to {group_dir} ({len(fork_repos)} via {effective_fork_user}'s fork)"
+                    )
+                else:
+                    typer.echo(
+                        f"Cloning {len(repos)} repository(ies) from group '{group_name}' to {group_dir}"
+                    )
+            for repo_url in repos:
+                # Extract repository name from URL
+                repo_name = repo_url.split("/")[-1].replace(".git", "")
+                repo_path = group_dir / repo_name
+
+                # Per-repo fork override: repos listed in no_fork skip the fork workflow
+                active_fork_user = (
+                    None if repo_name in no_fork_repos else effective_fork_user
+                )
+
+                if repo_path.exists() and (repo_path / ".git").exists():
+                    typer.echo(f"  ⏭️  {repo_name} already exists, skipping")
+                    preferred_branch = repo.get_preferred_branch(
+                        config, config_group, repo_name
+                    )
+                    if preferred_branch:
+                        _switch_to_branch(repo_path, preferred_branch, verbose)
+                    continue
+                elif repo_path.exists():
+                    typer.echo(
+                        f"  ⚠️  {repo_name}: directory exists but has no .git — "
+                        "possibly an incomplete clone. Remove it manually to re-clone.",
+                        err=True,
+                    )
+                    continue
+
+                # Determine clone URL and upstream URL
+                if active_fork_user:
+                    # Replace the org/user in the URL with the fork user
+                    # Handle both SSH and HTTPS URLs
+                    clone_url = repo_url
+                    upstream_url = repo_url
+
+                    if "git@github.com:" in repo_url:
+                        # SSH format: git@github.com:org/repo.git
+                        parts = repo_url.split(":")
+                        if len(parts) == 2:
+                            repo_part = parts[1].split("/", 1)
+                            if len(repo_part) == 2:
+                                clone_url = (
+                                    f"git@github.com:{active_fork_user}/{repo_part[1]}"
+                                )
+                    elif "github.com/" in repo_url:
+                        # HTTPS format: https://github.com/org/repo.git
+                        parts = repo_url.split("github.com/")
+                        if len(parts) == 2:
+                            repo_part = parts[1].split("/", 1)
+                            if len(repo_part) == 2:
+                                clone_url = f"{parts[0]}github.com/{active_fork_user}/{repo_part[1]}"
+                else:
+                    clone_url = repo_url
+                    upstream_url = None
+
+                typer.echo(f"  📦 Cloning {repo_name}...")
+                if verbose:
+                    typer.echo(f"  [verbose] Clone URL: {clone_url}")
+                    if active_fork_user:
+                        typer.echo(f"  [verbose] Upstream URL: {upstream_url}")
+                    typer.echo(f"  [verbose] Destination: {repo_path}")
+
+                clone_success = False
+                try:
+                    # Clone the repository
+                    subprocess.run(
+                        ["git", "clone", clone_url, str(repo_path)],
+                        check=True,
+                        capture_output=not verbose,
+                        text=True,
+                    )
+                    clone_success = True
+
+                    # Determine upstream URL: fork workflow uses origin URL with
+                    # different org; config-driven upstream key is used otherwise.
+                    add_upstream_url = None
+                    if active_fork_user:
+                        add_upstream_url = upstream_url
+                    else:
+                        add_upstream_url = get_upstream_url(
+                            config, config_group, repo_name
+                        )
+
+                    if add_upstream_url:
+                        # Adding the upstream remote (and the fetch/compare that
+                        # follows) is best-effort: the repo already cloned fine,
+                        # so a failure here (e.g. an upstream remote left over
+                        # from a partial run) must not escape to the outer
+                        # handler, which would try to re-clone into a non-empty
+                        # directory and report a bogus clone failure.
+                        try:
+                            subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo_path),
+                                    "remote",
+                                    "add",
+                                    "upstream",
+                                    add_upstream_url,
+                                ],
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                            )
+
+                            # Fetch upstream to compare commits
+                            subprocess.run(
+                                ["git", "-C", str(repo_path), "fetch", "upstream"],
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                            )
+
+                            # Get the default branch name from upstream
+                            result = subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo_path),
+                                    "symbolic-ref",
+                                    "refs/remotes/upstream/HEAD",
+                                ],
+                                capture_output=True,
+                                text=True,
+                            )
+
+                            if result and result.returncode == 0:
+                                detected_upstream_branch = result.stdout.strip().split(
+                                    "/"
+                                )[-1]
+                            else:
+                                detected_upstream_branch = "main"
+
+                            # Count commits ahead
+                            result = subprocess.run(
+                                [
+                                    "git",
+                                    "-C",
+                                    str(repo_path),
+                                    "rev-list",
+                                    "--count",
+                                    f"upstream/{detected_upstream_branch}..HEAD",
+                                ],
+                                capture_output=True,
+                                text=True,
+                            )
+
+                            label = "fork" if active_fork_user else "upstream"
+                            if result and result.returncode == 0:
+                                commits_ahead = int(result.stdout.strip())
+                                if commits_ahead > 0:
+                                    typer.echo(
+                                        f"  ✅ {repo_name} cloned (upstream remote added, {commits_ahead} commit{'s' if commits_ahead != 1 else ''} ahead of {label})"
+                                    )
+                                else:
+                                    typer.echo(
+                                        f"  ✅ {repo_name} cloned (upstream remote added, up to date with {label})"
+                                    )
+                            else:
+                                typer.echo(
+                                    f"  ✅ {repo_name} cloned (upstream remote added)"
+                                )
+                        except (subprocess.CalledProcessError, AttributeError):
+                            typer.echo(
+                                f"  ✅ {repo_name} cloned (upstream remote added)"
+                            )
+                    else:
+                        typer.echo(f"  ✅ {repo_name} cloned successfully")
+
+                    # Switch to preferred branch if configured
+                    if clone_success:
+                        preferred_branch = repo.get_preferred_branch(
+                            config, config_group, repo_name
+                        )
+                        if verbose:
+                            typer.echo(
+                                f"  [verbose] Preferred branch for {repo_name}: {preferred_branch}"
+                            )
+                        if preferred_branch:
+                            _switch_to_branch(repo_path, preferred_branch, verbose)
+
+                    # Sync with upstream immediately if configured
+                    if (
+                        clone_success
+                        and not no_sync
+                        and should_sync_after_clone(config, config_group, repo_name)
+                    ):
+                        sync_repo_after_clone(
+                            repo_path, repo_name, config_group, config, verbose
+                        )
+
+                    # Create the upstream worktree if configured, so the fork
+                    # and its upstream can both be worked on from this clone.
+                    if clone_success and repo.should_create_upstream_worktree(
+                        config, config_group, repo_name
+                    ):
+                        # Without an 'upstream' remote (e.g. cloned without
+                        # --fork) there is nothing to track, so this is a
+                        # no-op rather than a failure worth warning about.
+                        if not has_remote(repo_path, "upstream"):
+                            if verbose:
+                                typer.echo(
+                                    f"  [verbose] {repo_name}: no 'upstream' remote, "
+                                    "skipping upstream worktree"
+                                )
+                        else:
+                            wt_ok, wt_message = create_upstream_worktree(
+                                repo_path, repo_name, config_group, config, verbose
+                            )
+                            if wt_ok:
+                                typer.echo(
+                                    f"  🌿 {repo_name}: upstream worktree at {wt_message}"
+                                )
+                            else:
+                                typer.echo(
+                                    f"  ⚠️  {repo_name}: upstream worktree skipped ({wt_message})",
+                                    err=True,
+                                )
+
+                    # Track successful clone for auto-install
+                    if clone_success:
+                        cloned_repos.append(
+                            {
+                                "name": repo_name,
+                                "path": repo_path,
+                                "group": config_group,
+                            }
+                        )
+
+                except subprocess.CalledProcessError as e:
+                    # If fork clone failed, try falling back to upstream
+                    if active_fork_user and upstream_url:
+                        if verbose:
+                            typer.echo(
+                                "  [verbose] Fork clone failed, falling back to upstream"
+                            )
+                        try:
+                            subprocess.run(
+                                ["git", "clone", upstream_url, str(repo_path)],
+                                check=True,
+                                capture_output=not verbose,
+                                text=True,
+                            )
+                            typer.echo(
+                                f"  ✅ {repo_name} cloned from upstream (fork not found)"
+                            )
+
+                            # Switch to preferred branch if configured
+                            preferred_branch = repo.get_preferred_branch(
+                                config, config_group, repo_name
+                            )
+                            if verbose:
+                                typer.echo(
+                                    f"  [verbose] Preferred branch for {repo_name}: {preferred_branch}"
+                                )
+                            if preferred_branch:
+                                _switch_to_branch(repo_path, preferred_branch, verbose)
+
+                            # Sync with upstream immediately if configured
+                            if not no_sync and should_sync_after_clone(
+                                config, config_group, repo_name
+                            ):
+                                sync_repo_after_clone(
+                                    repo_path, repo_name, config_group, config, verbose
+                                )
+
+                            # Track successful clone from upstream fallback
+                            cloned_repos.append(
+                                {
+                                    "name": repo_name,
+                                    "path": repo_path,
+                                    "group": config_group,
+                                }
+                            )
+                        except subprocess.CalledProcessError as upstream_error:
+                            typer.echo(
+                                f"  ❌ Failed to clone {repo_name}: {upstream_error.stderr if not verbose else ''}",
+                                err=True,
+                            )
+                    else:
+                        typer.echo(
+                            f"  ❌ Failed to clone {repo_name}: {e.stderr if not verbose else ''}",
+                            err=True,
+                        )
+
+            typer.echo(f"\n✨ Done! Repositories cloned to {group_dir}")
+
+        # Final summary message
+        total_groups = len(repos_to_clone)
+        if total_groups > 1:
+            typer.echo(
+                f"\n🎉 All done! Cloned repositories from {total_groups} groups."
+            )
+
+        # Auto-install cloned repositories unless --no-install is specified
+        if not no_install and cloned_repos:
+            typer.echo("\n📦 Installing cloned repositories...")
+
+            # Single repo clone: create repo-level venv
+            # Group clone (-g or --all): create group-level venv (base_dir/.venv in flat mode)
+
+            if is_single_repo_clone:
+                # Create repo-level venvs for single repo clones
+                for repo_info in cloned_repos:
+                    python_version = repo.get_python_version(config, repo_info["group"])
+                    ensure_repo_venv(
+                        repo_info["path"],
+                        repo_info["name"],
+                        verbose=verbose,
+                        python_version=python_version,
+                    )
+            else:
+                # Create group-level venvs for group clones
+                # In flat mode all groups share base_dir, so only one venv is created
+                unique_groups: dict[str, Path] = {}
+                for repo_info in cloned_repos:
+                    gname = repo_info["group"]
+                    if gname not in unique_groups:
+                        unique_groups[gname] = get_group_dir(base_dir, gname, flat)
+
+                for gname, gdir in unique_groups.items():
+                    python_version = repo.get_python_version(config, gname)
+                    ensure_group_venv(
+                        gdir, gname, verbose=verbose, python_version=python_version
+                    )
+
+            installed_count = 0
+            skipped_count = 0
+
+            for repo_info in cloned_repos:
+                if verbose:
+                    typer.echo(f"\n  Installing {repo_info['name']}...")
+                else:
+                    typer.echo(f"  📦 Installing {repo_info['name']}...")
+
+                result = auto_install_repo(
+                    repo_info["path"],
+                    repo_info["name"],
+                    repo_info["group"],
+                    base_dir,
+                    verbose=verbose,
+                )
+
+                if result == "skipped":
+                    typer.echo(
+                        f"  ⏭️  {repo_info['name']} skipped (nothing to install or configured in skip_install)"
+                    )
+                    skipped_count += 1
+                elif result:
+                    typer.echo(f"  ✅ {repo_info['name']} installed successfully")
+                    installed_count += 1
+                else:
+                    if verbose:
+                        typer.echo(f"  ⏭️  {repo_info['name']} skipped (install failed)")
+                    skipped_count += 1
+
+                # Run prek install if .pre-commit-config.yaml exists
+                if (repo_info["path"] / ".pre-commit-config.yaml").exists():
+                    typer.echo(f"  🪝 Running prek install for {repo_info['name']}...")
+                    prek_result = subprocess.run(
+                        ["prek", "install"],
+                        cwd=str(repo_info["path"]),
+                        check=False,
+                        capture_output=not verbose,
+                        text=True,
+                    )
+                    if prek_result.returncode == 0:
+                        typer.echo(
+                            f"  ✅ Pre-commit hooks installed for {repo_info['name']}"
+                        )
+                    else:
+                        typer.echo(
+                            f"  ⚠️  prek install failed for {repo_info['name']}",
+                            err=True,
+                        )
+                        if not verbose and prek_result.stderr:
+                            typer.echo(prek_result.stderr, err=True)
+
+            if installed_count > 0:
+                typer.echo(f"\n✨ Installed {installed_count} repository(ies)")
+            if skipped_count > 0:
+                typer.echo(f"⏭️  Skipped {skipped_count} repository(ies)")
+                typer.echo(
+                    "\nTip: Run 'dpy install <repo>' to install skipped repositories manually"
+                )
+
+    except typer.Exit:
+        # typer.Exit subclasses RuntimeError, so the broad handler below would
+        # otherwise swallow every deliberate exit and re-report it as "Error: 1".
+        raise
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)

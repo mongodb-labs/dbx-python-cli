@@ -9,26 +9,26 @@ Install dependencies in any cloned repository using ``uv pip install``:
 .. code-block:: bash
 
    # Install a repository in editable mode
-   dbx install mongo-python-driver
+   dpy install mongo-python-driver
 
    # Install with extras
-   dbx install mongo-python-driver -e test
+   dpy install mongo-python-driver -e test
 
    # Install with multiple extras
-   dbx install mongo-python-driver -e test -e aws
+   dpy install mongo-python-driver -e test -e aws
 
    # Install with dependency groups
-   dbx install mongo-python-driver --dependency-groups dev,test
+   dpy install mongo-python-driver --dependency-groups dev,test
 
    # Combine extras and dependency groups
-   dbx install mongo-python-driver -e test -e aws --dependency-groups dev
+   dpy install mongo-python-driver -e test -e aws --dependency-groups dev
 
    # Use -g to specify which group (when repo exists in multiple groups)
-   dbx install mongo-python-driver -g pymongo
+   dpy install mongo-python-driver -g pymongo
 
    # Short forms
-   dbx install mongo-python-driver -e test  # install with test extras
-   dbx install mongo-python-driver -e test --dependency-groups dev  # install with test extras and dev dependency group
+   dpy install mongo-python-driver -e test  # install with test extras
+   dpy install mongo-python-driver -e test --dependency-groups dev  # install with test extras and dev dependency group
 
 The ``install`` command will:
 
@@ -42,12 +42,12 @@ Example Output
 
 .. code-block:: bash
 
-   $ dbx install mongo-python-driver -e test
+   $ dpy install mongo-python-driver -e test
    Installing dependencies in ~/Developer/mongodb/pymongo/mongo-python-driver...
 
    ✅ Package installed successfully
 
-   $ dbx install mongo-python-driver -e test -e aws --dependency-groups dev
+   $ dpy install mongo-python-driver -e test -e aws --dependency-groups dev
    Installing dependencies in ~/Developer/mongodb/pymongo/mongo-python-driver...
 
    ✅ Package installed successfully
@@ -59,17 +59,17 @@ Example Output
 Support for Installing Sub-directories
 ---------------------------------------
 
-``dbx`` supports installing from repositories with multiple packages in sub-directories. For example, ``langchain-mongodb`` is a repository containing three packages:
+``dpy`` supports installing from repositories with multiple packages in sub-directories. For example, ``langchain-mongodb`` is a repository containing three packages:
 
 - ``libs/langchain-mongodb/``
 - ``libs/langgraph-checkpoint-mongodb/``
 - ``libs/langgraph-store-mongodb/``
 
-When you install a repository with sub-directories, ``dbx`` automatically detects the ``install_dirs`` configuration and installs each package separately:
+When you install a repository with sub-directories, ``dpy`` automatically detects the ``install_dirs`` configuration and installs each package separately:
 
 .. code-block:: bash
 
-   $ dbx install langchain-mongodb
+   $ dpy install langchain-mongodb
 
    Multiple packages detected: installing 3 packages...
 
@@ -89,10 +89,10 @@ You can also install repositories with sub-directories using extras and dependen
 .. code-block:: bash
 
    # Install all packages with dev dependencies
-   dbx install langchain-mongodb --dependency-groups dev
+   dpy install langchain-mongodb --dependency-groups dev
 
    # Install all packages with extras
-   dbx install langchain-mongodb -e test
+   dpy install langchain-mongodb -e test
 
 Configuring Sub-directory Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,7 +124,7 @@ Before installing, you can see what extras and dependency groups are available f
 .. code-block:: bash
 
    # Show available options for a regular repository
-   $ dbx install mongo-python-driver --show-options
+   $ dpy install mongo-python-driver --show-options
 
    📦 mongo-python-driver
 
@@ -132,7 +132,7 @@ Before installing, you can see what extras and dependency groups are available f
      Dependency groups: dev, docs
 
    # Show available options for a repository with multiple packages
-   $ dbx install langchain-mongodb --show-options
+   $ dpy install langchain-mongodb --show-options
 
    📦 langchain-mongodb (repository with 3 packages)
 
@@ -149,7 +149,7 @@ Before installing, you can see what extras and dependency groups are available f
        Dependency groups: dev
 
    # Show options for all repos in a group
-   $ dbx install --show-options -g pymongo
+   $ dpy install --show-options -g pymongo
 
    📦 Showing options for all repositories in group 'pymongo':
 
@@ -162,7 +162,7 @@ Before installing, you can see what extras and dependency groups are available f
        Dependency groups: dev
 
    # Show options for a specific group when repo exists in multiple groups
-   $ dbx install mongo-python-driver --show-options -G langchain
+   $ dpy install mongo-python-driver --show-options -G langchain
 
    📦 mongo-python-driver
 
@@ -200,6 +200,6 @@ This is useful when:
 Requirements
 ------------
 
-- The repository must be cloned first using ``dbx clone``
+- The repository must be cloned first using ``dpy clone``
 - The repository must have a ``pyproject.toml`` or ``setup.py``
 - For repositories with sub-directories, each ``install_dirs`` directory must have a ``pyproject.toml`` or ``setup.py``

@@ -1,14 +1,14 @@
-dbx-python-cli Documentation
-============================
+drivers-python-cli Documentation
+================================
 
-A command line tool for DBX Python development tasks.
+A command line tool for Drivers Python development tasks.
 
 **Get started:** :doc:`introduction/installation` | :doc:`introduction/quick-start` | :doc:`introduction/overview`
 
-What is dbx-python-cli?
------------------------
+What is drivers-python-cli?
+---------------------------
 
-dbx-python-cli is a unified command-line interface for managing Python development workflows across multiple related repositories. It provides tools for:
+drivers-python-cli is a unified command-line interface for managing Python development workflows across multiple related repositories. It provides tools for:
 
 - 📦 **Repository Management** - Clone, sync, and organize related repositories
 - 🐍 **Virtual Environments** - Group-level venvs with smart detection
@@ -29,21 +29,21 @@ Feature Highlights
 Quick Start
 -----------
 
-Install dbx-python-cli and get started in minutes:
+Install drivers-python-cli and get started in minutes:
 
 .. code-block:: bash
 
    # Install via pipx
-   pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+   pipx install git+https://github.com/aclark4life/drivers-python-cli.git
 
    # Initialize configuration
-   dbx config init
+   dpy config init
 
    # Clone repositories by group (installs automatically)
-   dbx clone -g django
+   dpy clone -g django
 
    # Run tests
-   dbx test django
+   dpy test django
 
 See :doc:`introduction/quick-start` for a detailed walkthrough.
 

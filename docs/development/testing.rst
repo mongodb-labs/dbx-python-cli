@@ -1,7 +1,7 @@
 Testing
 =======
 
-This guide covers testing workflows for dbx-python-cli.
+This guide covers testing workflows for drivers-python-cli.
 
 Running Tests
 -------------
@@ -35,7 +35,7 @@ Using pytest Directly
    python -m pytest tests/ -v
 
    # Run with coverage
-   python -m pytest tests/ --cov=src/dbx_python_cli --cov-report=html
+   python -m pytest tests/ --cov=src/drivers_python_cli --cov-report=html
 
    # Run specific test file
    python -m pytest tests/test_install_command.py -v

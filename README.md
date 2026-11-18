@@ -1,16 +1,16 @@
-# dbx-python-cli
+# drivers-python-cli
 
-> A command line tool for DBX Python development tasks. AI first. De-siloing happens here. Inspired by [django-mongodb-cli](https://github.com/mongodb-labs/django-mongodb-cli).
+> A command line tool for Drivers Python development tasks. AI first. De-siloing happens here. Inspired by [django-mongodb-cli](https://github.com/mongodb-labs/django-mongodb-cli).
 
-[![CI](https://github.com/mongodb-labs/dbx-python-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/mongodb-labs/dbx-python-cli/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mongodb-labs/dbx-python-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/mongodb-labs/dbx-python-cli)
+[![CI](https://github.com/mongodb-labs/drivers-python-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/mongodb-labs/drivers-python-cli/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mongodb-labs/drivers-python-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/mongodb-labs/drivers-python-cli)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Documentation Status](https://readthedocs.org/projects/dbx-python-cli/badge/?version=latest)](https://dbx-python-cli.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/drivers-python-cli/badge/?version=latest)](https://drivers-python-cli.readthedocs.io/en/latest/?badge=latest)
 
 ## About
 
-DBX Python is the MongoDB Database Experience Team for the MongoDB Python driver.
+Drivers Python is the MongoDB Database Experience Team for the MongoDB Python driver.
 
 > **Note:** This is not [Databricks for Python developers](https://docs.databricks.com/aws/en/languages/python).
 
@@ -23,7 +23,7 @@ DBX Python is the MongoDB Database Experience Team for the MongoDB Python driver
 - 📚 **Well Documented** - Sphinx documentation with the beautiful Furo theme
 - ✅ **Fully Tested** - Comprehensive test suite with pytest and coverage reporting
 
-See the [full documentation](https://dbx-python-cli.readthedocs.io/) for detailed feature documentation.
+See the [full documentation](https://drivers-python-cli.readthedocs.io/) for detailed feature documentation.
 
 ## Installation
 
@@ -31,10 +31,10 @@ See the [full documentation](https://dbx-python-cli.readthedocs.io/) for detaile
 
 ```bash
 # Install directly from GitHub
-pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
+pipx install git+https://github.com/mongodb-labs/drivers-python-cli.git
 ```
 
-This will install `dbx-python-cli` globally and make the `dbx` command available in your terminal.
+This will install `drivers-python-cli` globally and make the `dpy` command available in your terminal.
 
 ## Quick Start
 
@@ -43,10 +43,10 @@ This will install `dbx-python-cli` globally and make the `dbx` command available
 First, initialize the configuration file:
 
 ```bash
-dbx config init
+dpy config init
 ```
 
-This creates a configuration file at `~/.config/dbx-python-cli/config.toml` with default settings.
+This creates a configuration file at `~/.config/drivers-python-cli/config.toml` with default settings.
 
 The default configuration includes:
 - Base directory: `~/Developer/mongodb`
@@ -60,26 +60,26 @@ Clone a group of related repositories:
 
 ```bash
 # Clone the django group
-dbx clone -g django
+dpy clone -g django
 ```
 
 This will clone all repositories in the django group to `~/Developer/mongodb/django/`.
 
 ### Step 3: Install Dependencies
 
-> **Note:** The `dbx clone` command automatically runs `dbx install` after cloning, but you can also install repositories and repository groups manually.
+> **Note:** The `dpy clone` command automatically runs `dpy install` after cloning, but you can also install repositories and repository groups manually.
 
 Install dependencies for a repository:
 
 ```bash
 # Install dependencies for django-mongodb-backend
-dbx install django-mongodb-backend
+dpy install django-mongodb-backend
 
 # Install with test extras
-dbx install django-mongodb-backend -e test
+dpy install django-mongodb-backend -e test
 
 # Install libmongocrypt (includes cmake build step for Queryable Encryption)
-dbx install libmongocrypt
+dpy install libmongocrypt
 ```
 
 > **Tip:** Extras and dependency groups can be configured in your `config.toml` file so you don't need to specify them on the command line each time.
@@ -90,13 +90,13 @@ Run tests for a repository:
 
 ```bash
 # Run all tests
-dbx test django
+dpy test django
 
 # Run a specific test module (note: django-mongodb-backend modules have trailing underscores)
-dbx test django encryption_
+dpy test django encryption_
 
 # Run tests matching a keyword
-dbx test django encryption_ -k test_schema
+dpy test django encryption_ -k test_schema
 ```
 
 ### Working with Django Projects
@@ -105,19 +105,19 @@ Create and manage Django projects with MongoDB backend:
 
 ```bash
 # Create a new project
-dbx project add myproject
+dpy project add myproject
 
 # Install the project (defaults to newest project)
-dbx project install
+dpy project install
 
 # Run migrations (defaults to newest project)
-dbx project migrate
+dpy project migrate
 
 # Create a superuser (defaults to newest project)
-dbx project su
+dpy project su
 
 # Run the project (defaults to newest project)
-dbx project run
+dpy project run
 ```
 
 > **Convenience Feature:** Most project commands default to the newest project when no name is specified. This makes it faster to work with your current project without typing the name repeatedly.
@@ -128,10 +128,10 @@ dbx project run
 
 ```bash
 # List all cloned repositories
-dbx list
+dpy list
 
 # List all virtual environments
-dbx env list
+dpy env list
 ```
 
 **Run Just Commands:**
@@ -140,13 +140,13 @@ If a repository has a `justfile`, you can run just commands:
 
 ```bash
 # Show available just commands
-dbx just mongo-python-driver
+dpy just mongo-python-driver
 
 # Run a specific just command
-dbx just mongo-python-driver lint
+dpy just mongo-python-driver lint
 
 # Run just command with arguments
-dbx just mongo-python-driver test -v
+dpy just mongo-python-driver test -v
 ```
 
 **Sync Repositories:**
@@ -155,13 +155,13 @@ Keep your repositories up to date:
 
 ```bash
 # Sync a single repository
-dbx sync django-mongodb-backend
+dpy sync django-mongodb-backend
 
 # Sync all repositories in a group
-dbx sync -g django
+dpy sync -g django
 
 # Sync all repositories across all groups
-dbx sync -a
+dpy sync -a
 ```
 
 **Spec Sync:**
@@ -170,35 +170,35 @@ Keep driver spec tests in sync with the [MongoDB specifications repository](http
 
 ```bash
 # Check which specs are out of date
-dbx spec status
+dpy spec status
 
 # Sync all specs (pure file copy from specifications → test/)
-dbx spec sync
+dpy spec sync
 
 # Sync specific specs
-dbx spec sync crud sessions change-streams
+dpy spec sync crud sessions change-streams
 
 # Sync and immediately apply all patches
-dbx spec sync --apply-patches
+dpy spec sync --apply-patches
 
 # List active patches (tests excluded pending JIRA tickets)
-dbx spec patch list
+dpy spec patch list
 
 # Verify all patches still apply cleanly
-dbx spec patch verify
+dpy spec patch verify
 
 # Create a patch for unimplemented tests (after syncing)
-dbx spec patch create PYTHON-1234
+dpy spec patch create PYTHON-1234
 
 # Remove a patch once the feature is implemented
-dbx spec patch remove PYTHON-1234
+dpy spec patch remove PYTHON-1234
 ```
 
-The `dbx spec sync` command wraps `.evergreen/resync-specs.sh` in the driver repo, auto-detecting the `specifications` repo from your config. Patches in `.evergreen/spec-patch/PYTHON-XXXX.patch` are reverse-applied (`git apply -R`) to exclude tests for features not yet implemented; each patch is named after a pre-existing JIRA ticket.
+The `dpy spec sync` command wraps `.evergreen/resync-specs.sh` in the driver repo, auto-detecting the `specifications` repo from your config. Patches in `.evergreen/spec-patch/PYTHON-XXXX.patch` are reverse-applied (`git apply -R`) to exclude tests for features not yet implemented; each patch is named after a pre-existing JIRA ticket.
 
-The weekly bot PR (`[Spec Resync] MM-DD-YYYY`) is produced by this same file-copy operation. To reproduce it locally: `dbx spec sync` on `main`.
+The weekly bot PR (`[Spec Resync] MM-DD-YYYY`) is produced by this same file-copy operation. To reproduce it locally: `dpy spec sync` on `main`.
 
-See the [full spec sync documentation](https://dbx-python-cli.readthedocs.io/en/latest/features/spec-sync.html) for details.
+See the [full spec sync documentation](https://drivers-python-cli.readthedocs.io/en/latest/features/spec-sync.html) for details.
 
 **View Git Branches:**
 
@@ -206,16 +206,16 @@ View branches across repositories:
 
 ```bash
 # View branches in a single repository
-dbx branch django-mongodb-backend
+dpy branch django-mongodb-backend
 
 # View all branches (including remote) with verbose output
-dbx -v branch django-mongodb-backend
+dpy -v branch django-mongodb-backend
 
 # View branches in all repositories in a group
-dbx branch -g django
+dpy branch -g django
 
 # View all branches in all repositories in a group
-dbx -v branch -g django
+dpy -v branch -g django
 ```
 
 **Working with Multiple Groups:**
@@ -224,13 +224,13 @@ You can work with multiple repository groups:
 
 ```bash
 # Clone langchain group
-dbx clone -g langchain
+dpy clone -g langchain
 
 # Create venv for langchain
-dbx env init -g langchain
+dpy env init -g langchain
 
 # Install dependencies
-dbx install langchain-mongodb -g langchain
+dpy install langchain-mongodb -g langchain
 ```
 
 **Verbose Mode:**
@@ -238,8 +238,8 @@ dbx install langchain-mongodb -g langchain
 Use `-v` or `--verbose` for detailed output:
 
 ```bash
-dbx -v install django-mongodb-backend
-dbx --verbose test django encryption_
+dpy -v install django-mongodb-backend
+dpy --verbose test django encryption_
 ```
 
 **Pager Mode:**
@@ -247,12 +247,12 @@ dbx --verbose test django encryption_
 Use `-p` or `--pager` to view output through a pager (less):
 
 ```bash
-dbx -p branch -g pymongo
-dbx -p log mongo-python-driver
-dbx -p config show
+dpy -p branch -g pymongo
+dpy -p log mongo-python-driver
+dpy -p config show
 ```
 
-For more details, see the [full documentation](https://dbx-python-cli.readthedocs.io/).
+For more details, see the [full documentation](https://drivers-python-cli.readthedocs.io/).
 
 ## Development
 
@@ -260,8 +260,8 @@ For more details, see the [full documentation](https://dbx-python-cli.readthedoc
 
 ```bash
 # Clone the repository
-git clone https://github.com/mongodb-labs/dbx-python-cli.git
-cd dbx-python-cli
+git clone https://github.com/mongodb-labs/drivers-python-cli.git
+cd drivers-python-cli
 
 # Install the package (uses uv pip install -e .)
 just install
@@ -358,8 +358,8 @@ just docs-clean
 ### Repository Structure
 
 ```
-dbx-python-cli/
-├── src/dbx_python_cli/       # Source code
+drivers-python-cli/
+├── src/drivers_python_cli/       # Source code
 │   ├── __init__.py           # Package initialization
 │   ├── cli.py                # Main CLI entry point
 │   ├── config.toml           # Default configuration template
@@ -410,7 +410,7 @@ dbx-python-cli/
 
 ### User Directory Structure
 
-After running `dbx config init` and `dbx clone -g django`, your directory structure will look like:
+After running `dpy config init` and `dpy clone -g django`, your directory structure will look like:
 
 ```
 ~/Developer/mongodb/              # base_dir (configurable)
@@ -437,7 +437,7 @@ After running `dbx config init` and `dbx clone -g django`, your directory struct
 
 - **Group-Level Virtual Environments:** Each group has its own `.venv` directory for isolated dependencies
 - **Global Repositories:** Repositories in `global_groups` (like `mongo-python-driver`) are automatically cloned into every group
-- **Configurable Base Directory:** The base directory can be customized in `~/.config/dbx-python-cli/config.toml`
+- **Configurable Base Directory:** The base directory can be customized in `~/.config/drivers-python-cli/config.toml`
 - **Organized by Purpose:** Groups organize related repositories (e.g., django, pymongo, langchain)
 
 ## Contributing
@@ -459,10 +459,10 @@ This project is licensed under the Apache 2.0 License - see the LICENSE file for
 
 ## Links
 
-- **Documentation:** [Read the Docs](https://dbx-python-cli.readthedocs.io/)
-- **Source Code:** [GitHub](https://github.com/mongodb-labs/dbx-python-cli)
-- **Issue Tracker:** [GitHub Issues](https://github.com/mongodb-labs/dbx-python-cli/issues)
+- **Documentation:** [Read the Docs](https://drivers-python-cli.readthedocs.io/)
+- **Source Code:** [GitHub](https://github.com/mongodb-labs/drivers-python-cli)
+- **Issue Tracker:** [GitHub Issues](https://github.com/mongodb-labs/drivers-python-cli/issues)
 
 ---
 
-Made with ❤️ by MongoDB DBX Python
+Made with ❤️ by MongoDB Drivers Python

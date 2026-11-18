@@ -1,1 +1,1 @@
-"""Tests for dbx package."""
+"""Tests for dpy package."""

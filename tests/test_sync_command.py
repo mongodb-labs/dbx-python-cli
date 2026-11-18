@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from dbx_python_cli.commands.sync import (
+from drivers_python_cli.commands.sync import (
     _gh_error_message,
     _pr_state,
     _rerun_pr_ci,
@@ -106,7 +106,7 @@ def test_retry_evergreen_comments_on_open_pr(capsys):
 
 
 def test_branch_series_derives_release_series():
-    from dbx_python_cli.commands.sync import _branch_series
+    from drivers_python_cli.commands.sync import _branch_series
 
     assert _branch_series("mongodb-5.2.x") == "5.2"
     assert _branch_series("mongodb-6.0.x") == "6.0"
@@ -119,7 +119,7 @@ def _completed(cmd, stdout=""):
 
 def test_latest_release_tag_picks_highest_patch_numerically():
     """5.2.10 must beat 5.2.4 (lexical sorting would pick 5.2.4)."""
-    from dbx_python_cli.commands.sync import _latest_release_tag
+    from drivers_python_cli.commands.sync import _latest_release_tag
 
     def side_effect(cmd, **kwargs):
         if "tag" in cmd:
@@ -127,7 +127,7 @@ def test_latest_release_tag_picks_highest_patch_numerically():
         return _completed(cmd, "2026-08-24T10:00:00-04:00")
 
     with mock.patch(
-        "dbx_python_cli.commands.sync.subprocess.run", side_effect=side_effect
+        "drivers_python_cli.commands.sync.subprocess.run", side_effect=side_effect
     ):
         assert _latest_release_tag("/repo", "5.2") == (
             "5.2.10",
@@ -136,10 +136,10 @@ def test_latest_release_tag_picks_highest_patch_numerically():
 
 
 def test_latest_release_tag_none_when_series_unreleased():
-    from dbx_python_cli.commands.sync import _latest_release_tag
+    from drivers_python_cli.commands.sync import _latest_release_tag
 
     with mock.patch(
-        "dbx_python_cli.commands.sync.subprocess.run",
+        "drivers_python_cli.commands.sync.subprocess.run",
         side_effect=lambda cmd, **kw: _completed(cmd, ""),
     ):
         assert _latest_release_tag("/repo", "6.2") is None
@@ -148,7 +148,7 @@ def test_latest_release_tag_none_when_series_unreleased():
 def test_classify_cycle_picks_earliest_matching_forkpoint():
     """A commit is in the X.Y cycle when it is an ancestor of stable/X.Y.x's fork
     point but of no earlier one; anything past every fork point is in-development."""
-    from dbx_python_cli.commands.sync import _classify_cycle
+    from drivers_python_cli.commands.sync import _classify_cycle
 
     cycles = [((6, 0), "6.0", "fp60"), ((6, 1), "6.1", "fp61")]
     # "old" predates both fork points, "mid" only fp61, "new" neither.
@@ -160,14 +160,14 @@ def test_classify_cycle_picks_earliest_matching_forkpoint():
         return subprocess.CompletedProcess(cmd, code, stdout="", stderr="")
 
     with mock.patch(
-        "dbx_python_cli.commands.sync.subprocess.run", side_effect=side_effect
+        "drivers_python_cli.commands.sync.subprocess.run", side_effect=side_effect
     ):
         cache = {}
         assert _classify_cycle("/p", "old", cycles, "6.2", cache) == "6.0"
         assert _classify_cycle("/p", "mid", cycles, "6.2", cache) == "6.1"
         assert _classify_cycle("/p", "new", cycles, "6.2", cache) == "6.2"
     # Cached results are reused without shelling out again.
-    with mock.patch("dbx_python_cli.commands.sync.subprocess.run") as run:
+    with mock.patch("drivers_python_cli.commands.sync.subprocess.run") as run:
         assert _classify_cycle("/p", "mid", cycles, "6.2", cache) == "6.1"
         run.assert_not_called()
 
@@ -199,21 +199,21 @@ def _report_git_stub(commits_by_ref, tags="5.2.4\n"):
 
 
 def _run_report(side_effect, mapping, config=None, **kwargs):
-    from dbx_python_cli.commands import sync
+    from drivers_python_cli.commands import sync
 
     repo_info = {"path": "/repos/django", "name": "django", "group": "django"}
     with (
         mock.patch(
-            "dbx_python_cli.utils.repo.get_release_repo",
+            "drivers_python_cli.utils.repo.get_release_repo",
             return_value="django-mongodb-backend",
         ),
         mock.patch(
-            "dbx_python_cli.utils.repo.find_repo_by_name",
+            "drivers_python_cli.utils.repo.find_repo_by_name",
             return_value={"path": "/repos/django-mongodb-backend"},
         ),
-        mock.patch("dbx_python_cli.utils.repo.get_base_dir", return_value="/repos"),
+        mock.patch("drivers_python_cli.utils.repo.get_base_dir", return_value="/repos"),
         mock.patch(
-            "dbx_python_cli.commands.sync.subprocess.run", side_effect=side_effect
+            "drivers_python_cli.commands.sync.subprocess.run", side_effect=side_effect
         ),
     ):
         sync._print_backport_report(
@@ -244,7 +244,7 @@ def _run_report(side_effect, mapping, config=None, **kwargs):
     ],
 )
 def test_classify_commit(subject, expected):
-    from dbx_python_cli.commands.sync import _classify_commit
+    from drivers_python_cli.commands.sync import _classify_commit
 
     assert _classify_commit(subject) == expected
 
@@ -338,11 +338,11 @@ def test_print_backport_report_notes_unreleased_series(capsys):
 
 
 def test_print_backport_report_skips_without_release_repo(capsys):
-    from dbx_python_cli.commands import sync
+    from drivers_python_cli.commands import sync
 
     with (
-        mock.patch("dbx_python_cli.utils.repo.get_release_repo", return_value=None),
-        mock.patch("dbx_python_cli.commands.sync.subprocess.run") as run,
+        mock.patch("drivers_python_cli.utils.repo.get_release_repo", return_value=None),
+        mock.patch("drivers_python_cli.commands.sync.subprocess.run") as run,
     ):
         sync._print_backport_report(
             {"path": "/p", "name": "django", "group": "django"},

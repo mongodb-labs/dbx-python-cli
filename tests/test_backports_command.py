@@ -6,8 +6,8 @@ from unittest import mock
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.commands import backports
-from dbx_python_cli.utils.release import is_release_chore
+from drivers_python_cli.commands import backports
+from drivers_python_cli.utils.release import is_release_chore
 
 runner = CliRunner()
 
@@ -63,10 +63,10 @@ def _git_stub(log_lines, tags="5.2.4\n", branches="upstream/5.2.x\n"):
 
 def _invoke(side_effect, args=()):
     with (
-        mock.patch("dbx_python_cli.utils.repo.get_config", return_value={}),
-        mock.patch("dbx_python_cli.utils.repo.get_base_dir", return_value="/repos"),
+        mock.patch("drivers_python_cli.utils.repo.get_config", return_value={}),
+        mock.patch("drivers_python_cli.utils.repo.get_base_dir", return_value="/repos"),
         mock.patch(
-            "dbx_python_cli.utils.repo.find_repo_by_name",
+            "drivers_python_cli.utils.repo.find_repo_by_name",
             return_value={
                 "name": "backend",
                 "path": "/repos/backend",
@@ -74,7 +74,7 @@ def _invoke(side_effect, args=()):
             },
         ),
         mock.patch(
-            "dbx_python_cli.utils.release.subprocess.run", side_effect=side_effect
+            "drivers_python_cli.utils.release.subprocess.run", side_effect=side_effect
         ),
     ):
         return runner.invoke(backports.app, ["backend", *args])

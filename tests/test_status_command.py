@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -50,7 +50,7 @@ def temp_repos_dir(tmp_path):
 @pytest.fixture
 def mock_config(tmp_path, temp_repos_dir):
     """Create a mock config file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     # Convert path to use forward slashes for TOML compatibility on Windows
@@ -84,7 +84,7 @@ def test_status_help():
 
 def test_status_no_repo_name(tmp_path, temp_repos_dir, mock_config):
     """Test that status without repo name shows help (no_args_is_help=True)."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -97,7 +97,7 @@ def test_status_no_repo_name(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_repo_not_found(tmp_path, temp_repos_dir, mock_config):
     """Test that status with non-existent repo shows error."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -112,7 +112,7 @@ def test_status_repo_not_found(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_single_repo(tmp_path, temp_repos_dir, mock_config):
     """Test status command on a single repository."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -132,7 +132,7 @@ def test_status_single_repo(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_with_short_flag(tmp_path, temp_repos_dir, mock_config):
     """Test status command with --short flag."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -153,7 +153,7 @@ def test_status_with_short_flag(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_with_group(tmp_path, temp_repos_dir, mock_config):
     """Test status command with group option."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {
                 "base_dir": str(temp_repos_dir),
@@ -183,7 +183,7 @@ def test_status_with_group(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
     """Test status with non-existent group shows error."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {
                 "base_dir": str(temp_repos_dir),
@@ -198,7 +198,7 @@ def test_status_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
 
 def test_verbose_flag_with_status_command(tmp_path, temp_repos_dir, mock_config):
     """Test that verbose flag works with status command."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -214,7 +214,7 @@ def test_verbose_flag_with_status_command(tmp_path, temp_repos_dir, mock_config)
 
 def test_status_clean_working_tree(tmp_path, temp_repos_dir, mock_config):
     """Test status command when working tree is clean."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -228,7 +228,7 @@ def test_status_clean_working_tree(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_git_error(tmp_path, temp_repos_dir, mock_config):
     """Test status command when git status fails."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {"base_dir": str(temp_repos_dir), "groups": {"pymongo": {}}}
         }
@@ -244,7 +244,7 @@ def test_status_git_error(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_with_group_and_repo_name(tmp_path, temp_repos_dir, mock_config):
     """Test status command with both group and repo name filters to specific repo."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {
                 "base_dir": str(temp_repos_dir),
@@ -276,7 +276,7 @@ def test_status_with_group_and_repo_name(tmp_path, temp_repos_dir, mock_config):
 
 def test_status_with_group_and_nonexistent_repo(tmp_path, temp_repos_dir, mock_config):
     """Test status with group and non-existent repo name shows error."""
-    with patch("dbx_python_cli.commands.status.get_config") as mock_get_config:
+    with patch("drivers_python_cli.commands.status.get_config") as mock_get_config:
         mock_get_config.return_value = {
             "repo": {
                 "base_dir": str(temp_repos_dir),

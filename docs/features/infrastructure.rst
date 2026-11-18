@@ -1,22 +1,22 @@
 Infrastructure Requirements
 ===========================
 
-``dbx infra`` inventories and verifies the infrastructure a repo's tests
+``dpy infra`` inventories and verifies the infrastructure a repo's tests
 need: tools, secret vault access, env vars, and host constraints. It answers
 two questions: *what does this suite need* and *can I run it right now*.
 
 .. code-block:: bash
 
-   dbx infra list mongo-python-driver
-   dbx infra list mongo-python-driver auth_oidc
-   dbx infra check mongo-python-driver
-   dbx infra check mongo-python-driver load_balancer
+   dpy infra list mongo-python-driver
+   dpy infra list mongo-python-driver auth_oidc
+   dpy infra check mongo-python-driver
+   dpy infra check mongo-python-driver load_balancer
 
 Public-safe by design
 ---------------------
 
 This repository is public, and its docs publish to Read the Docs, so
-``dbx infra`` stores and prints public-safe facts only:
+``dpy infra`` stores and prints public-safe facts only:
 
 - tool names (``haproxy``, ``docker``), secret vault names
   (``drivers/atlas_connect``), env var names, host constraints
@@ -30,7 +30,7 @@ precedent in pymongo's ``CONTRIBUTING.md``, which links the same wiki pages.
 Where the data comes from
 -------------------------
 
-Suites are not hand-listed. ``dbx infra list`` parses the repo's own
+Suites are not hand-listed. ``dpy infra list`` parses the repo's own
 ``.evergreen/scripts/utils.py`` (``TEST_SUITE_MAP``, ``EXTRA_TESTS``,
 ``NO_RUN_ORCHESTRATION``) with ``ast``, so the suite list is always current
 and never drifts from the repo.
@@ -57,14 +57,14 @@ overlay in ``config.toml``:
    links = { aws-secrets = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/239737385/..." }
 
 Allowed keys: ``requires_tools``, ``vaults``, ``env_names``,
-``evergreen_only``, ``notes``, ``links``. ``dbx config validate`` checks
+``evergreen_only``, ``notes``, ``links``. ``dpy config validate`` checks
 them. The overlay extends beyond test suites: a release pipeline step can
 be described with the same keys.
 
 Checks
 ------
 
-``dbx infra check`` verifies live state:
+``dpy infra check`` verifies live state:
 
 - required tools on PATH
 - ``DRIVERS_TOOLS`` present (from ``test_env``, else the repo submodule)
@@ -76,7 +76,7 @@ Checks
 - required env vars set, reported as set with length, never the value
 - Evergreen-only suites flagged when not on an Evergreen host
 
-Exit code is 1 when any check fails, so ``dbx infra check`` works as a
+Exit code is 1 when any check fails, so ``dpy infra check`` works as a
 pre-flight gate or audit step.
 
 Extending to other repos
@@ -94,14 +94,14 @@ across the repos:
   (``ms-agent-framework-mongodb``)
 
 A workflow counts as a release workflow when its filename contains
-``release`` or ``publish``. ``dbx infra list`` shows each file, its ABX and
+``release`` or ``publish``. ``dpy infra list`` shows each file, its ABX and
 local actions, SHA pin status, and the repo vars and secrets the workflow
-references. ``dbx infra check`` flags unpinned ABX actions and a workflow
+references. ``dpy infra check`` flags unpinned ABX actions and a workflow
 that publishes without ``id-token: write``. Release runs in CI, so local
 checks cover workflow hygiene only. Repos with neither adapter fall back to
 overlay-only listing.
 
-Planned: a ``dbx infra run`` orchestrator that chains ``run-server``,
+Planned: a ``dpy infra run`` orchestrator that chains ``run-server``,
 ``setup-tests``, ``run-tests``, ``teardown-tests``.
 
 Reference links

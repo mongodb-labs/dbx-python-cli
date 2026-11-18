@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dbx_python_cli.utils.repo import (
+from drivers_python_cli.utils.repo import (
     _expand_env_var_value,
     find_all_repos,
     find_repo_by_name,
@@ -262,7 +262,7 @@ def test_expand_env_var_value_windows_uses_native_separator(monkeypatch):
     would otherwise yield a mixed-separator path. ``ntpath`` stands in for ``os``
     so this exercises the Windows branch on any platform.
     """
-    monkeypatch.setattr("dbx_python_cli.utils.repo.os", _fake_windows_os())
+    monkeypatch.setattr("drivers_python_cli.utils.repo.os", _fake_windows_os())
     expanded = _expand_env_var_value(
         "{base_dir}/{group}/drivers-evergreen-tools", r"C:\repos", "pymongo"
     )
@@ -274,7 +274,7 @@ def test_expand_env_var_value_windows_preserves_url(monkeypatch):
 
     Normalising every value would collapse the "//" in a connection string.
     """
-    monkeypatch.setattr("dbx_python_cli.utils.repo.os", _fake_windows_os())
+    monkeypatch.setattr("drivers_python_cli.utils.repo.os", _fake_windows_os())
     expanded = _expand_env_var_value(
         "mongodb://localhost:27017", r"C:\repos", "pymongo"
     )
@@ -700,3 +700,34 @@ def test_list_repos_flat_tree_characters(flat_repos_dir):
     assert result is not None
     assert "├──" in result or "└──" in result
     assert "│" in result or "    " in result
+
+
+def test_get_config_reads_legacy_path_as_fallback(tmp_path, monkeypatch):
+    """get_config falls back to the pre-rename dbx-python-cli config path."""
+    from drivers_python_cli.utils import repo
+
+    legacy = tmp_path / "legacy.toml"
+    legacy.write_text('[repo]\nbase_dir = "/legacy/repos"\n')
+    missing = tmp_path / "new.toml"
+
+    monkeypatch.setattr(repo, "get_config_path", lambda: missing)
+    monkeypatch.setattr(repo, "get_legacy_config_path", lambda: legacy)
+
+    config = repo.get_config()
+    assert config["repo"]["base_dir"] == "/legacy/repos"
+
+
+def test_get_config_prefers_new_path(tmp_path, monkeypatch):
+    """get_config reads the new path when both exist."""
+    from drivers_python_cli.utils import repo
+
+    new = tmp_path / "new.toml"
+    new.write_text('[repo]\nbase_dir = "/new/repos"\n')
+    legacy = tmp_path / "legacy.toml"
+    legacy.write_text('[repo]\nbase_dir = "/legacy/repos"\n')
+
+    monkeypatch.setattr(repo, "get_config_path", lambda: new)
+    monkeypatch.setattr(repo, "get_legacy_config_path", lambda: legacy)
+
+    config = repo.get_config()
+    assert config["repo"]["base_dir"] == "/new/repos"

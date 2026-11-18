@@ -3,16 +3,16 @@ Virtual Environment Strategy
 
 **Decision: Fine-grained virtual environments at base, group, or repo level**
 
-dbx-python-cli Installation
-----------------------------
+drivers-python-cli Installation
+-------------------------------
 
-``dbx-python-cli`` is expected to be installed via pipx:
+``drivers-python-cli`` is expected to be installed via pipx:
 
 .. code-block:: bash
 
-   pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+   pipx install git+https://github.com/aclark4life/drivers-python-cli.git
 
-This keeps the ``dbx`` command available globally, isolated from project dependencies.
+This keeps the ``dpy`` command available globally, isolated from project dependencies.
 
 Repository and Virtual Environment Structure
 ---------------------------------------------
@@ -22,13 +22,13 @@ Users configure a base directory and clone repository groups. Virtual environmen
 .. code-block:: bash
 
    # Create a base venv shared across all groups (recommended)
-   dbx env init
+   dpy env init
 
    # Create a group-level venv
-   dbx env init -g pymongo
+   dpy env init -g pymongo
 
    # Create a repo-level venv
-   dbx env init mongo-python-driver
+   dpy env init mongo-python-driver
 
 This supports a structure like:
 
@@ -60,7 +60,7 @@ Rationale
 Command Behavior
 ----------------
 
-dbx env init
+dpy env init
 ~~~~~~~~~~~~
 
 Create a virtual environment at any level:
@@ -68,18 +68,18 @@ Create a virtual environment at any level:
 .. code-block:: bash
 
    # Create base venv (shared across all groups)
-   dbx env init
+   dpy env init
 
    # Create venv for pymongo group
-   dbx env init -g pymongo
+   dpy env init -g pymongo
 
    # Create repo-level venv
-   dbx env init mongo-python-driver
+   dpy env init mongo-python-driver
 
    # Create with specific Python version
-   dbx env init -g pymongo --python 3.11
+   dpy env init -g pymongo --python 3.11
 
-dbx install
+dpy install
 ~~~~~~~~~~~
 
 Install dependencies using the most specific venv found:
@@ -87,9 +87,9 @@ Install dependencies using the most specific venv found:
 .. code-block:: bash
 
    # Uses repo, group, or base venv — whichever is most specific
-   dbx install mongo-python-driver -e test
+   dpy install mongo-python-driver -e test
 
-dbx test
+dpy test
 ~~~~~~~~
 
 Run tests using the most specific venv found:
@@ -97,9 +97,9 @@ Run tests using the most specific venv found:
 .. code-block:: bash
 
    # Uses repo, group, or base venv — whichever is most specific
-   dbx test mongo-python-driver
+   dpy test mongo-python-driver
 
-dbx project add
+dpy project add
 ~~~~~~~~~~~~~~~
 
 Django project creation uses a project-specific lookup order:
@@ -121,7 +121,7 @@ Commands detect and use venvs in this priority order (most specific first):
 3. **Base directory venv** - ``<base_path>/.venv``
 4. **Activated venv** - The current ``sys.executable`` or shell-activated Python if it is inside a venv
 5. **Auto-detected venv** - If exactly one venv exists in the base directory, it is used automatically
-6. **Auto-created venv** (``dbx project add`` only) - If no venv is found, one is created automatically at the ``projects/`` group level and Django is bootstrapped into it
+6. **Auto-created venv** (``dpy project add`` only) - If no venv is found, one is created automatically at the ``projects/`` group level and Django is bootstrapped into it
 7. **Error** - Installation to system Python is not allowed (all other commands)
 
 You'll see clear messages indicating which venv is being used:
@@ -137,7 +137,7 @@ Technical Implementation
 Running Commands in Venvs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When ``dbx`` (installed via pipx into an isolated environment) needs to execute commands in a venv, it cannot use ``source`` or activation scripts in subprocesses. Instead, it must directly invoke the venv's Python executable:
+When ``dpy`` (installed via pipx into an isolated environment) needs to execute commands in a venv, it cannot use ``source`` or activation scripts in subprocesses. Instead, it must directly invoke the venv's Python executable:
 
 .. code-block:: python
 
@@ -156,7 +156,7 @@ This is because:
 Venv Detection Example
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The actual ``get_venv_info`` signature includes an optional ``fallback_paths`` list for intermediate group lookups (used by ``dbx project`` commands to check the ``django`` group before falling back to base):
+The actual ``get_venv_info`` signature includes an optional ``fallback_paths`` list for intermediate group lookups (used by ``dpy project`` commands to check the ``django`` group before falling back to base):
 
 .. code-block:: python
 
@@ -187,4 +187,4 @@ The actual ``get_venv_info`` signature includes an optional ``fallback_paths`` l
        # 4. Base directory venv
        # 5-6. Activated venv (sys.executable or shell PATH)
        # 7. Auto-detect: if exactly one .venv exists, use it unambiguously
-       # 8. Error with suggestions (dbx env init / source .venv/bin/activate)
+       # 8. Error with suggestions (dpy env init / source .venv/bin/activate)

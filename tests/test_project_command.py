@@ -7,8 +7,8 @@ import typer
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
-from dbx_python_cli.commands.mongodb import ensure_mongodb
+from drivers_python_cli.cli import app
+from drivers_python_cli.commands.mongodb import ensure_mongodb
 
 runner = CliRunner()
 
@@ -97,7 +97,7 @@ class TestEnsureMongodb:
         """Test that MONGODB_URI from config is used when env not set."""
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {
                     "project": {
                         "default_env": {"MONGODB_URI": "mongodb://confighost:27017"}
@@ -110,15 +110,15 @@ class TestEnsureMongodb:
         """Test that existing mongodb-runner instance is reused."""
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {"project": {"default_env": {}}}
 
                 with patch(
-                    "dbx_python_cli.commands.mongodb.shutil.which",
+                    "drivers_python_cli.commands.mongodb.shutil.which",
                     return_value="/usr/bin/mongodb-runner",
                 ):
                     with patch(
-                        "dbx_python_cli.commands.mongodb.subprocess.run"
+                        "drivers_python_cli.commands.mongodb.subprocess.run"
                     ) as mock_run:
                         # mongodb-runner ls (returns existing instance)
                         mock_run.return_value = MagicMock(
@@ -135,15 +135,15 @@ class TestEnsureMongodb:
         """Test that mongodb-runner is started when no instance is running."""
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {"project": {"default_env": {}}}
 
                 with patch(
-                    "dbx_python_cli.commands.mongodb.shutil.which",
+                    "drivers_python_cli.commands.mongodb.shutil.which",
                     return_value="/usr/bin/mongodb-runner",
                 ):
                     with patch(
-                        "dbx_python_cli.commands.mongodb.subprocess.run"
+                        "drivers_python_cli.commands.mongodb.subprocess.run"
                     ) as mock_run:
                         # First call: mongodb-runner ls (no instances)
                         # Second call: mongodb-runner start (success)
@@ -170,11 +170,11 @@ class TestEnsureMongodb:
         """Test that mongodb-runner failure exits with 'no db running'."""
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {"project": {"default_env": {}}}
 
                 with patch(
-                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                    "drivers_python_cli.commands.mongodb.subprocess.run"
                 ) as mock_run:
                     # First call: mongodb-runner ls (no instances)
                     # Second call: mongodb-runner start (failure)
@@ -197,11 +197,11 @@ class TestEnsureMongodb:
 
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {"project": {"default_env": {}}}
 
                 with patch(
-                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                    "drivers_python_cli.commands.mongodb.subprocess.run"
                 ) as mock_run:
                     # First call: mongodb-runner ls (no instances)
                     # Second call: timeout on start
@@ -220,11 +220,11 @@ class TestEnsureMongodb:
         """Test that FileNotFoundError exits with 'no db running'."""
         env = {}
         with patch.dict("os.environ", {}, clear=True):
-            with patch("dbx_python_cli.commands.mongodb.get_config") as mock_config:
+            with patch("drivers_python_cli.commands.mongodb.get_config") as mock_config:
                 mock_config.return_value = {"project": {"default_env": {}}}
 
                 with patch(
-                    "dbx_python_cli.commands.mongodb.subprocess.run"
+                    "drivers_python_cli.commands.mongodb.subprocess.run"
                 ) as mock_run:
                     mock_run.side_effect = FileNotFoundError("npx not found")
 
@@ -236,7 +236,7 @@ class TestEnsureMongodb:
 def test_fix_broken_editable_installs_reinstalls_missing_source(tmp_path):
     """Broken editable installs for declared deps (dist-info with missing source) get reinstalled."""
     import json
-    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+    from drivers_python_cli.commands.project import _fix_broken_editable_installs
 
     # Fake project with wagtail as a declared dependency
     project_path = tmp_path / "myproject"
@@ -259,7 +259,7 @@ def test_fix_broken_editable_installs_reinstalls_missing_source(tmp_path):
 
     python_path = "/fake/python"
 
-    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout=str(site_packages), stderr=""),
             MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError"),
@@ -277,7 +277,7 @@ def test_fix_broken_editable_installs_reinstalls_missing_source(tmp_path):
 def test_fix_broken_editable_installs_skips_undeclared_packages(tmp_path):
     """Broken editable installs for packages NOT in pyproject.toml are ignored."""
     import json
-    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+    from drivers_python_cli.commands.project import _fix_broken_editable_installs
 
     # Project declares only "requests", NOT "old-project"
     project_path = tmp_path / "myproject"
@@ -300,7 +300,7 @@ def test_fix_broken_editable_installs_skips_undeclared_packages(tmp_path):
 
     python_path = "/fake/python"
 
-    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
             returncode=0, stdout=str(site_packages), stderr=""
         )
@@ -313,7 +313,7 @@ def test_fix_broken_editable_installs_skips_undeclared_packages(tmp_path):
 def test_fix_broken_editable_installs_skips_valid_source(tmp_path):
     """Editable installs with an existing, valid source directory are left alone."""
     import json
-    from dbx_python_cli.commands.project import _fix_broken_editable_installs
+    from drivers_python_cli.commands.project import _fix_broken_editable_installs
 
     project_path = tmp_path / "myproject"
     project_path.mkdir()
@@ -337,7 +337,7 @@ def test_fix_broken_editable_installs_skips_valid_source(tmp_path):
 
     python_path = "/fake/python"
 
-    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
             returncode=0, stdout=str(site_packages), stderr=""
         )
@@ -351,7 +351,7 @@ def test_project_run_uses_django_group_venv(tmp_path):
     """Test that project run uses django group venv when no other venv is found."""
     import platform
 
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -383,11 +383,11 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
-            with patch("dbx_python_cli.utils.venv._is_venv", return_value=False):
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.utils.venv._is_venv", return_value=False):
                 with patch(
-                    "dbx_python_cli.utils.venv._get_python_path",
+                    "drivers_python_cli.utils.venv._get_python_path",
                     return_value="/usr/bin/python",
                 ):
                     mock_get_path.return_value = config_path
@@ -413,7 +413,7 @@ def test_project_add_help_shows_qe():
 
 def test_enable_qe_activates_settings(tmp_path):
     """Test that _enable_qe uncomments the QE settings block."""
-    from dbx_python_cli.commands.project import _enable_qe
+    from drivers_python_cli.commands.project import _enable_qe
 
     settings_dir = tmp_path / "myproject" / "settings"
     settings_dir.mkdir(parents=True)
@@ -436,7 +436,7 @@ def test_enable_qe_activates_settings(tmp_path):
 
 def test_create_pyproject_toml_includes_pymongocrypt_when_qe(tmp_path):
     """Test that _create_pyproject_toml adds pymongocrypt to dependencies when qe=True."""
-    from dbx_python_cli.commands.project import _create_pyproject_toml
+    from drivers_python_cli.commands.project import _create_pyproject_toml
 
     _create_pyproject_toml(tmp_path, "myproject", qe=True)
 
@@ -449,7 +449,7 @@ def test_create_pyproject_toml_includes_pymongocrypt_when_qe(tmp_path):
 
 def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
     """Test that _create_pyproject_toml does not add pymongocrypt by default."""
-    from dbx_python_cli.commands.project import _create_pyproject_toml
+    from drivers_python_cli.commands.project import _create_pyproject_toml
 
     _create_pyproject_toml(tmp_path, "myproject")
 
@@ -462,7 +462,7 @@ def test_create_pyproject_toml_excludes_pymongocrypt_by_default(tmp_path):
 
 def test_clone_repo_from_config_not_in_config(tmp_path):
     """Returns None when repo name is not in any config group."""
-    from dbx_python_cli.commands.project import _clone_repo_from_config
+    from drivers_python_cli.commands.project import _clone_repo_from_config
 
     config = {
         "repo": {
@@ -475,7 +475,7 @@ def test_clone_repo_from_config_not_in_config(tmp_path):
 
 def test_clone_repo_from_config_clones_when_in_config(tmp_path):
     """Clones the repo and returns its path when it appears in a config group."""
-    from dbx_python_cli.commands.project import _clone_repo_from_config
+    from drivers_python_cli.commands.project import _clone_repo_from_config
 
     config = {
         "repo": {
@@ -486,7 +486,7 @@ def test_clone_repo_from_config_clones_when_in_config(tmp_path):
     }
     repo_path = tmp_path / "mygroup" / "medical-records"
 
-    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         result = _clone_repo_from_config(
             "medical-records", tmp_path, config, flat=False
@@ -509,7 +509,7 @@ def test_clone_repo_from_config_clones_when_in_config(tmp_path):
 def test_clone_repo_from_config_clone_failure_returns_none(tmp_path):
     """Returns None when git clone fails."""
     import subprocess
-    from dbx_python_cli.commands.project import _clone_repo_from_config
+    from drivers_python_cli.commands.project import _clone_repo_from_config
 
     config = {
         "repo": {
@@ -519,7 +519,7 @@ def test_clone_repo_from_config_clone_failure_returns_none(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.commands.project.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.CalledProcessError(1, "git clone")
         result = _clone_repo_from_config(
             "medical-records", tmp_path, config, flat=False
@@ -530,7 +530,7 @@ def test_clone_repo_from_config_clone_failure_returns_none(tmp_path):
 
 def test_install_with_repos_auto_clones_from_config(tmp_path):
     """When a repo is not cloned locally but is in config, it gets cloned then installed."""
-    from dbx_python_cli.commands.project import _install_with_repos
+    from drivers_python_cli.commands.project import _install_with_repos
 
     config = {
         "repo": {
@@ -544,15 +544,18 @@ def test_install_with_repos_auto_clones_from_config(tmp_path):
     clone_path = tmp_path / "mygroup" / "medical-records"
 
     with (
-        patch("dbx_python_cli.commands.project.get_config", return_value=config),
-        patch("dbx_python_cli.commands.project.get_base_dir", return_value=tmp_path),
-        patch("dbx_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch("drivers_python_cli.commands.project.get_config", return_value=config),
         patch(
-            "dbx_python_cli.commands.project._clone_repo_from_config",
+            "drivers_python_cli.commands.project.get_base_dir", return_value=tmp_path
+        ),
+        patch("drivers_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch(
+            "drivers_python_cli.commands.project._clone_repo_from_config",
             return_value=clone_path,
         ) as mock_clone,
         patch(
-            "dbx_python_cli.commands.project.install_package", return_value="success"
+            "drivers_python_cli.commands.project.install_package",
+            return_value="success",
         ) as mock_install,
     ):
         _install_with_repos(["medical-records"], "/usr/bin/python")
@@ -570,18 +573,21 @@ def test_install_with_repos_auto_clones_from_config(tmp_path):
 
 def test_install_with_repos_skips_when_not_in_config(tmp_path):
     """Emits a warning and skips when repo is not local and not in config."""
-    from dbx_python_cli.commands.project import _install_with_repos
+    from drivers_python_cli.commands.project import _install_with_repos
 
     config = {"repo": {"base_dir": str(tmp_path), "flat": False, "groups": {}}}
 
     with (
-        patch("dbx_python_cli.commands.project.get_config", return_value=config),
-        patch("dbx_python_cli.commands.project.get_base_dir", return_value=tmp_path),
-        patch("dbx_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch("drivers_python_cli.commands.project.get_config", return_value=config),
         patch(
-            "dbx_python_cli.commands.project._clone_repo_from_config", return_value=None
+            "drivers_python_cli.commands.project.get_base_dir", return_value=tmp_path
         ),
-        patch("dbx_python_cli.commands.project.install_package") as mock_install,
+        patch("drivers_python_cli.utils.repo.find_all_repos", return_value=[]),
+        patch(
+            "drivers_python_cli.commands.project._clone_repo_from_config",
+            return_value=None,
+        ),
+        patch("drivers_python_cli.commands.project.install_package") as mock_install,
     ):
         _install_with_repos(["medical-records"], "/usr/bin/python")
 
@@ -594,7 +600,7 @@ def test_qe_with_medical_records_adds_app_to_installed_apps(tmp_path):
     _enable_qe uncomments the QE import block in the project settings, which adds
     QE_INSTALLED_APPS (containing medical_records) to INSTALLED_APPS.
     """
-    from dbx_python_cli.commands.project import _enable_qe
+    from drivers_python_cli.commands.project import _enable_qe
 
     settings_dir = tmp_path / "myproject" / "settings"
     settings_dir.mkdir(parents=True)
@@ -615,7 +621,7 @@ def test_qe_with_medical_records_adds_app_to_installed_apps(tmp_path):
 
 
 def test_apply_libmongocrypt_env_skips_existing_keys():
-    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+    from drivers_python_cli.utils.project import apply_libmongocrypt_env
 
     env = {"PYMONGOCRYPT_LIB": "/already/set"}
     config = {"project": {"default_env": {"PYMONGOCRYPT_LIB": "/other"}}}
@@ -624,7 +630,7 @@ def test_apply_libmongocrypt_env_skips_existing_keys():
 
 
 def test_apply_libmongocrypt_env_requires_file_to_exist(tmp_path):
-    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+    from drivers_python_cli.utils.project import apply_libmongocrypt_env
 
     env = {}
     config = {
@@ -635,7 +641,7 @@ def test_apply_libmongocrypt_env_requires_file_to_exist(tmp_path):
 
 
 def test_apply_libmongocrypt_env_auto_derives_from_clone(tmp_path):
-    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+    from drivers_python_cli.utils.project import apply_libmongocrypt_env
 
     artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
     artifact.parent.mkdir(parents=True)
@@ -646,7 +652,7 @@ def test_apply_libmongocrypt_env_auto_derives_from_clone(tmp_path):
 
 
 def test_apply_libmongocrypt_env_omits_dyld_fallback_when_disabled(tmp_path):
-    from dbx_python_cli.utils.project import apply_libmongocrypt_env
+    from drivers_python_cli.utils.project import apply_libmongocrypt_env
 
     env = {}
     config = {
@@ -663,7 +669,7 @@ def test_apply_libmongocrypt_env_omits_dyld_fallback_when_disabled(tmp_path):
 
 
 def test_validate_qe_env_reports_missing_vars():
-    from dbx_python_cli.utils.project import validate_qe_env
+    from drivers_python_cli.utils.project import validate_qe_env
 
     problems = validate_qe_env({"project": {"default_env": {}}})
     assert any("PYMONGOCRYPT_LIB" in p for p in problems)
@@ -671,14 +677,14 @@ def test_validate_qe_env_reports_missing_vars():
 
 
 def test_validate_qe_env_fatal_raises():
-    from dbx_python_cli.utils.project import validate_qe_env
+    from drivers_python_cli.utils.project import validate_qe_env
 
     with pytest.raises(typer.Exit):
         validate_qe_env({"project": {"default_env": {}}}, fatal=True)
 
 
 def test_validate_qe_env_accepts_auto_derived_pymongocrypt(tmp_path):
-    from dbx_python_cli.utils.project import validate_qe_env
+    from drivers_python_cli.utils.project import validate_qe_env
 
     artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
     artifact.parent.mkdir(parents=True)
@@ -691,7 +697,7 @@ def test_validate_qe_env_accepts_auto_derived_pymongocrypt(tmp_path):
 
 def test_ensure_package_installed_prefers_clone(tmp_path):
     """Generalized _ensure_package_installed uses find_repo_by_name + install_dirs."""
-    from dbx_python_cli.commands.project import _ensure_package_installed
+    from drivers_python_cli.commands.project import _ensure_package_installed
 
     clone = tmp_path / "mypkg"
     clone.mkdir()
@@ -705,9 +711,11 @@ def test_ensure_package_installed_prefers_clone(tmp_path):
         }
     }
     with (
-        patch("dbx_python_cli.commands.project.get_config", return_value=config),
-        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=repo_info),
-        patch("dbx_python_cli.commands.project.subprocess.run") as mock_run,
+        patch("drivers_python_cli.commands.project.get_config", return_value=config),
+        patch(
+            "drivers_python_cli.utils.repo.find_repo_by_name", return_value=repo_info
+        ),
+        patch("drivers_python_cli.commands.project.subprocess.run") as mock_run,
     ):
         mock_run.side_effect = [
             MagicMock(returncode=1),  # import check
@@ -720,13 +728,13 @@ def test_ensure_package_installed_prefers_clone(tmp_path):
 
 
 def test_ensure_package_installed_required_failure_exits(tmp_path):
-    from dbx_python_cli.commands.project import _ensure_package_installed
+    from drivers_python_cli.commands.project import _ensure_package_installed
 
     config = {"repo": {"base_dir": str(tmp_path), "flat": True, "groups": {}}}
     with (
-        patch("dbx_python_cli.commands.project.get_config", return_value=config),
-        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=None),
-        patch("dbx_python_cli.commands.project.subprocess.run") as mock_run,
+        patch("drivers_python_cli.commands.project.get_config", return_value=config),
+        patch("drivers_python_cli.utils.repo.find_repo_by_name", return_value=None),
+        patch("drivers_python_cli.commands.project.subprocess.run") as mock_run,
     ):
         mock_run.side_effect = [
             MagicMock(returncode=1),  # import check
@@ -737,7 +745,7 @@ def test_ensure_package_installed_required_failure_exits(tmp_path):
 
 
 def test_ensure_libmongocrypt_built_skips_when_artifact_exists(tmp_path):
-    from dbx_python_cli.commands.project import _ensure_libmongocrypt_built
+    from drivers_python_cli.commands.project import _ensure_libmongocrypt_built
 
     artifact = tmp_path / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
     artifact.parent.mkdir(parents=True)
@@ -755,8 +763,10 @@ def test_ensure_libmongocrypt_built_skips_when_artifact_exists(tmp_path):
         }
     }
     with (
-        patch("dbx_python_cli.utils.repo.find_repo_by_name", return_value=repo_info),
-        patch("dbx_python_cli.commands.install.run_build_commands") as mock_build,
+        patch(
+            "drivers_python_cli.utils.repo.find_repo_by_name", return_value=repo_info
+        ),
+        patch("drivers_python_cli.commands.install.run_build_commands") as mock_build,
     ):
         result = _ensure_libmongocrypt_built(tmp_path, config)
     assert result == artifact
@@ -773,7 +783,7 @@ def test_project_run_frontend_watcher_does_not_use_pipes(tmp_path):
     import inspect
     import subprocess as sp
 
-    from dbx_python_cli.commands import project
+    from drivers_python_cli.commands import project
 
     source = inspect.getsource(project.run_project)
     popen_call = source[source.index("subprocess.Popen(") :]

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
-from dbx_python_cli.utils.infra import parse_suite_registry
+from drivers_python_cli.cli import app
+from drivers_python_cli.utils.infra import parse_suite_registry
 
 runner = CliRunner()
 
@@ -103,7 +103,7 @@ def test_parse_suite_registry_missing(tmp_path):
 def test_infra_list_suites(tmp_path):
     """infra list shows suites plus overlay facts."""
     config, _ = make_repo(tmp_path)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
     assert result.exit_code == 0
@@ -118,7 +118,7 @@ def test_infra_list_suites(tmp_path):
 def test_infra_list_suite_detail(tmp_path):
     """infra list <suite> shows marker, notes, and links."""
     config, _ = make_repo(tmp_path)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(
             app, ["infra", "list", "mongo-python-driver", "auth_oidc"]
@@ -134,7 +134,7 @@ def test_infra_list_suite_detail(tmp_path):
 def test_infra_list_unknown_suite(tmp_path):
     """infra list with an unknown suite exits 1."""
     config, _ = make_repo(tmp_path)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver", "nope"])
     assert result.exit_code == 1
@@ -144,7 +144,7 @@ def test_infra_list_no_registry_no_overlay(tmp_path):
     """infra list exits 1 when there is no registry and no overlay."""
     config, _ = make_repo(tmp_path, with_registry=False)
     config = {"repo": config["repo"]}
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
     assert result.exit_code == 1
@@ -155,16 +155,16 @@ def test_infra_check_pass(tmp_path):
     """infra check exits 0 when everything passes."""
     config, _ = make_repo(tmp_path)
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_aws_credentials",
+            "drivers_python_cli.utils.infra.check_aws_credentials",
             return_value=(
                 True,
                 "authenticated (account 857654397073, role drivers-test-secrets-role)",
             ),
         ),
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
     ):
@@ -186,8 +186,8 @@ def test_infra_check_missing_tool(tmp_path):
         )
 
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
-        patch("dbx_python_cli.utils.infra.check_tool", side_effect=fake_check_tool),
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.utils.infra.check_tool", side_effect=fake_check_tool),
     ):
         mock_config.return_value = config
         result = runner.invoke(
@@ -204,13 +204,13 @@ def test_infra_check_env_var_never_prints_value(tmp_path, monkeypatch):
     config, _ = make_repo(tmp_path)
     monkeypatch.setenv("ORCHESTRATION_FILE", "super-secret-orchestration")
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_aws_credentials",
+            "drivers_python_cli.utils.infra.check_aws_credentials",
             return_value=(False, "skip"),
         ),
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
     ):
@@ -225,16 +225,16 @@ def test_infra_check_evergreen_only(tmp_path):
     """infra check flags evergreen-only suites on non-Evergreen hosts."""
     config, _ = make_repo(tmp_path)
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_aws_credentials",
+            "drivers_python_cli.utils.infra.check_aws_credentials",
             return_value=(False, "skip"),
         ),
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
-        patch("dbx_python_cli.utils.infra.is_evergreen_host", return_value=False),
+        patch("drivers_python_cli.utils.infra.is_evergreen_host", return_value=False),
     ):
         mock_config.return_value = config
         result = runner.invoke(
@@ -247,7 +247,7 @@ def test_infra_check_evergreen_only(tmp_path):
 def test_infra_check_unknown_suite(tmp_path):
     """infra check with an unknown suite exits 1."""
     config, _ = make_repo(tmp_path)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "check", "mongo-python-driver", "nope"])
     assert result.exit_code == 1
@@ -304,7 +304,7 @@ def make_abx_repo(tmp_path, workflow=ABX_WORKFLOW):
 
 def test_parse_release_workflows(tmp_path):
     """parse_release_workflows extracts actions, pins, vars, and permissions."""
-    from dbx_python_cli.utils.infra import parse_release_workflows
+    from drivers_python_cli.utils.infra import parse_release_workflows
 
     _config, base_dir = make_abx_repo(tmp_path)
     abx = parse_release_workflows(base_dir / "abx" / "strands-mongodb")
@@ -320,7 +320,7 @@ def test_parse_release_workflows_absent(tmp_path):
     """parse_release_workflows returns None without ABX workflow references."""
     from pathlib import Path
 
-    from dbx_python_cli.utils.infra import parse_release_workflows
+    from drivers_python_cli.utils.infra import parse_release_workflows
 
     config, _ = make_repo(tmp_path)
     repo = Path(config["repo"]["base_dir"]) / "pymongo" / "mongo-python-driver"
@@ -330,7 +330,7 @@ def test_parse_release_workflows_absent(tmp_path):
 def test_infra_list_abx(tmp_path):
     """infra list shows ABX release domains for repos without a suite registry."""
     config, _ = make_abx_repo(tmp_path)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "strands-mongodb"])
     assert result.exit_code == 0
@@ -345,9 +345,9 @@ def test_infra_check_abx_failures(tmp_path):
     """infra check flags unpinned actions and missing id-token permission."""
     config, _ = make_abx_repo(tmp_path)
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
     ):
@@ -363,9 +363,9 @@ def test_infra_check_abx_clean(tmp_path):
     """infra check passes for a pinned workflow with id-token permission."""
     config, _ = make_abx_repo(tmp_path, workflow=ABX_WORKFLOW_CLEAN)
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
     ):
@@ -399,7 +399,7 @@ jobs:
 def test_infra_list_local_release_actions(tmp_path):
     """infra list shows repo-local composite actions and secrets."""
     config, _ = make_abx_repo(tmp_path, workflow=ABX_WORKFLOW_LOCAL)
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "strands-mongodb"])
     assert result.exit_code == 0
@@ -413,9 +413,9 @@ def test_infra_check_local_release_actions_pass(tmp_path):
     """A local-action release with id-token permission passes."""
     config, _ = make_abx_repo(tmp_path, workflow=ABX_WORKFLOW_LOCAL)
     with (
-        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch("drivers_python_cli.commands.infra.get_config") as mock_config,
         patch(
-            "dbx_python_cli.utils.infra.check_tool",
+            "drivers_python_cli.utils.infra.check_tool",
             return_value=(True, "/usr/bin/just"),
         ),
     ):
@@ -439,7 +439,7 @@ def test_infra_list_release_section_after_suites_and_no_abx_docs(tmp_path):
         "    steps:\n"
         "      - uses: pypa/gh-agent-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33\n"
     )
-    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
     assert result.exit_code == 0

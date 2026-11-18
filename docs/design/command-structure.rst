@@ -6,7 +6,7 @@ This document explains the design decisions behind how commands are organised in
 Decision
 --------
 
-We prefer **top-level commands** (``dbx clone``, ``dbx sync``) over **nested command groups** (``dbx repo clone``, ``dbx repo sync``), but command groups and even two-level nesting are used when the domain is rich enough to warrant it.
+We prefer **top-level commands** (``dpy clone``, ``dpy sync``) over **nested command groups** (``dpy repo clone``, ``dpy repo sync``), but command groups and even two-level nesting are used when the domain is rich enough to warrant it.
 
 Rationale
 ---------
@@ -16,21 +16,21 @@ Simplicity and Discoverability
 
 Top-level commands are more discoverable and easier to use:
 
-- **Shorter commands**: ``dbx clone -g pymongo`` vs ``dbx repo clone -g pymongo``
+- **Shorter commands**: ``dpy clone -g pymongo`` vs ``dpy repo clone -g pymongo``
 - **Fewer concepts**: Users don't need to understand command groups
-- **Better help output**: Commands appear directly in ``dbx --help``
+- **Better help output**: Commands appear directly in ``dpy --help``
 
 Common Usage Patterns
 ~~~~~~~~~~~~~~~~~~~~~
 
 The most frequently used commands should be at the top level:
 
-- ``dbx clone`` — Clone repositories from a group
-- ``dbx sync`` — Sync repositories with upstream
-- ``dbx backports`` — List commits on main that have not reached a release branch
-- ``dbx install`` — Install packages
-- ``dbx test`` — Run tests
-- ``dbx list`` — List cloned repositories
+- ``dpy clone`` — Clone repositories from a group
+- ``dpy sync`` — Sync repositories with upstream
+- ``dpy backports`` — List commits on main that have not reached a release branch
+- ``dpy install`` — Install packages
+- ``dpy test`` — Run tests
+- ``dpy list`` — List cloned repositories
 
 These are the primary workflows, so they should be as accessible as possible.
 
@@ -49,21 +49,21 @@ Single-action commands that are frequently used or domain-agnostic:
 
 .. code-block:: text
 
-   dbx branch      Git branch operations across repositories
-   dbx clone       Clone a repository group
-   dbx edit        Open a repository in an editor
-   dbx install     Install package dependencies
-   dbx just        Run just commands in a repository
-   dbx list        List cloned repositories
-   dbx log         Git log across repositories
-   dbx open        Open a repository in the browser
-   dbx patch       Create Evergreen CI patches
-   dbx remove      Remove a cloned repository
-   dbx status      Git status across repositories
-   dbx switch      Switch git branches across repositories
-   dbx sync        Sync repositories with upstream
-   dbx backports   List backport candidates for a release branch
-   dbx test        Run tests in a repository
+   dpy branch      Git branch operations across repositories
+   dpy clone       Clone a repository group
+   dpy edit        Open a repository in an editor
+   dpy install     Install package dependencies
+   dpy just        Run just commands in a repository
+   dpy list        List cloned repositories
+   dpy log         Git log across repositories
+   dpy open        Open a repository in the browser
+   dpy patch       Create Evergreen CI patches
+   dpy remove      Remove a cloned repository
+   dpy status      Git status across repositories
+   dpy switch      Switch git branches across repositories
+   dpy sync        Sync repositories with upstream
+   dpy backports   List backport candidates for a release branch
+   dpy test        Run tests in a repository
 
 Command Groups (One Level)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -73,61 +73,61 @@ Related subcommands that share a common domain:
 .. code-block:: bash
 
    # Configuration management
-   dbx config init
-   dbx config show
-   dbx config edit
-   dbx config validate
+   dpy config init
+   dpy config show
+   dpy config edit
+   dpy config validate
 
    # Documentation operations
-   dbx docs build
-   dbx docs list
-   dbx docs open
+   dpy docs build
+   dpy docs list
+   dpy docs open
 
    # Virtual environment management
-   dbx env init
-   dbx env list
-   dbx env remove
-   dbx env status
+   dpy env init
+   dpy env list
+   dpy env remove
+   dpy env status
 
    # Infrastructure requirements per repo
-   dbx infra list mongo-python-driver
-   dbx infra check mongo-python-driver auth_oidc
+   dpy infra list mongo-python-driver
+   dpy infra check mongo-python-driver auth_oidc
 
    # Django project management
-   dbx project add myproject
-   dbx project edit
-   dbx project install
-   dbx project migrate
-   dbx project run
-   dbx project su
-   dbx project list
-   dbx project remove
+   dpy project add myproject
+   dpy project edit
+   dpy project install
+   dpy project migrate
+   dpy project run
+   dpy project su
+   dpy project list
+   dpy project remove
 
    # Git worktree management
-   dbx worktree add django --upstream
-   dbx worktree list django
-   dbx worktree remove django
+   dpy worktree add django --upstream
+   dpy worktree list django
+   dpy worktree remove django
 
 Command Groups (Two Levels)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When a domain has enough distinct sub-domains, two levels of nesting are acceptable. The only current example is ``dbx spec``, where spec-level operations (``sync``, ``list``, ``status``) are clearly separate from patch lifecycle operations:
+When a domain has enough distinct sub-domains, two levels of nesting are acceptable. The only current example is ``dpy spec``, where spec-level operations (``sync``, ``list``, ``status``) are clearly separate from patch lifecycle operations:
 
 .. code-block:: bash
 
    # Spec-level operations
-   dbx spec sync crud sessions
-   dbx spec list
-   dbx spec status
+   dpy spec sync crud sessions
+   dpy spec list
+   dpy spec status
 
    # Patch lifecycle (sub-group)
-   dbx spec patch apply
-   dbx spec patch create PYTHON-1234
-   dbx spec patch list
-   dbx spec patch remove PYTHON-1234
-   dbx spec patch verify
+   dpy spec patch apply
+   dpy spec patch create PYTHON-1234
+   dpy spec patch list
+   dpy spec patch remove PYTHON-1234
+   dpy spec patch verify
 
-Two-level nesting should remain rare. The bar for adding a third level is very high — if you find yourself wanting ``dbx foo bar baz``, consider whether ``foo`` and ``bar`` should be merged or whether ``baz`` belongs at a higher level.
+Two-level nesting should remain rare. The bar for adding a third level is very high — if you find yourself wanting ``dpy foo bar baz``, consider whether ``foo`` and ``bar`` should be merged or whether ``baz`` belongs at a higher level.
 
 When to Use Command Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,7 +135,7 @@ When to Use Command Groups
 Command groups are appropriate when:
 
 - **Multiple related subcommands** share a common domain (e.g., environment management, spec sync)
-- **Namespacing prevents collisions** — ``dbx spec list`` and ``dbx list`` do different things
+- **Namespacing prevents collisions** — ``dpy spec list`` and ``dpy list`` do different things
 - **The group has 3+ subcommands** — a group with only one subcommand adds friction without benefit
 
 Top-level placement is preferred when:
@@ -153,17 +153,17 @@ This design was established when ``clone`` and ``sync`` were promoted from the `
 
 .. code-block:: bash
 
-   dbx repo clone -g pymongo
-   dbx repo sync mongo-python-driver
-   dbx repo -l
+   dpy repo clone -g pymongo
+   dpy repo sync mongo-python-driver
+   dpy repo -l
 
 **After:**
 
 .. code-block:: bash
 
-   dbx clone -g pymongo
-   dbx sync mongo-python-driver
-   dbx list
+   dpy clone -g pymongo
+   dpy sync mongo-python-driver
+   dpy list
 
 The ``repo.py`` module was converted from a command module to a utility functions module containing helpers like ``get_config()``, ``get_base_dir()``, and ``get_repo_groups()``.
 
@@ -175,15 +175,15 @@ To further improve usability, commands should provide smart defaults when possib
 Project Commands Default to Newest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Most ``dbx project`` commands default to the newest project when no project name is specified:
+Most ``dpy project`` commands default to the newest project when no project name is specified:
 
 .. code-block:: bash
 
-   dbx project run              # Run newest project
-   dbx project manage shell     # Open shell on newest project
-   dbx project su               # Create superuser on newest project
-   dbx project migrate          # Run migrations on newest project
-   dbx project remove           # Remove newest project
+   dpy project run              # Run newest project
+   dpy project manage shell     # Open shell on newest project
+   dpy project su               # Create superuser on newest project
+   dpy project migrate          # Run migrations on newest project
+   dpy project remove           # Remove newest project
 
 The "newest" project is determined by filesystem modification time. When a command defaults to the newest project, it displays an informative message:
 

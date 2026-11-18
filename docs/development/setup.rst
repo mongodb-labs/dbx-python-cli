@@ -1,7 +1,7 @@
 Setup
 =====
 
-This guide covers setting up your development environment for dbx-python-cli.
+This guide covers setting up your development environment for drivers-python-cli.
 
 Prerequisites
 -------------
@@ -40,8 +40,8 @@ Clone the Repository
 
 .. code-block:: bash
 
-   git clone https://github.com/aclark4life/dbx-python-cli.git
-   cd dbx-python-cli
+   git clone https://github.com/aclark4life/drivers-python-cli.git
+   cd drivers-python-cli
 
 Install the Package
 -------------------
@@ -104,8 +104,8 @@ Verify Installation
 
 .. code-block:: bash
 
-   # Check that dbx is installed
-   dbx --version
+   # Check that dpy is installed
+   dpy --version
 
    # Run tests to verify everything works
    just test

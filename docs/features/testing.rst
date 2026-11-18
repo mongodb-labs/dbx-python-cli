@@ -9,16 +9,16 @@ Run tests in any cloned repository using pytest (default) or a custom test runne
 .. code-block:: bash
 
    # Run tests in a specific repository
-   dbx test mongo-python-driver
+   dpy test mongo-python-driver
 
    # Run tests matching a keyword expression (pytest only)
-   dbx test mongo-python-driver --keyword "test_connection"
+   dpy test mongo-python-driver --keyword "test_connection"
 
    # Pass additional arguments to the test runner
-   dbx test mongo-python-driver -x --tb=short
+   dpy test mongo-python-driver -x --tb=short
 
    # Short forms
-   dbx test mongo-python-driver -k "test_auth"  # filter tests
+   dpy test mongo-python-driver -k "test_auth"  # filter tests
 
 The ``test`` command will:
 
@@ -32,8 +32,8 @@ Example Output
 
 .. code-block:: bash
 
-   $ dbx test mongo-python-driver
-   Running pytest in ~/Developer/dbx-repos/pymongo/mongo-python-driver...
+   $ dpy test mongo-python-driver
+   Running pytest in ~/Developer/dpy-repos/pymongo/mongo-python-driver...
 
    ============================= test session starts ==============================
    ...
@@ -60,17 +60,17 @@ You can pass additional arguments to the test runner by adding them after the re
 .. code-block:: bash
 
    # Pass pytest arguments
-   dbx test mongo-python-driver -x --tb=short --maxfail=1
+   dpy test mongo-python-driver -x --tb=short --maxfail=1
 
    # Pass arguments to custom test runner
-   dbx test django --verbose --parallel
+   dpy test django --verbose --parallel
 
 Arguments are passed directly to the test runner, so you can use any arguments supported by pytest or your custom test runner.
 
 Custom Test Runners
 -------------------
 
-By default, ``dbx test`` uses pytest. However, some projects use custom test runners (e.g., Django's ``tests/runtests.py``). You can configure a custom test runner in your config file:
+By default, ``dpy test`` uses pytest. However, some projects use custom test runners (e.g., Django's ``tests/runtests.py``). You can configure a custom test runner in your config file:
 
 .. code-block:: toml
 
@@ -94,7 +94,7 @@ Example with custom test runner:
 .. code-block:: bash
 
    # Run Django's custom test runner with arguments
-   dbx test django --verbose --parallel
+   dpy test django --verbose --parallel
 
    # This executes: python tests/runtests.py --verbose --parallel
 
@@ -135,14 +135,14 @@ When you run tests or just commands, these environment variables will be automat
 .. code-block:: bash
 
    # Run tests with configured environment variables
-   dbx test mongo-python-driver
+   dpy test mongo-python-driver
 
    # Run just commands with configured environment variables
-   dbx just mongo-python-driver setup-tests
+   dpy just mongo-python-driver setup-tests
 
    # View environment variables in verbose mode
-   dbx --verbose test mongo-python-driver
-   dbx --verbose just mongo-python-driver setup-tests
+   dpy --verbose test mongo-python-driver
+   dpy --verbose just mongo-python-driver setup-tests
 
 The environment variables are merged with your current environment, so existing environment variables are preserved unless explicitly overridden by the configuration.
 
@@ -152,6 +152,6 @@ The environment variables are merged with your current environment, so existing 
 Requirements
 ------------
 
-- The repository must be cloned first using ``dbx clone``
+- The repository must be cloned first using ``dpy clone``
 - For pytest (default): pytest must be installed in the repository's virtual environment
 - For custom test runners: the test runner script must exist at the configured path

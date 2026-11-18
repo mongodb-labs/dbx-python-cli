@@ -4,7 +4,7 @@ import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -63,9 +63,9 @@ def test_log_help():
 
 def test_log_no_repo_name(temp_repos_dir, mock_config):
     """Test log without repo name shows error."""
-    with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
+    with patch("drivers_python_cli.commands.log.get_config", return_value=mock_config):
         with patch(
-            "dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
         ):
             result = runner.invoke(app, ["log"])
             # Typer exits with code 2 for missing arguments
@@ -74,21 +74,25 @@ def test_log_no_repo_name(temp_repos_dir, mock_config):
 
 def test_log_repo_not_found(temp_repos_dir, mock_config):
     """Test log with non-existent repository."""
-    with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
+    with patch("drivers_python_cli.commands.log.get_config", return_value=mock_config):
         with patch(
-            "dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
         ):
             result = runner.invoke(app, ["log", "nonexistent"])
             assert result.exit_code == 1
             # Check that helpful message is shown
-            assert "dbx list" in result.stdout
+            assert "dpy list" in result.stdout
 
 
 def test_log_basic(tmp_path, temp_repos_dir, mock_config):
     """Test basic log of a repository."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -110,9 +114,13 @@ def test_log_basic(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_number(tmp_path, temp_repos_dir, mock_config):
     """Test log with custom number of commits."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -132,9 +140,13 @@ def test_log_with_number(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_oneline(tmp_path, temp_repos_dir, mock_config):
     """Test log with oneline format."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -154,9 +166,13 @@ def test_log_with_oneline(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_group(tmp_path, temp_repos_dir, mock_config):
     """Test log with group option."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -169,8 +185,12 @@ def test_log_with_group(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
     """Test log with non-existent group."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
             result = runner.invoke(app, ["log", "-g", "nonexistent"])
             assert result.exit_code == 1
 
@@ -181,11 +201,15 @@ def test_log_not_git_repo(tmp_path, temp_repos_dir, mock_config):
     non_git_dir = temp_repos_dir / "pymongo" / "not-a-repo"
     non_git_dir.mkdir()
 
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
             # Manually add the non-git repo to the list
             with patch(
-                "dbx_python_cli.commands.log.find_repo_by_name",
+                "drivers_python_cli.commands.log.find_repo_by_name",
                 return_value={
                     "name": "not-a-repo",
                     "path": non_git_dir,
@@ -203,9 +227,13 @@ def test_log_not_git_repo(tmp_path, temp_repos_dir, mock_config):
 
 def test_verbose_flag_with_log_command(tmp_path, temp_repos_dir, mock_config):
     """Test verbose flag with log command."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -216,9 +244,13 @@ def test_verbose_flag_with_log_command(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_number_and_oneline(tmp_path, temp_repos_dir, mock_config):
     """Test log with both number and oneline options."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )
@@ -241,9 +273,13 @@ def test_log_with_number_and_oneline(tmp_path, temp_repos_dir, mock_config):
 
 def test_log_with_group_and_number(tmp_path, temp_repos_dir, mock_config):
     """Test log with group and custom number."""
-    with patch("dbx_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir):
-        with patch("dbx_python_cli.commands.log.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.log.subprocess.run") as mock_run:
+    with patch(
+        "drivers_python_cli.commands.log.get_base_dir", return_value=temp_repos_dir
+    ):
+        with patch(
+            "drivers_python_cli.commands.log.get_config", return_value=mock_config
+        ):
+            with patch("drivers_python_cli.commands.log.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="test log output"
                 )

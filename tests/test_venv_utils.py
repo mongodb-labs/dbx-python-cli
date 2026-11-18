@@ -5,7 +5,7 @@ import platform
 import pytest
 import typer
 
-from dbx_python_cli.utils.venv import get_venv_info, get_venv_python
+from drivers_python_cli.utils.venv import get_venv_info, get_venv_python
 
 
 @pytest.fixture
@@ -351,7 +351,7 @@ def test_get_venv_info_auto_detects_single_existing_venv(tmp_path):
 
     # Patch _is_venv so the currently-running Python is not mistaken for a
     # venv python (avoids environment-dependent test behaviour).
-    with patch("dbx_python_cli.utils.venv._is_venv", return_value=False):
+    with patch("drivers_python_cli.utils.venv._is_venv", return_value=False):
         python_result, venv_type = get_venv_info(None, None, base_path=base_dir)
 
     assert python_result == str(auto_python)
@@ -379,7 +379,7 @@ def test_get_venv_info_no_auto_detect_when_multiple_venvs(tmp_path):
             venv_bin.mkdir(parents=True)
             (venv_bin / "python").write_text("#!/usr/bin/env python3\n")
 
-    with patch("dbx_python_cli.utils.venv._is_venv", return_value=False):
+    with patch("drivers_python_cli.utils.venv._is_venv", return_value=False):
         with pytest.raises(typer.Exit):
             get_venv_info(None, None, base_path=base_dir)
 

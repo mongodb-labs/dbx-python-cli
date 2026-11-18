@@ -283,7 +283,7 @@ toml = [
 ]
 
 [[package]]
-name = "dbx-python-cli"
+name = "drivers-python-cli"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -313,7 +313,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dbx-python-cli", extras = ["docs", "test"], marker = "extra == 'dev'" },
+    { name = "drivers-python-cli", extras = ["docs", "test"], marker = "extra == 'dev'" },
     { name = "django" },
     { name = "furo", marker = "extra == 'docs'" },
     { name = "pytest", marker = "extra == 'test'" },

@@ -9,16 +9,16 @@ Use the ``-v`` / ``--verbose`` flag to see more detailed output from any command
 .. code-block:: bash
 
    # Show verbose output when installing dependencies
-   dbx -v install mongo-python-driver -e test
+   dpy -v install mongo-python-driver -e test
 
    # Show verbose output when running tests
-   dbx -v test mongo-python-driver
+   dpy -v test mongo-python-driver
 
    # Show verbose output when cloning repositories
-   dbx -v clone -g pymongo
+   dpy -v clone -g pymongo
 
    # Show verbose output when running just commands
-   dbx -v just mongo-python-driver lint
+   dpy -v just mongo-python-driver lint
 
 **What verbose mode shows:**
 
@@ -27,7 +27,7 @@ Use the ``-v`` / ``--verbose`` flag to see more detailed output from any command
 - Working directory for subprocess commands
 - Additional diagnostic information
 
-**Note:** The verbose flag must come **before** the subcommand (e.g., ``dbx -v test``, not ``dbx test -v``).
+**Note:** The verbose flag must come **before** the subcommand (e.g., ``dpy -v test``, not ``dpy test -v``).
 
 Pager Mode
 ----------
@@ -37,16 +37,16 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
 .. code-block:: bash
 
    # View git branches with a pager
-   dbx -p branch -g pymongo
+   dpy -p branch -g pymongo
 
    # View git logs with a pager
-   dbx -p log mongo-python-driver
+   dpy -p log mongo-python-driver
 
    # View configuration with a pager
-   dbx -p config show
+   dpy -p config show
 
    # Combine with verbose mode
-   dbx -v -p branch --all-repos
+   dpy -v -p branch --all-repos
 
 **When to use pager mode:**
 
@@ -61,7 +61,7 @@ Use the ``-p`` / ``--pager`` flag to view command output through a pager (``less
 - Pagination is opt-in: you must use the ``-p`` flag to enable it
 - Works with all commands that produce output
 
-**Note:** The pager flag must come **before** the subcommand (e.g., ``dbx -p branch``, not ``dbx branch -p``).
+**Note:** The pager flag must come **before** the subcommand (e.g., ``dpy -p branch``, not ``dpy branch -p``).
 
 MongoDB Backend Override
 ------------------------
@@ -72,13 +72,13 @@ editing your config:
 .. code-block:: bash
 
    # Start a project using Docker instead of mongodb-runner
-   dbx --backend docker project run
+   dpy --backend docker project run
 
    # Use Atlas Local (includes Atlas Search & Vector Search)
-   dbx --backend atlas-local project run
+   dpy --backend atlas-local project run
 
    # Use the Enterprise edition with mongodb-runner
-   dbx --edition enterprise project run
+   dpy --edition enterprise project run
 
 ``--backend``
    Overrides ``[project.mongodb] backend`` from your config. Accepted values: ``runner``
@@ -89,4 +89,4 @@ editing your config:
    Overrides ``[project.mongodb] edition`` from your config. Accepted values: ``community``
    (default), ``enterprise``.
 
-Both flags must come **before** the subcommand (e.g., ``dbx --backend docker project run``).
+Both flags must come **before** the subcommand (e.g., ``dpy --backend docker project run``).

@@ -114,12 +114,12 @@ Use code blocks with syntax highlighting:
    .. code-block:: bash
 
       # Shell commands
-      dbx install mongo-python-driver
+      dpy install mongo-python-driver
 
    .. code-block:: python
 
       # Python code
-      import dbx_python_cli
+      import drivers_python_cli
 
 Cross-References
 ~~~~~~~~~~~~~~~~
@@ -166,7 +166,7 @@ Publishing Documentation
 
 Documentation is automatically published to Read the Docs on every push to main:
 
-- **URL:** https://dbx-python-cli.readthedocs.io/
+- **URL:** https://drivers-python-cli.readthedocs.io/
 - **Builds:** Triggered automatically on push
 - **Versions:** Main branch and tagged releases
 

@@ -5,7 +5,7 @@ The ``mongodb-forks/django`` repository is a long-lived organisation fork of
 ``django/django``. Unlike a personal contributor fork, it carries several
 MongoDB-specific branches that each track a different upstream Django release
 branch, and it needs to be re-synced periodically as new Django patch releases
-land. This page describes how ``dbx`` is configured to manage that fork and the
+land. This page describes how ``dpy`` is configured to manage that fork and the
 day-to-day maintenance workflow.
 
 How the fork is configured
@@ -55,19 +55,19 @@ Each key plays a specific role in fork maintenance:
 
 ``upstream``
    Maps the repo to the URL of the canonical upstream (``django/django``). On
-   clone, ``dbx`` adds this as an ``upstream`` remote automatically, so no
+   clone, ``dpy`` adds this as an ``upstream`` remote automatically, so no
    ``--fork-user`` flag is required. See :ref:`config-driven-upstream`.
 
 ``upstream_branch``
    Maps each local fork branch to the upstream branch it rebases against. The
    MongoDB branch names (``mongodb-6.0.x``) differ from the upstream Django
-   branch names (``stable/6.0.x``), so this mapping tells ``dbx sync`` which
+   branch names (``stable/6.0.x``), so this mapping tells ``dpy sync`` which
    target to rebase onto based on the branch currently checked out. The dict
    form is what makes multi-branch maintenance work — each branch resolves to
    its own upstream target.
 
 ``preferred_branch``
-   The branch ``dbx clone`` switches to automatically after cloning.
+   The branch ``dpy clone`` switches to automatically after cloning.
 
 ``upstream_worktree``
    Lists repos that get a sibling git worktree checked out on the upstream
@@ -82,7 +82,7 @@ automatically):
 
 .. code-block:: bash
 
-   dbx clone -g django
+   dpy clone -g django
 
    # Verify the remotes were set up
    cd ~/Developer/mongodb/django/django
@@ -94,7 +94,7 @@ To clone only the Django fork itself:
 
 .. code-block:: bash
 
-   dbx clone django
+   dpy clone django
 
 .. _django-fork-upstream-worktree:
 
@@ -108,7 +108,7 @@ current.
 
 A git *worktree* avoids that. One clone can have several branches checked out at
 the same time, each in its own directory, all sharing a single ``.git`` object
-store. Because ``upstream_worktree = ["django"]`` is set, ``dbx clone`` creates
+store. Because ``upstream_worktree = ["django"]`` is set, ``dpy clone`` creates
 one automatically:
 
 .. code-block:: text
@@ -133,44 +133,44 @@ between the two are local and immediate:
 Managing worktrees manually
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``dbx worktree`` manages worktrees for any repo, whether or not
+``dpy worktree`` manages worktrees for any repo, whether or not
 ``upstream_worktree`` is configured:
 
 .. code-block:: bash
 
    # Add the upstream worktree (django-upstream, on the upstream default branch)
-   dbx worktree add django --upstream
+   dpy worktree add django --upstream
 
    # Check out a specific upstream branch (django-stable-6.1.x)
-   dbx worktree add django stable/6.1.x --upstream
+   dpy worktree add django stable/6.1.x --upstream
 
    # Check out an existing fork branch alongside the current one
-   dbx worktree add django mongodb-6.2.x
+   dpy worktree add django mongodb-6.2.x
 
    # Override the directory suffix
-   dbx worktree add django stable/6.1.x --upstream --label 61
+   dpy worktree add django stable/6.1.x --upstream --label 61
 
    # Show every checkout attached to the clone (* marks the primary one)
-   dbx worktree list django
+   dpy worktree list django
 
    # Remove by directory suffix (defaults to `upstream`)
-   dbx worktree remove django
-   dbx worktree remove django 61 --force
+   dpy worktree remove django
+   dpy worktree remove django 61 --force
 
 Removal goes through ``git worktree remove`` so the registration inside the
 primary clone is cleaned up too; deleting the directory by hand would leave a
-stale entry that blocks recreating the worktree later. ``dbx remove`` handles
+stale entry that blocks recreating the worktree later. ``dpy remove`` handles
 this as well, removing worktrees before the clone they belong to.
 
-A branch can only be checked out in one worktree at a time. ``dbx worktree add``
+A branch can only be checked out in one worktree at a time. ``dpy worktree add``
 reports git's refusal rather than working around it, so the fork branch you are
 editing is never silently moved out from under you.
 
 .. note::
 
-   ``django-upstream`` is skipped by ``dbx sync``, ``dbx switch -g django`` and
-   ``dbx install -g django`` — see :ref:`upstream-worktrees` for why. It still
-   appears in ``dbx status``, ``dbx log`` and ``dbx branch``, which only read.
+   ``django-upstream`` is skipped by ``dpy sync``, ``dpy switch -g django`` and
+   ``dpy install -g django`` — see :ref:`upstream-worktrees` for why. It still
+   appears in ``dpy status``, ``dpy log`` and ``dpy branch``, which only read.
 
    In particular, the fork clone stays the installed one: a Django worktree has
    the same package name, so installing it would replace the fork checkout as
@@ -179,7 +179,7 @@ editing is never silently moved out from under you.
 Syncing a branch with upstream
 ------------------------------
 
-``dbx sync`` fetches from ``upstream``, rebases the current branch onto its
+``dpy sync`` fetches from ``upstream``, rebases the current branch onto its
 mapped upstream branch, and pushes the result back to ``origin``. Because the
 upstream target is resolved from ``upstream_branch`` based on the branch that
 is checked out, maintenance is simply "check out a branch, sync it":
@@ -190,12 +190,12 @@ is checked out, maintenance is simply "check out a branch, sync it":
 
    # Bring mongodb-6.0.x up to date with the latest Django stable/6.0.x
    git switch mongodb-6.0.x
-   dbx sync django
+   dpy sync django
    # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
 
    # Repeat for the next release branch
    git switch mongodb-5.2.x
-   dbx sync django
+   dpy sync django
    # Rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
 
 Always preview first with ``--dry-run`` — it shows the commits that would be
@@ -203,7 +203,7 @@ applied from upstream and the commits that would be rebased on top:
 
 .. code-block:: bash
 
-   dbx sync django --dry-run
+   dpy sync django --dry-run
 
 If a branch has already been pushed and rebased, the follow-up push may be
 rejected; re-run with ``--force`` (which uses ``--force-with-lease`` for
@@ -211,7 +211,7 @@ safety):
 
 .. code-block:: bash
 
-   dbx sync django --force
+   dpy sync django --force
 
 Refreshing every release branch
 -------------------------------
@@ -227,14 +227,14 @@ to pass ``--force``:
 .. code-block:: bash
 
    # Preview what would change on every mapped branch
-   dbx sync django --all-branches --dry-run
+   dpy sync django --all-branches --dry-run
 
    # Rebase and push every mapped branch
-   dbx sync django --all-branches
-   dbx sync django -b              # short form
+   dpy sync django --all-branches
+   dpy sync django -b              # short form
 
 This is equivalent to switching to ``mongodb-6.1.x``, ``mongodb-6.0.x``,
-``mongodb-5.2.x``, … in turn and running ``dbx sync django`` on each. The
+``mongodb-5.2.x``, … in turn and running ``dpy sync django`` on each. The
 working tree must be clean for a real sync (each branch is checked out via
 ``git switch``), and only branches present in the ``upstream_branch`` mapping
 are synced.
@@ -248,13 +248,13 @@ name must exist in the ``upstream_branch`` mapping:
 .. code-block:: bash
 
    # Sync just one release branch
-   dbx sync django -B mongodb-6.0.x
+   dpy sync django -B mongodb-6.0.x
 
    # Sync a few, in the given order
-   dbx sync django -B mongodb-6.0.x -B mongodb-6.1.x
+   dpy sync django -B mongodb-6.0.x -B mongodb-6.1.x
 
    # Preview a single branch without touching the tree
-   dbx sync django -B mongodb-6.0.x --dry-run
+   dpy sync django -B mongodb-6.0.x --dry-run
 
 Combined with ``--dry-run``, ``--all-branches`` previews every mapped branch
 *without* checking any of them out: it fetches upstream once and compares each
@@ -277,7 +277,7 @@ are listed so you can rebase them manually:
    git switch mongodb-6.0.x
    git rebase upstream/stable/6.0.x   # resolve conflicts, then git rebase --continue
 
-Once resolved, re-run ``dbx sync django --all-branches`` (already-synced
+Once resolved, re-run ``dpy sync django --all-branches`` (already-synced
 branches are fast no-ops) to push the remaining branches.
 
 Re-running downstream CI
@@ -287,7 +287,7 @@ Because the backend's PR workflows check out the fork branch at a pinned
 ``ref:`` at CI runtime (see `How the fork branches are tested in backend PRs`_),
 force-pushing a rebased fork branch does **not** re-trigger those workflows — so
 a rebase that breaks the adapted tests would go unnoticed until the next push to
-the PR. To close that gap, after a successful ``--all-branches`` sync ``dbx sync``
+the PR. To close that gap, after a successful ``--all-branches`` sync ``dpy sync``
 re-runs the backend CI for each branch that rebased, via the ``ci_rerun`` mapping.
 
 The mapping is keyed per fork branch (only branches that actually rebased are
@@ -402,7 +402,7 @@ from every installed copy of the backend — and nothing in the sync output woul
 have said so.
 
 So on request — pass ``--backport-report`` to an ``--all-branches`` (or
-``--branch``) sync — ``dbx sync`` compares each mapped branch's upstream target
+``--branch``) sync — ``dpy sync`` compares each mapped branch's upstream target
 against the highest release tag of the same series in the group's
 ``release_repo`` and lists what upstream has that the release does not:
 
@@ -456,7 +456,7 @@ nothing on their own — the report still needs ``--backport-report``):
 
 ``--all-commits``
    List every commit, including the chores. Overrides ``--security-only``.
-   (Named ``--all-commits`` rather than ``--all`` because ``dbx sync -a``/``--all``
+   (Named ``--all-commits`` rather than ``--all`` because ``dpy sync -a``/``--all``
    already means "sync every repository in every group".)
 
 ``--security-only``
@@ -467,9 +467,9 @@ nothing on their own — the report still needs ``--backport-report``):
 
 Combined with ``--dry-run`` these make the report a read-only query::
 
-   dbx sync django --all-branches --dry-run --backport-report                  # what is pending?
-   dbx sync django --all-branches --dry-run --backport-report --security-only  # anything urgent?
-   dbx sync django --all-branches --dry-run --backport-report --all-commits    # the full list
+   dpy sync django --all-branches --dry-run --backport-report                  # what is pending?
+   dpy sync django --all-branches --dry-run --backport-report --security-only  # anything urgent?
+   dpy sync django --all-branches --dry-run --backport-report --all-commits    # the full list
 
 To judge a commit, take the short sha into the fork clone as usual
 (``git -C <fork> show <sha>``); the report prints sha, date and subject
@@ -519,7 +519,7 @@ Configure the release repo per synced repo:
 The report is best-effort and never fails the sync: an unset ``release_repo``,
 an un-cloned release repo, or a git error is reported as a warning and skipped.
 It fetches tags in the release repo first so a stale clone does not over-report.
-The report is opt-in: a plain ``dbx sync django --all-branches`` does not print
+The report is opt-in: a plain ``dpy sync django --all-branches`` does not print
 it. It also works under ``--dry-run`` (where it is the only thing that touches
 the network beyond the single upstream fetch).
 
@@ -543,14 +543,14 @@ update the mapping to point at it:
    [repo.groups.django.upstream_branch]
    django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", ...}
 
-Until a mapping exists, ``dbx sync`` cannot determine the correct upstream
+Until a mapping exists, ``dpy sync`` cannot determine the correct upstream
 target for that branch and falls back to upstream's default-branch detection,
 which is almost certainly not what you want for a release branch.
 
 Only map branches whose upstream target actually exists. A branch pointing at a
 ``stable/<version>.x`` that has not been branched yet (a Django version still in
 development on ``main``) or one that has been deleted upstream (an end-of-life
-release) will fail to rebase under ``dbx sync``. When a Django release reaches
+release) will fail to rebase under ``dpy sync``. When a Django release reaches
 end of life and its ``stable`` branch is removed, drop the corresponding entry
 from the mapping.
 
@@ -568,7 +568,7 @@ through ``test_runner`` / ``test_runner_args`` in the group config:
    [repo.groups.django.test_runner_args]
    django = ["-v", "2"]
 
-so ``dbx test django`` invokes ``tests/runtests.py`` with the configured
+so ``dpy test django`` invokes ``tests/runtests.py`` with the configured
 arguments. See :doc:`testing` for details on how custom test runners are
 resolved and how to pass additional arguments.
 

@@ -65,7 +65,7 @@ dev = ["ruff"]
 @pytest.fixture
 def test_config_file(tmp_path, test_git_repo):
     """Create a test configuration file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 

@@ -1,7 +1,7 @@
 Repository Management
 =====================
 
-The ``dbx clone``, ``dbx sync``, ``dbx branch``, ``dbx switch``, ``dbx log``, and ``dbx open`` commands provide repository management functionality for cloning and managing groups of related repositories.
+The ``dpy clone``, ``dpy sync``, ``dpy branch``, ``dpy switch``, ``dpy log``, and ``dpy open`` commands provide repository management functionality for cloning and managing groups of related repositories.
 
 Initialize Configuration
 ------------------------
@@ -10,8 +10,8 @@ Before using the repo commands, initialize your configuration file:
 
 .. code-block:: bash
 
-   # Create user configuration file at ~/.config/dbx-python-cli/config.toml
-   dbx config init
+   # Create user configuration file at ~/.config/drivers-python-cli/config.toml
+   dpy config init
 
 This creates a configuration file with default repository groups that you can customize.
 
@@ -23,18 +23,18 @@ Clone repositories from predefined groups:
 .. code-block:: bash
 
    # Clone pymongo repositories
-   dbx clone -g pymongo
+   dpy clone -g pymongo
 
    # Clone langchain repositories
-   dbx clone -g langchain
+   dpy clone -g langchain
 
    # Clone django repositories
-   dbx clone -g django
+   dpy clone -g django
 
    # Clone all groups from configuration
-   dbx clone -a
+   dpy clone -a
    # or
-   dbx clone --all
+   dpy clone --all
 
 Fork-Based Workflow
 ~~~~~~~~~~~~~~~~~~~
@@ -44,7 +44,7 @@ For contributing to upstream repositories, you can clone from your personal fork
 .. code-block:: bash
 
    # Clone from your GitHub fork instead of the upstream org
-   dbx clone -g pymongo --fork-user aclark4life
+   dpy clone -g pymongo --fork-user aclark4life
 
 This will:
 
@@ -61,7 +61,7 @@ directory (e.g. ``pymongo/mongo-python-driver`` when you clone the ``pymongo`` g
 
    # Clone your forks with upstream remotes configured
    # mongo-python-driver (global) is also cloned into pymongo/
-   dbx clone -g pymongo --fork-user aclark4life
+   dpy clone -g pymongo --fork-user aclark4life
 
    # Now you can work with the standard fork workflow
    cd ~/Developer/mongodb/pymongo/mongo-python-driver
@@ -95,10 +95,10 @@ With this configuration, you can simply run:
 .. code-block:: bash
 
    # Uses fork_user from config
-   dbx clone -g pymongo --fork
+   dpy clone -g pymongo --fork
 
    # Or specify a different username
-   dbx clone -g pymongo --fork-user different-user
+   dpy clone -g pymongo --fork-user different-user
 
 Clone All Groups
 ~~~~~~~~~~~~~~~~
@@ -108,13 +108,13 @@ You can clone all groups defined in your configuration at once using the ``-a`` 
 .. code-block:: bash
 
    # Clone all groups from configuration
-   dbx clone -a
+   dpy clone -a
 
    # Clone all groups with fork workflow
-   dbx clone -a --fork-user aclark4life
+   dpy clone -a --fork-user aclark4life
 
    # Clone all groups without automatic installation
-   dbx clone -a --no-install
+   dpy clone -a --no-install
 
 This will:
 
@@ -125,7 +125,7 @@ This will:
 
 **Example:**
 
-If your configuration has groups ``global``, ``pymongo``, ``django``, and ``langchain``, running ``dbx clone -a`` will:
+If your configuration has groups ``global``, ``pymongo``, ``django``, and ``langchain``, running ``dpy clone -a`` will:
 
 - Clone ``pymongo`` group repos (plus global repos) into ``~/Developer/mongodb/pymongo/``
 - Clone ``django`` group repos (plus global repos) into ``~/Developer/mongodb/django/``
@@ -143,32 +143,32 @@ After cloning with the fork workflow, you can easily sync your local repository 
 .. code-block:: bash
 
    # Sync a specific repository
-   dbx sync mongo-python-driver
+   dpy sync mongo-python-driver
 
    # Sync all repositories in a group
-   dbx sync -g pymongo
+   dpy sync -g pymongo
 
    # Sync all repositories across all groups
-   dbx sync -a
+   dpy sync -a
 
    # Sync every branch in a repo's upstream_branch mapping (e.g. the Django fork)
-   dbx sync django --all-branches
+   dpy sync django --all-branches
 
    # Sync only specific branch(es) from that mapping (repeatable)
-   dbx sync django -B mongodb-6.0.x
+   dpy sync django -B mongodb-6.0.x
 
    # Sync all branches but skip re-running downstream CI
-   dbx sync django --all-branches --no-ci
+   dpy sync django --all-branches --no-ci
 
    # Sync all branches and report upstream commits landed since the latest
    # downstream release
-   dbx sync django --all-branches --backport-report
+   dpy sync django --all-branches --backport-report
 
    # Preview what would be synced without making changes
-   dbx sync mongo-python-driver --dry-run
+   dpy sync mongo-python-driver --dry-run
 
    # Force push after rebasing (use if previous sync failed to push)
-   dbx sync mongo-python-driver --force
+   dpy sync mongo-python-driver --force
 
 This command will:
 
@@ -189,7 +189,7 @@ This command will:
 .. code-block:: bash
 
    # Clone your fork with upstream configured
-   dbx clone -g pymongo --fork-user aclark4life
+   dpy clone -g pymongo --fork-user aclark4life
 
    # Make some changes in your fork
    cd ~/Developer/mongodb/pymongo/mongo-python-driver
@@ -198,11 +198,11 @@ This command will:
    git commit -am "Add new feature"
 
    # Preview what would be synced (dry run)
-   dbx sync mongo-python-driver --dry-run
+   dpy sync mongo-python-driver --dry-run
    # Shows commits that would be applied from upstream and commits that would be rebased
 
    # Sync with upstream to get latest changes and push
-   dbx sync mongo-python-driver
+   dpy sync mongo-python-driver
    # Fetches from upstream, rebases your branch, and pushes to origin
 
    # Your changes are now in your fork, ready for a pull request!
@@ -223,7 +223,7 @@ This command will:
 Automatically Sync After Cloning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you always want a repository synced with upstream right after ``dbx clone`` sets it up
+If you always want a repository synced with upstream right after ``dpy clone`` sets it up
 (e.g. your fork of ``mongo-python-driver`` tends to be behind by the time you clone it),
 list the repo in ``sync_after_clone`` for its group:
 
@@ -235,15 +235,15 @@ list the repo in ``sync_after_clone`` for its group:
    ]
    sync_after_clone = ["mongo-python-driver"]
 
-With this configured, ``dbx clone mongo-python-driver`` fetches from upstream, rebases, and
+With this configured, ``dpy clone mongo-python-driver`` fetches from upstream, rebases, and
 pushes to your fork automatically after the clone (and any ``preferred_branch`` switch)
-completes — equivalent to running ``dbx sync mongo-python-driver`` right afterwards.
+completes — equivalent to running ``dpy sync mongo-python-driver`` right afterwards.
 
 **Notes:**
 
 - Only runs after a fresh clone; it has no effect when the repo already exists and the clone is skipped
-- Like ``dbx sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
-- Pass ``--no-sync`` to ``dbx clone`` to skip this for a single invocation even when configured
+- Like ``dpy sync``, it's a no-op (with a warning) if no ``upstream`` remote ends up configured for the repo
+- Pass ``--no-sync`` to ``dpy clone`` to skip this for a single invocation even when configured
 
 .. _upstream-worktrees:
 
@@ -254,7 +254,7 @@ A git worktree lets a single clone keep several branches checked out at once, in
 separate directories sharing one object store. That makes it possible to develop
 against a fork *and* its upstream without cloning the upstream separately.
 
-List a repo in ``upstream_worktree`` to have ``dbx clone`` create one:
+List a repo in ``upstream_worktree`` to have ``dpy clone`` create one:
 
 .. code-block:: toml
 
@@ -270,24 +270,24 @@ with a same-named branch tracking ``origin``:
    base_dir/django/django/            # fork clone, on its preferred branch
    base_dir/django/django-upstream/   # worktree, on upstream-main
 
-Manage worktrees for any repo with ``dbx worktree``:
+Manage worktrees for any repo with ``dpy worktree``:
 
 .. code-block:: bash
 
-   dbx worktree add <repo> --upstream        # upstream default branch
-   dbx worktree add <repo> <branch>          # an existing branch, alongside the current one
-   dbx worktree add <repo> <branch> -u       # an upstream branch
-   dbx worktree list <repo>                  # every checkout (* marks the primary clone)
-   dbx worktree remove <repo> [<label>]      # defaults to the `upstream` worktree
+   dpy worktree add <repo> --upstream        # upstream default branch
+   dpy worktree add <repo> <branch>          # an existing branch, alongside the current one
+   dpy worktree add <repo> <branch> -u       # an upstream branch
+   dpy worktree list <repo>                  # every checkout (* marks the primary clone)
+   dpy worktree remove <repo> [<label>]      # defaults to the `upstream` worktree
 
 **Notes:**
 
 - Requires an ``upstream`` remote; on clone this comes from the ``upstream`` config key
 - When a listed repo ends up without an ``upstream`` remote (cloned without ``--fork``, say),
-  ``dbx clone`` skips the worktree silently — pass ``--verbose`` to see the skip noted
+  ``dpy clone`` skips the worktree silently — pass ``--verbose`` to see the skip noted
 - Worktree directories are named ``<repo>-<label>``, where ``label`` defaults to the branch name with ``/`` replaced by ``-``
-- A branch can only be checked out in one worktree at a time; ``dbx worktree add`` reports git's refusal rather than moving it
-- ``dbx remove`` unregisters worktrees via ``git worktree remove`` and removes them before the clone they belong to
+- A branch can only be checked out in one worktree at a time; ``dpy worktree add`` reports git's refusal rather than moving it
+- ``dpy remove`` unregisters worktrees via ``git worktree remove`` and removes them before the clone they belong to
 - Removing a primary clone also removes the worktrees attached to it, since a
   worktree left behind would point into a deleted object store; if a worktree
   cannot be removed, the clone is left in place rather than breaking it
@@ -305,21 +305,21 @@ a checkout skip them:
    * - Command
      - Worktrees
      - Why
-   * - ``dbx status``, ``dbx log``, ``dbx branch``
+   * - ``dpy status``, ``dpy log``, ``dpy branch``
      - included
      - Read-only, and seeing the upstream checkout's state is useful
-   * - ``dbx sync``
+   * - ``dpy sync``
      - skipped
      - Rebasing a worktree onto upstream and force-pushing it to ``origin`` would push upstream's history into the fork
-   * - ``dbx switch -g <group>``
+   * - ``dpy switch -g <group>``
      - skipped
      - A branch can only be checked out in one worktree at a time, so a bulk switch would fail or move a checkout in use
-   * - ``dbx install -g <group>``
+   * - ``dpy install -g <group>``
      - skipped
      - A worktree shares its clone's package name; installing it would replace the clone's editable install in the group venv
 
-``dbx sync`` refuses a worktree even when you name one explicitly, because the
-force-push is not recoverable. ``dbx switch <worktree> <branch>`` is allowed —
+``dpy sync`` refuses a worktree even when you name one explicitly, because the
+force-push is not recoverable. ``dpy switch <worktree> <branch>`` is allowed —
 it is reversible, and git refuses on its own if the branch is checked out
 elsewhere.
 
@@ -342,7 +342,7 @@ instead declare the upstream URL and branch mapping directly in your config:
 
 ``upstream``
    Maps a repo name to the URL of the original (non-fork) repository.
-   When ``dbx clone -g django`` clones ``mongodb-forks/django``, it will automatically add an
+   When ``dpy clone -g django`` clones ``mongodb-forks/django``, it will automatically add an
    ``upstream`` remote pointing at ``django/django`` — no ``--fork-user`` flag required.
 
 ``upstream_branch``
@@ -350,7 +350,7 @@ instead declare the upstream URL and branch mapping directly in your config:
    Required when the local branch name differs from the upstream branch name.
    Accepts either a single string (one fixed upstream branch for all local branches) or a dict
    mapping each local branch name to its upstream branch. The dict form is useful for repos like
-   the Django fork where each local branch tracks a different upstream branch — ``dbx sync``
+   the Django fork where each local branch tracks a different upstream branch — ``dpy sync``
    picks the correct target based on the branch currently checked out.
 
 **Example workflow (django fork):**
@@ -358,7 +358,7 @@ instead declare the upstream URL and branch mapping directly in your config:
 .. code-block:: bash
 
    # Clone mongodb-forks/django — upstream remote is added automatically
-   dbx clone -g django
+   dpy clone -g django
 
    # Verify the remotes
    cd ~/Developer/mongodb/django
@@ -368,11 +368,11 @@ instead declare the upstream URL and branch mapping directly in your config:
 
    # Switch to a fork branch and sync it with upstream
    git switch mongodb-6.0.x
-   dbx sync django
+   dpy sync django
    # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
 
    git switch mongodb-5.2.x
-   dbx sync django
+   dpy sync django
    # Fetches upstream, rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
 
 Both keys are optional and independent — you can use ``upstream`` alone (to auto-add the remote
@@ -395,17 +395,17 @@ Global Groups
 ~~~~~~~~~~~~~
 
 A *global group* is a special group whose repositories are automatically cloned into
-**every other group** when you run ``dbx clone -g <group>``.  This is useful for repos
+**every other group** when you run ``dpy clone -g <group>``.  This is useful for repos
 that every group needs — for example, the MongoDB Python driver is a shared dependency
 for all driver-related groups.
 
 .. code-block:: bash
 
    # Clones django repos AND mongo-python-driver into ~/Developer/mongodb/django/
-   dbx clone -g django
+   dpy clone -g django
 
    # Clones pymongo repos AND mongo-python-driver into ~/Developer/mongodb/pymongo/
-   dbx clone -g pymongo
+   dpy clone -g pymongo
 
 Global groups are declared with ``global_groups`` under ``[repo]``:
 
@@ -427,13 +427,13 @@ Global groups are declared with ``global_groups`` under ``[repo]``:
    ]
 
 Because repos in the global group end up physically inside each target group
-directory, ``dbx install -g pymongo`` and ``dbx test shared-tools`` all work
+directory, ``dpy install -g pymongo`` and ``dpy test shared-tools`` all work
 without any extra flags.
 
 Flat Layout
 ~~~~~~~~~~~
 
-By default dbx uses a two-level directory layout (``base_dir/<group>/<repo>``).
+By default dpy uses a two-level directory layout (``base_dir/<group>/<repo>``).
 Setting ``flat = true`` collapses this so all repositories live directly under
 ``base_dir``:
 
@@ -466,16 +466,16 @@ Resulting layout:
 In flat mode:
 
 - Group membership is resolved from the config rather than directory structure.
-- ``dbx list`` shows a tree grouped by config group (same visual style as
+- ``dpy list`` shows a tree grouped by config group (same visual style as
   grouped mode).
-- ``dbx clone -g pymongo`` clones directly into ``base_dir`` instead of
+- ``dpy clone -g pymongo`` clones directly into ``base_dir`` instead of
   ``base_dir/pymongo/``.
 - A single shared ``.venv`` is used across all groups.
 - All other commands (``-g``, install, test, etc.) continue to work normally.
 
 **Configuration:**
 
-Repository groups are defined in ``~/.config/dbx-python-cli/config.toml``. The default base
+Repository groups are defined in ``~/.config/drivers-python-cli/config.toml``. The default base
 directory is ``~/Developer/mongodb``; repositories are cloned into subdirectories named after
 their group (e.g. ``~/Developer/mongodb/pymongo/``).
 
@@ -508,11 +508,11 @@ Per-group keys of note:
 - ``preferred_branch`` — branch to ``git switch`` to automatically after cloning
 - ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
-- ``upstream_branch`` — upstream branch override for ``dbx sync`` (see :ref:`config-driven-upstream`)
-- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dbx sync --all-branches`` reports the upstream commits each mapped branch gained after that release, bucketed into security fixes / ticket fixes / chores (see :doc:`django-fork`)
-- ``sync_after_clone`` — list of repo names to automatically ``dbx sync`` immediately after cloning (see :ref:`sync-after-clone`)
+- ``upstream_branch`` — upstream branch override for ``dpy sync`` (see :ref:`config-driven-upstream`)
+- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dpy sync --all-branches`` reports the upstream commits each mapped branch gained after that release, bucketed into security fixes / ticket fixes / chores (see :doc:`django-fork`)
+- ``sync_after_clone`` — list of repo names to automatically ``dpy sync`` immediately after cloning (see :ref:`sync-after-clone`)
 - ``upstream_worktree`` — list of repo names that get an upstream git worktree created on clone (see :ref:`upstream-worktrees`)
-- ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dbx install``
+- ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dpy install``
 - ``install_dirs`` — sub-directory paths for repos that contain multiple packages
 - ``build_commands`` — shell commands run before installation (e.g. a Rust or CMake build)
 - ``test_runner``, ``test_runner_args`` — custom test runner for repos that don't use pytest
@@ -523,11 +523,11 @@ You can add your own custom groups by editing the configuration file.
 
 **Validating the configuration:**
 
-Use ``dbx config validate`` to check your config for unknown, deprecated, or missing keys:
+Use ``dpy config validate`` to check your config for unknown, deprecated, or missing keys:
 
 .. code-block:: bash
 
-   dbx config validate
+   dpy config validate
 
 The command reports ``[unknown]``, ``[deprecated]``, and ``[error]`` issues and exits with a non-zero
 status when errors are found.
@@ -540,8 +540,8 @@ status when errors are found.
 - Fork-based workflow support with automatic upstream remote configuration
 - Config-driven ``upstream`` remote setup without requiring ``--fork-user``
 - Sync command to fetch from upstream and rebase current branch
-- ``dbx remove`` supports ``--dry-run`` to preview what would be deleted without removing anything
-- ``dbx remove -g <group>`` deletes the whole group directory; anything in it that
+- ``dpy remove`` supports ``--dry-run`` to preview what would be deleted without removing anything
+- ``dpy remove -g <group>`` deletes the whole group directory; anything in it that
   is not a repository (notably the group-level ``.venv``) is listed before you confirm
 - Provides clear progress feedback with emoji indicators
 - Handles errors gracefully and continues with remaining repositories
@@ -550,27 +550,27 @@ status when errors are found.
 View Git Branches
 -----------------
 
-The ``dbx branch`` command allows you to run ``git branch`` in one or more repositories:
+The ``dpy branch`` command allows you to run ``git branch`` in one or more repositories:
 
 .. code-block:: bash
 
    # Show branches in a single repository
-   dbx branch mongo-python-driver
+   dpy branch mongo-python-driver
 
    # Show all branches (including remote branches)
-   dbx branch mongo-python-driver -a
+   dpy branch mongo-python-driver -a
 
    # Show branches with verbose information
-   dbx branch mongo-python-driver -v
+   dpy branch mongo-python-driver -v
 
    # Show branches in all repositories in a group
-   dbx branch -g pymongo
+   dpy branch -g pymongo
 
    # Show branches in all repositories in a group with arguments
-   dbx branch -g pymongo -a
+   dpy branch -g pymongo -a
 
    # Show branches in a project
-   dbx branch -p myproject
+   dpy branch -p myproject
 
 This command will:
 
@@ -583,13 +583,13 @@ This command will:
 .. code-block:: bash
 
    # View local branches in a single repo
-   $ dbx branch mongo-python-driver
+   $ dpy branch mongo-python-driver
    🌿 mongo-python-driver:
    * main
      feature-branch
 
    # View all branches (local and remote)
-   $ dbx branch mongo-python-driver -a
+   $ dpy branch mongo-python-driver -a
    🌿 mongo-python-driver: git branch -a
    * main
      feature-branch
@@ -598,7 +598,7 @@ This command will:
      remotes/origin/feature-branch
 
    # View branches across all repos in a group
-   $ dbx branch -g pymongo
+   $ dpy branch -g pymongo
    Running git branch in 2 repository(ies) in group 'pymongo':
 
    🌿 mongo-python-driver:
@@ -607,7 +607,7 @@ This command will:
    * master
 
    # View all branches (local and remote) across all repos in a group
-   $ dbx branch -g pymongo -a
+   $ dpy branch -g pymongo -a
    Running git branch in 2 repository(ies) in group 'pymongo':
 
    🌿 mongo-python-driver: git branch -a
@@ -623,37 +623,37 @@ This command will:
 
 **Notes:**
 
-- The command works with any repository that has been cloned using ``dbx clone``
+- The command works with any repository that has been cloned using ``dpy clone``
 - You can pass any valid ``git branch`` arguments (e.g., ``-a``, ``-r``, ``-v``, ``--merged``);
-  dbx does not claim ``-a``/``--all``, so they reach git unchanged
+  dpy does not claim ``-a``/``--all``, so they reach git unchanged
 - The ``--all-repos`` flag runs the command in every cloned repository across all groups
 - Mutating operations (``-d``, ``-D``, ``-m``, ``-u``, ...) applied to a group or to
   ``--all-repos`` ask for confirmation first; pass ``-y`` to skip the prompt
 - When using with a group, the command runs in all repositories in that group
 - Projects without a ``.git`` directory will be skipped with a warning
-- Run ``dbx list`` to see all available repositories
+- Run ``dpy list`` to see all available repositories
 
 Switch Git Branches
 -------------------
 
-The ``dbx switch`` command allows you to switch git branches in one or more repositories:
+The ``dpy switch`` command allows you to switch git branches in one or more repositories:
 
 .. code-block:: bash
 
    # Switch to a branch in a single repository
-   dbx switch mongo-python-driver PYTHON-5683
+   dpy switch mongo-python-driver PYTHON-5683
 
    # Switch branches in all repositories in a group
-   dbx switch -g pymongo main
+   dpy switch -g pymongo main
 
    # Switch branches in a project
-   dbx switch -p myproject feature-branch
+   dpy switch -p myproject feature-branch
 
    # Create and switch to a new branch
-   dbx switch mongo-python-driver new-feature --create
+   dpy switch mongo-python-driver new-feature --create
 
    # List available repositories
-   dbx switch --list
+   dpy switch --list
 
 This command will:
 
@@ -667,15 +667,15 @@ This command will:
 .. code-block:: bash
 
    # Switch to an existing branch
-   $ dbx switch mongo-python-driver PYTHON-5683
+   $ dpy switch mongo-python-driver PYTHON-5683
    🔀 mongo-python-driver: Switched to branch 'PYTHON-5683'
 
    # Create and switch to a new branch
-   $ dbx switch mongo-python-driver new-feature --create
+   $ dpy switch mongo-python-driver new-feature --create
    🔀 mongo-python-driver: Switched to a new branch 'new-feature'
 
    # Switch all repos in a group to main branch
-   $ dbx switch -g pymongo main
+   $ dpy switch -g pymongo main
    Switching to branch 'main' in 2 repository(ies) in group 'pymongo':
 
    🔀 mongo-python-driver: Switched to branch 'main'
@@ -683,36 +683,36 @@ This command will:
 
 **Notes:**
 
-- The command works with any repository that has been cloned using ``dbx clone``
+- The command works with any repository that has been cloned using ``dpy clone``
 - When using with a group, the command runs in all repositories in that group
 - The ``--create`` flag creates a new branch if it doesn't exist
 - Projects without a ``.git`` directory will be skipped with a warning
-- Run ``dbx list`` to see all available repositories
+- Run ``dpy list`` to see all available repositories
 
 View Git Commit Logs
 ---------------------
 
-The ``dbx log`` command allows you to view git commit logs from one or more repositories:
+The ``dpy log`` command allows you to view git commit logs from one or more repositories:
 
 .. code-block:: bash
 
    # Show last 10 commits from a repository
-   dbx log mongo-python-driver
+   dpy log mongo-python-driver
 
    # Show last 20 commits
-   dbx log -n 20 mongo-python-driver
+   dpy log -n 20 mongo-python-driver
 
    # Show logs in oneline format
-   dbx log --oneline mongo-python-driver
+   dpy log --oneline mongo-python-driver
 
    # Show logs from all repositories in a group
-   dbx log -g pymongo
+   dpy log -g pymongo
 
    # Show last 5 commits from all repos in a group
-   dbx log -n 5 -g pymongo
+   dpy log -n 5 -g pymongo
 
    # Show logs from a project
-   dbx log -p myproject
+   dpy log -p myproject
 
 This command will:
 
@@ -725,7 +725,7 @@ This command will:
 .. code-block:: bash
 
    # View last 10 commits (default)
-   $ dbx log mongo-python-driver
+   $ dpy log mongo-python-driver
    📜 mongo-python-driver: Last 10 commits
    commit abc123...
    Author: John Doe <john@example.com>
@@ -734,14 +734,14 @@ This command will:
        Add new feature
 
    # View last 5 commits in oneline format
-   $ dbx log -n 5 --oneline mongo-python-driver
+   $ dpy log -n 5 --oneline mongo-python-driver
    📜 mongo-python-driver: Last 5 commits (oneline)
    abc123 Add new feature
    def456 Fix bug
    ghi789 Update docs
 
    # View logs from all repos in a group
-   $ dbx log -g pymongo
+   $ dpy log -g pymongo
    📜 mongo-python-driver: Last 10 commits
    ...
    📜 specifications: Last 10 commits
@@ -749,26 +749,26 @@ This command will:
 
 **Notes:**
 
-- The command works with any repository that has been cloned using ``dbx clone``
+- The command works with any repository that has been cloned using ``dpy clone``
 - Default number of commits shown is 10
 - Use ``-n`` or ``--number`` to specify a custom number of commits
 - Use ``--oneline`` for a compact one-line-per-commit format
 - When using with a group, the command runs in all repositories in that group
 - Projects without a ``.git`` directory will be skipped with a warning
-- Run ``dbx list`` to see all available repositories
+- Run ``dpy list`` to see all available repositories
 
 Open Repositories in Browser
 -----------------------------
 
-The ``dbx open`` command allows you to open repositories in your web browser:
+The ``dpy open`` command allows you to open repositories in your web browser:
 
 .. code-block:: bash
 
    # Open a single repository in browser
-   dbx open mongo-python-driver
+   dpy open mongo-python-driver
 
    # Open all repositories in a group
-   dbx open -g pymongo
+   dpy open -g pymongo
 
 This command will:
 
@@ -782,12 +782,12 @@ This command will:
 .. code-block:: bash
 
    # Open a single repository
-   $ dbx open mongo-python-driver
+   $ dpy open mongo-python-driver
    🌐 Opening mongo-python-driver in browser...
    # Opens https://github.com/mongodb/mongo-python-driver
 
    # Open all repos in a group
-   $ dbx open -g pymongo
+   $ dpy open -g pymongo
    Opening 2 repository(ies) in group 'pymongo' in browser:
 
    🌐 Opening mongo-python-driver in browser...
@@ -795,9 +795,9 @@ This command will:
 
 **Notes:**
 
-- The command works with any repository that has been cloned using ``dbx clone``
+- The command works with any repository that has been cloned using ``dpy clone``
 - Automatically converts SSH URLs (``git@github.com:org/repo.git``) to HTTPS URLs (``https://github.com/org/repo``)
 - Also works with HTTPS git URLs
 - When using with a group, opens all repositories in that group
 - Requires the repository to have an ``origin`` remote configured
-- Run ``dbx list`` to see all available repositories
+- Run ``dpy list`` to see all available repositories

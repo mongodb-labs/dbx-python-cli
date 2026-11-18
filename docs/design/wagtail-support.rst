@@ -1,7 +1,7 @@
 Wagtail CMS Support
 ===================
 
-This document explains the design decisions behind ``dbx project add --wagtail``, which scaffolds a Django project with Wagtail CMS pre-configured for the MongoDB backend.
+This document explains the design decisions behind ``dpy project add --wagtail``, which scaffolds a Django project with Wagtail CMS pre-configured for the MongoDB backend.
 
 Overview
 --------
@@ -23,7 +23,7 @@ Wagtail ships with its own migration files that include SQL-style assumptions in
        # ... one entry per Wagtail app
    }
 
-``dbx project run`` automatically runs ``manage.py makemigrations`` before ``migrate`` whenever Wagtail is installed. On first run this populates the empty in-project packages with MongoDB-compatible migration files; on subsequent runs it is a no-op.
+``dpy project run`` automatically runs ``manage.py makemigrations`` before ``migrate`` whenever Wagtail is installed. On first run this populates the empty in-project packages with MongoDB-compatible migration files; on subsequent runs it is a no-op.
 
 Home App
 ---------
@@ -99,7 +99,7 @@ Flag-Based Enablement
 
 **Decision: Wagtail config is commented out by default, activated by ``--wagtail``**
 
-The project template always includes the Wagtail settings file and URL infrastructure, but the settings are commented out in ``<project_name>/settings/<project_name>.py``. Running ``dbx project add --wagtail`` calls ``_enable_wagtail()`` which uncomments the five relevant lines, removes the default ``HomeView`` root route from ``urls.py``, and appends the Wagtail URL patterns (``/cms/``, ``/documents/``, and the catch-all ``/``) so Wagtail serves the site root.
+The project template always includes the Wagtail settings file and URL infrastructure, but the settings are commented out in ``<project_name>/settings/<project_name>.py``. Running ``dpy project add --wagtail`` calls ``_enable_wagtail()`` which uncomments the five relevant lines, removes the default ``HomeView`` root route from ``urls.py``, and appends the Wagtail URL patterns (``/cms/``, ``/documents/``, and the catch-all ``/``) so Wagtail serves the site root.
 
 This approach means:
 
@@ -112,7 +112,7 @@ bakerydemo Integration
 
 **Decision: support ``--bakerydemo`` as an opt-in layer on top of ``--wagtail``**
 
-`bakerydemo <https://github.com/wagtail/bakerydemo>`_ is the official Wagtail demo project. Passing ``--wagtail --bakerydemo`` to ``dbx project add`` wires bakerydemo's content apps into the generated project without forking or modifying bakerydemo itself.
+`bakerydemo <https://github.com/wagtail/bakerydemo>`_ is the official Wagtail demo project. Passing ``--wagtail --bakerydemo`` to ``dpy project add`` wires bakerydemo's content apps into the generated project without forking or modifying bakerydemo itself.
 
 What ``--bakerydemo`` does
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -145,10 +145,10 @@ bakerydemo is not published on PyPI. It must be available on ``sys.path`` at run
 .. code-block:: bash
 
    # Clone bakerydemo as a tracked repo
-   dbx clone bakerydemo
+   dpy clone bakerydemo
 
    # Create the project and link bakerydemo via sys.path (.pth file in the venv)
-   dbx project add myproject --wagtail --bakerydemo --with bakerydemo
+   dpy project add myproject --wagtail --bakerydemo --with bakerydemo
 
 The ``--with bakerydemo`` flag calls ``install_as_sys_path()``, which writes a ``.pth`` file into the venv's ``site-packages/`` directory pointing at the cloned source tree. Django then imports bakerydemo directly from the clone without requiring a ``pip install``. Changes to the clone are reflected immediately without reinstalling.
 

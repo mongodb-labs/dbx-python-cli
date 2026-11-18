@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -44,7 +44,7 @@ def temp_repos_dir(tmp_path):
 @pytest.fixture
 def mock_config(tmp_path, temp_repos_dir):
     """Create a mock config file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     # Convert path to use forward slashes for TOML compatibility on Windows
@@ -87,7 +87,7 @@ def test_test_no_args_shows_error():
 
 def test_test_nonexistent_repo(mock_config, temp_repos_dir):
     """Test that test fails with nonexistent repository."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["test", "nonexistent-repo"])
@@ -102,8 +102,8 @@ def test_test_dot_from_repo_root(mock_config, temp_repos_dir, monkeypatch):
 
     monkeypatch.chdir(repo_dir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -127,7 +127,7 @@ def test_test_dot_not_in_managed_repo(mock_config, temp_repos_dir, monkeypatch):
     unrelated.mkdir()
     monkeypatch.chdir(unrelated)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["test", "."])
@@ -138,8 +138,8 @@ def test_test_dot_not_in_managed_repo(mock_config, temp_repos_dir, monkeypatch):
 
 def test_test_runs_pytest_success(mock_config, temp_repos_dir):
     """Test that test runs pytest successfully."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -166,8 +166,8 @@ def test_test_runs_pytest_success(mock_config, temp_repos_dir):
 
 def test_test_runs_pytest_failure(mock_config, temp_repos_dir):
     """Test that test handles pytest failures."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -213,7 +213,7 @@ def test_test_with_custom_test_runner(tmp_path):
     (django_test_dir / "manage.py").write_text("")
 
     # Create config with custom test runner
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(repos_dir).replace("\\", "/")
@@ -231,8 +231,8 @@ django = "tests/runtests.py"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -276,7 +276,7 @@ def test_test_with_custom_test_runner_not_found(tmp_path):
     # Don't create the test runner script
 
     # Create config with custom test runner
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(repos_dir).replace("\\", "/")
@@ -294,8 +294,8 @@ django = "tests/runtests.py"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             mock_get_path.return_value = config_path
             mock_venv.return_value = ("python", "venv")
 
@@ -307,8 +307,8 @@ django = "tests/runtests.py"
 
 def test_test_fallback_to_pytest_when_no_test_runner(mock_config, temp_repos_dir):
     """Test that test falls back to pytest when no custom test runner is configured."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -357,7 +357,7 @@ def test_test_with_custom_test_runner_and_args(tmp_path):
     (django_test_dir / "manage.py").write_text("")
 
     # Create config with custom test runner
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(repos_dir).replace("\\", "/")
@@ -375,8 +375,8 @@ django = "tests/runtests.py"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -410,7 +410,7 @@ django = "tests/runtests.py"
 
 
 def test_test_django_creates_project_if_missing(tmp_path):
-    """Test that dbx test django creates the django_test project if it doesn't exist."""
+    """Test that dpy test django creates the django_test project if it doesn't exist."""
     # Create temp repos directory
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir(parents=True)
@@ -431,7 +431,7 @@ def test_test_django_creates_project_if_missing(tmp_path):
     # Note: do NOT create projects/django_test — this is the key condition
 
     # Create config with custom test runner
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(repos_dir).replace("\\", "/")
@@ -449,11 +449,11 @@ django = "tests/runtests.py"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch(
-                    "dbx_python_cli.commands.test.add_project"
+                    "drivers_python_cli.commands.test.add_project"
                 ) as mock_add_project:
                     with patch.dict(
                         "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -485,8 +485,8 @@ django = "tests/runtests.py"
 
 def test_test_with_pytest_and_args(mock_config, temp_repos_dir):
     """Test that test passes arguments to pytest."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -519,7 +519,7 @@ def test_test_with_pytest_and_args(mock_config, temp_repos_dir):
 
 def test_test_env_vars(tmp_path, temp_repos_dir):
     """Test that environment variables are set for test runs."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
@@ -538,8 +538,8 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -568,7 +568,7 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 
 def test_test_with_multiple_env_vars(tmp_path, temp_repos_dir):
     """Test that multiple environment variables can be set."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
@@ -587,8 +587,8 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -615,7 +615,7 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 
 def test_test_env_vars_verbose_output(tmp_path, temp_repos_dir):
     """Test that environment variables are shown in verbose mode."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
@@ -634,8 +634,8 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -658,8 +658,8 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 
 def test_test_with_group_flag(mock_config, temp_repos_dir):
     """Test that test with -g flag runs in the specified group's repo."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.test.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.test.get_venv_info") as mock_venv:
             with patch("subprocess.run") as mock_run:
                 with patch.dict(
                     "os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}
@@ -686,7 +686,7 @@ def test_test_with_group_flag(mock_config, temp_repos_dir):
 
 def test_test_with_group_flag_repo_not_in_group(mock_config, temp_repos_dir):
     """Test that test with -g flag fails if repo not in specified group."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Try to find mongo-python-driver in django group (it's in pymongo group)

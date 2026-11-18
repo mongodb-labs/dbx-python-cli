@@ -1,7 +1,7 @@
 Contributing
 ============
 
-Thank you for your interest in contributing to dbx-python-cli!
+Thank you for your interest in contributing to drivers-python-cli!
 
 Getting Started
 ---------------

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -54,7 +54,7 @@ def temp_repos_dir(tmp_path):
 @pytest.fixture
 def mock_config(tmp_path, temp_repos_dir):
     """Create a mock config file with flat layout."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
@@ -83,7 +83,7 @@ def mock_config_with_patches(tmp_path, temp_repos_dir):
         "@@ -1 +1 @@\n-x\n+y\n"
     )
 
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
@@ -124,7 +124,7 @@ def test_spec_patch_help():
 
 
 # ---------------------------------------------------------------------------
-# dbx spec sync
+# dpy spec sync
 # ---------------------------------------------------------------------------
 
 
@@ -140,7 +140,9 @@ def test_spec_sync_help():
 
 
 def test_spec_sync_dry_run(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "sync", "--dry-run"])
     assert result.exit_code == 0
     assert "Would run" in result.output
@@ -148,7 +150,9 @@ def test_spec_sync_dry_run(mock_config):
 
 
 def test_spec_sync_dry_run_with_specs(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "sync", "crud", "sessions", "--dry-run"])
     assert result.exit_code == 0
     assert "crud" in result.output
@@ -156,7 +160,9 @@ def test_spec_sync_dry_run_with_specs(mock_config):
 
 
 def test_spec_sync_dry_run_with_block(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(
             app, ["spec", "sync", "crud", "-b", "unified", "--dry-run"]
         )
@@ -167,7 +173,7 @@ def test_spec_sync_dry_run_with_block(mock_config):
 
 def test_spec_sync_dry_run_shows_patch_count(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["spec", "sync", "--dry-run"])
@@ -184,7 +190,7 @@ def test_spec_sync_missing_specs_repo(tmp_path):
     (driver_repo / ".git").mkdir()
     (driver_repo / ".evergreen").mkdir()
 
-    config_dir = tmp_path / ".config2" / "dbx-python-cli"
+    config_dir = tmp_path / ".config2" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     config_path.write_text(f"""
@@ -195,13 +201,17 @@ flat = true
 [repo.groups.pymongo]
 repos = ["https://github.com/mongodb/mongo-python-driver.git"]
 """)
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=config_path):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=config_path
+    ):
         result = runner.invoke(app, ["spec", "sync", "--dry-run"])
     assert result.exit_code != 0
 
 
 def test_spec_sync_missing_driver_repo(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(
             app, ["spec", "sync", "-r", "nonexistent-repo", "--dry-run"]
         )
@@ -209,12 +219,14 @@ def test_spec_sync_missing_driver_repo(mock_config):
 
 
 # ---------------------------------------------------------------------------
-# dbx spec list
+# dpy spec list
 # ---------------------------------------------------------------------------
 
 
 def test_spec_list(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "list"])
     assert result.exit_code == 0
     assert "crud" in result.output
@@ -231,12 +243,14 @@ def test_spec_list_with_specs_dir(temp_repos_dir):
 
 
 # ---------------------------------------------------------------------------
-# dbx spec patch list
+# dpy spec patch list
 # ---------------------------------------------------------------------------
 
 
 def test_patch_list_empty(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "patch", "list"])
     assert result.exit_code == 0
     assert "No patch files" in result.output
@@ -244,7 +258,7 @@ def test_patch_list_empty(mock_config):
 
 def test_patch_list_with_patches(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["spec", "patch", "list"])
@@ -255,7 +269,7 @@ def test_patch_list_with_patches(mock_config_with_patches):
 
 def test_patch_list_verbose_shows_files(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["-v", "spec", "patch", "list"])
@@ -264,18 +278,22 @@ def test_patch_list_verbose_shows_files(mock_config_with_patches):
 
 
 def test_patch_list_missing_driver_repo(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "patch", "list", "-r", "nonexistent"])
     assert result.exit_code != 0
 
 
 # ---------------------------------------------------------------------------
-# dbx spec patch create
+# dpy spec patch create
 # ---------------------------------------------------------------------------
 
 
 def test_patch_create_dry_run(mock_config, temp_repos_dir):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = SAMPLE_PATCH
@@ -296,7 +314,9 @@ def test_patch_create_writes_file(mock_config, temp_repos_dir):
         / "spec-patch"
         / "PYTHON-9999.patch"
     )
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = SAMPLE_PATCH
@@ -307,7 +327,9 @@ def test_patch_create_writes_file(mock_config, temp_repos_dir):
 
 
 def test_patch_create_empty_diff(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             mock_run.return_value.stdout = ""
@@ -318,7 +340,7 @@ def test_patch_create_empty_diff(mock_config):
 
 def test_patch_create_already_exists(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["spec", "patch", "create", "PYTHON-1234"])
@@ -327,7 +349,7 @@ def test_patch_create_already_exists(mock_config_with_patches):
 
 
 # ---------------------------------------------------------------------------
-# dbx spec patch remove
+# dpy spec patch remove
 # ---------------------------------------------------------------------------
 
 
@@ -341,7 +363,7 @@ def test_patch_remove(mock_config_with_patches, temp_repos_dir):
     )
     assert patch_path.exists()
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["spec", "patch", "remove", "PYTHON-1234"])
@@ -351,20 +373,22 @@ def test_patch_remove(mock_config_with_patches, temp_repos_dir):
 
 
 def test_patch_remove_not_found(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "patch", "remove", "PYTHON-9999"])
     assert result.exit_code != 0
     assert "not found" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------
-# dbx spec patch apply
+# dpy spec patch apply
 # ---------------------------------------------------------------------------
 
 
 def test_patch_apply_dry_run(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         result = runner.invoke(app, ["spec", "patch", "apply", "--dry-run"])
@@ -374,7 +398,9 @@ def test_patch_apply_dry_run(mock_config_with_patches):
 
 
 def test_patch_apply_no_patches(mock_config):
-    with patch("dbx_python_cli.utils.repo.get_config_path", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.utils.repo.get_config_path", return_value=mock_config
+    ):
         result = runner.invoke(app, ["spec", "patch", "apply"])
     assert result.exit_code == 0
     assert "No patch files" in result.output
@@ -382,7 +408,7 @@ def test_patch_apply_no_patches(mock_config):
 
 def test_patch_apply_runs_git(mock_config_with_patches):
     with patch(
-        "dbx_python_cli.utils.repo.get_config_path",
+        "drivers_python_cli.utils.repo.get_config_path",
         return_value=mock_config_with_patches,
     ):
         with patch("subprocess.run") as mock_run:
@@ -398,7 +424,7 @@ def test_patch_apply_runs_git(mock_config_with_patches):
 
 
 # ---------------------------------------------------------------------------
-# dbx spec status — unit helpers
+# dpy spec status — unit helpers
 # ---------------------------------------------------------------------------
 
 SAMPLE_RESYNC_SCRIPT = """\
@@ -434,7 +460,7 @@ done
 
 
 def test_parse_resync_script_basic(tmp_path):
-    from dbx_python_cli.commands.spec import _parse_resync_script
+    from drivers_python_cli.commands.spec import _parse_resync_script
 
     script = tmp_path / "resync-specs.sh"
     script.write_text(SAMPLE_RESYNC_SCRIPT)
@@ -454,7 +480,7 @@ def test_parse_resync_script_basic(tmp_path):
 
 def test_parse_resync_script_multiline_cpjson(tmp_path):
     """cpjson calls split across lines via backslash continuations are joined."""
-    from dbx_python_cli.commands.spec import _parse_resync_script
+    from drivers_python_cli.commands.spec import _parse_resync_script
 
     script = tmp_path / "resync-specs.sh"
     script.write_text(SAMPLE_RESYNC_SCRIPT)
@@ -472,7 +498,7 @@ def test_parse_resync_script_multiline_cpjson(tmp_path):
 
 
 def test_parse_resync_script_skips_default_case(tmp_path):
-    from dbx_python_cli.commands.spec import _parse_resync_script
+    from drivers_python_cli.commands.spec import _parse_resync_script
 
     script = tmp_path / "resync-specs.sh"
     script.write_text(SAMPLE_RESYNC_SCRIPT)
@@ -483,14 +509,14 @@ def test_parse_resync_script_skips_default_case(tmp_path):
 
 
 def test_parse_resync_script_missing_file(tmp_path):
-    from dbx_python_cli.commands.spec import _parse_resync_script
+    from drivers_python_cli.commands.spec import _parse_resync_script
 
     result = _parse_resync_script(tmp_path / "nonexistent.sh")
     assert result == {}
 
 
 def test_spec_is_stale_missing_dst(tmp_path):
-    from dbx_python_cli.commands.spec import _spec_is_stale
+    from drivers_python_cli.commands.spec import _spec_is_stale
 
     src_dir = tmp_path / "specs" / "auth" / "tests"
     src_dir.mkdir(parents=True)
@@ -510,7 +536,7 @@ def test_spec_is_stale_missing_dst(tmp_path):
 
 
 def test_spec_is_stale_content_differs(tmp_path):
-    from dbx_python_cli.commands.spec import _spec_is_stale
+    from drivers_python_cli.commands.spec import _spec_is_stale
 
     src_dir = tmp_path / "specs" / "crud" / "tests"
     src_dir.mkdir(parents=True)
@@ -530,7 +556,7 @@ def test_spec_is_stale_content_differs(tmp_path):
 
 
 def test_spec_is_stale_up_to_date(tmp_path):
-    from dbx_python_cli.commands.spec import _spec_is_stale
+    from drivers_python_cli.commands.spec import _spec_is_stale
 
     content = '{"same": true}'
     src_dir = tmp_path / "specs" / "auth" / "tests"
@@ -550,7 +576,7 @@ def test_spec_is_stale_up_to_date(tmp_path):
 
 
 def test_spec_is_stale_new_file_in_src(tmp_path):
-    from dbx_python_cli.commands.spec import _spec_is_stale
+    from drivers_python_cli.commands.spec import _spec_is_stale
 
     src_dir = tmp_path / "specs" / "crud" / "tests"
     src_dir.mkdir(parents=True)
@@ -573,7 +599,7 @@ def test_spec_is_stale_new_file_in_src(tmp_path):
 
 def test_spec_is_stale_src_missing_skips(tmp_path):
     """If the source directory doesn't exist, skip and report not stale."""
-    from dbx_python_cli.commands.spec import _spec_is_stale
+    from drivers_python_cli.commands.spec import _spec_is_stale
 
     driver_test = tmp_path / "driver" / "test"
     driver_test.mkdir(parents=True)
@@ -587,7 +613,7 @@ def test_spec_is_stale_src_missing_skips(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# dbx spec status — integration (CLI)
+# dpy spec status — integration (CLI)
 # ---------------------------------------------------------------------------
 
 
@@ -626,7 +652,7 @@ def _make_status_repos(tmp_path, content_same=True):
     (src_auth / "auth.json").write_text('{"spec": "auth"}')
 
     # Config
-    cfg_dir = tmp_path / ".config" / "dbx-python-cli"
+    cfg_dir = tmp_path / ".config" / "drivers-python-cli"
     cfg_dir.mkdir(parents=True)
     cfg = cfg_dir / "config.toml"
     repos_str = str(repos_dir).replace("\\", "/")
@@ -647,17 +673,17 @@ repos = [
 def test_spec_status_all_up_to_date(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc1234 resync: auth (2 days ago)"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="2 days ago",
         ),
     ):
@@ -669,35 +695,35 @@ def test_spec_status_all_up_to_date(tmp_path):
 def test_spec_status_stale_spec(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=False)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc1234 resync: auth"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="5 days ago",
         ),
     ):
         result = runner.invoke(app, ["spec", "status"])
     assert result.exit_code == 0
-    assert "dbx spec sync auth" in result.output
+    assert "dpy spec sync auth" in result.output
 
 
 def test_spec_status_no_resync_commit(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="some-unrelated-branch",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=[],
         ),
     ):
@@ -710,17 +736,17 @@ def test_spec_status_no_resync_commit(tmp_path):
 def test_spec_status_branch_icon(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-2026-05",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resync all"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
     ):
@@ -733,29 +759,29 @@ def test_spec_status_suggests_combined_command(tmp_path):
     """When multiple specs are stale the footer lists them in one command."""
     _, cfg = _make_status_repos(tmp_path, content_same=False)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resync"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
     ):
         result = runner.invoke(app, ["spec", "status"])
     assert result.exit_code == 0
-    assert "dbx spec sync" in result.output
+    assert "dpy spec sync" in result.output
     assert "Sync remaining specs" in result.output
 
 
 def test_commit_spec_dirs(tmp_path):
     """_commit_spec_dirs extracts unique test subdirs from a real git commit."""
-    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from drivers_python_cli.commands.spec import _commit_spec_dirs
     from unittest.mock import patch, MagicMock
 
     mock_result = MagicMock()
@@ -774,7 +800,7 @@ def test_commit_spec_dirs(tmp_path):
 
 
 def test_commit_spec_dirs_no_test_files(tmp_path):
-    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from drivers_python_cli.commands.spec import _commit_spec_dirs
     from unittest.mock import patch, MagicMock
 
     mock_result = MagicMock()
@@ -789,21 +815,21 @@ def test_commit_spec_dirs_no_test_files(tmp_path):
 def test_spec_status_shows_specs_touched(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc1234 resyncing specs 05-18-2026"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="3 days ago",
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            "drivers_python_cli.commands.spec._commit_spec_dirs",
             return_value=["auth", "crud", "sessions"],
         ),
     ):
@@ -814,7 +840,7 @@ def test_spec_status_shows_specs_touched(tmp_path):
 
 def test_commit_spec_dirs_requires_subdir(tmp_path):
     """Files directly in test/ (no subdir) should not appear in the result."""
-    from dbx_python_cli.commands.spec import _commit_spec_dirs
+    from drivers_python_cli.commands.spec import _commit_spec_dirs
     from unittest.mock import patch, MagicMock
 
     mock_result = MagicMock()
@@ -833,25 +859,25 @@ def test_commit_spec_dirs_requires_subdir(tmp_path):
 def test_spec_status_shows_pr_summary(tmp_path):
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc1234 resyncing specs"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            "drivers_python_cli.commands.spec._commit_spec_dirs",
             return_value=["auth", "crud"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._branch_summary",
+            "drivers_python_cli.commands.spec._branch_summary",
             return_value=(["auth", "crud", "sessions"], 3),
         ),
     ):
@@ -866,25 +892,25 @@ def test_spec_status_verify_section_no_stale(tmp_path):
     """When nothing is stale, shows 'Nothing outstanding' message."""
     _, cfg = _make_status_repos(tmp_path, content_same=True)
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resyncing specs"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_spec_dirs",
+            "drivers_python_cli.commands.spec._commit_spec_dirs",
             return_value=["auth"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._branch_summary",
+            "drivers_python_cli.commands.spec._branch_summary",
             return_value=(["auth"], 1),
         ),
     ):
@@ -895,7 +921,7 @@ def test_spec_status_verify_section_no_stale(tmp_path):
 
 def test_patch_dir_map(tmp_path):
     """_patch_dir_map returns a dir→tickets reverse map from patch files."""
-    from dbx_python_cli.commands.spec import _patch_dir_map
+    from drivers_python_cli.commands.spec import _patch_dir_map
 
     patch_dir = tmp_path / "spec-patch"
     patch_dir.mkdir()
@@ -933,21 +959,21 @@ def test_spec_status_annotates_patches(tmp_path):
     )
 
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resyncing"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
-        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
-        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+        patch("drivers_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("drivers_python_cli.commands.spec._branch_summary", return_value=([], 0)),
     ):
         result = runner.invoke(app, ["spec", "status"])
 
@@ -972,21 +998,21 @@ def test_spec_status_shows_removable_patches(tmp_path):
     )
 
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resyncing"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
-        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
-        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+        patch("drivers_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("drivers_python_cli.commands.spec._branch_summary", return_value=([], 0)),
     ):
         result = runner.invoke(app, ["spec", "status"])
 
@@ -1011,21 +1037,21 @@ def test_spec_status_no_removable_patches_when_files_exist(tmp_path):
     )
 
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path", return_value=cfg),
+        patch("drivers_python_cli.utils.repo.get_config_path", return_value=cfg),
         patch(
-            "dbx_python_cli.commands.spec._get_current_branch",
+            "drivers_python_cli.commands.spec._get_current_branch",
             return_value="spec-resync-test",
         ),
         patch(
-            "dbx_python_cli.commands.spec._find_recent_resync_commits",
+            "drivers_python_cli.commands.spec._find_recent_resync_commits",
             return_value=["abc resyncing"],
         ),
         patch(
-            "dbx_python_cli.commands.spec._commit_relative_date",
+            "drivers_python_cli.commands.spec._commit_relative_date",
             return_value="1 day ago",
         ),
-        patch("dbx_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
-        patch("dbx_python_cli.commands.spec._branch_summary", return_value=([], 0)),
+        patch("drivers_python_cli.commands.spec._commit_spec_dirs", return_value=[]),
+        patch("drivers_python_cli.commands.spec._branch_summary", return_value=([], 0)),
     ):
         result = runner.invoke(app, ["spec", "status"])
 

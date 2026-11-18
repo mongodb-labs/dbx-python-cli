@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
 def test_test_runs_real_pytest(tmp_path, test_git_repo):
     """Test running real pytest on a repository."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -69,7 +69,7 @@ repos = [
         capture_output=True,
     )
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch.dict("os.environ", {"MONGODB_URI": "mongodb://localhost:27017"}):
             mock_get_path.return_value = config_path
 

@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -13,7 +13,7 @@ runner = CliRunner()
 @pytest.fixture
 def temp_config_dir(tmp_path):
     """Create a temporary config directory."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     return config_dir
 
@@ -59,7 +59,7 @@ def test_env_help():
 
 def test_env_init_list_groups(mock_config, temp_repos_dir):
     """Test that env init --list shows available groups."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create one group directory with venv
@@ -79,7 +79,7 @@ def test_env_init_list_groups(mock_config, temp_repos_dir):
 
 def test_env_init_list_groups_short_form(mock_config):
     """Test that env init -l works as shortcut for --list."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["env", "init", "-l"])
@@ -91,7 +91,7 @@ def test_env_init_list_groups_short_form(mock_config):
 
 def test_env_init_no_group_shows_error(mock_config, temp_repos_dir):
     """Test that env init without arguments creates base dir venv."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -104,7 +104,7 @@ def test_env_init_no_group_shows_error(mock_config, temp_repos_dir):
 
 def test_env_init_invalid_group(mock_config):
     """Test that env init with invalid group shows error."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["env", "init", "-g", "nonexistent"])
@@ -115,7 +115,7 @@ def test_env_init_invalid_group(mock_config):
 
 def test_env_init_group_dir_not_exists(mock_config, temp_repos_dir):
     """Test that env init creates group directory if it doesn't exist."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -135,7 +135,7 @@ def test_env_init_group_dir_not_exists(mock_config, temp_repos_dir):
 
 def test_env_init_creates_venv(mock_config, temp_repos_dir):
     """Test that env init creates a virtual environment."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -158,7 +158,7 @@ def test_env_init_creates_venv(mock_config, temp_repos_dir):
 
 def test_env_init_with_python_version(mock_config, temp_repos_dir):
     """Test that env init accepts python version."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -178,7 +178,7 @@ def test_env_init_with_python_version(mock_config, temp_repos_dir):
 
 def test_env_init_venv_exists_no_overwrite(mock_config, temp_repos_dir):
     """Test that env init doesn't overwrite existing venv without confirmation."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory with existing venv
@@ -196,7 +196,7 @@ def test_env_init_venv_exists_no_overwrite(mock_config, temp_repos_dir):
 
 def test_env_init_venv_exists_with_overwrite(mock_config, temp_repos_dir):
     """Test that env init overwrites existing venv with confirmation."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -216,7 +216,7 @@ def test_env_init_venv_exists_with_overwrite(mock_config, temp_repos_dir):
 
 def test_env_init_creation_failure(mock_config, temp_repos_dir):
     """Test that env init handles venv creation failure."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 1
@@ -234,7 +234,7 @@ def test_env_init_creation_failure(mock_config, temp_repos_dir):
 
 def test_env_list_no_venvs(mock_config, temp_repos_dir):
     """Test env list when no venvs exist."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directories without venvs
@@ -249,7 +249,7 @@ def test_env_list_no_venvs(mock_config, temp_repos_dir):
 
 def test_env_list_with_venvs(mock_config, temp_repos_dir):
     """Test env list when venvs exist."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -271,7 +271,7 @@ def test_env_list_with_venvs(mock_config, temp_repos_dir):
 
 def test_env_list_mixed_venvs(mock_config, temp_repos_dir):
     """Test env list with some groups having venvs and some not."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value.returncode = 0
@@ -296,7 +296,7 @@ def test_env_list_mixed_venvs(mock_config, temp_repos_dir):
 
 def test_env_list_invalid_venv(mock_config, temp_repos_dir):
     """Test env list with invalid venv (missing python)."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory with venv but no python executable
@@ -313,7 +313,7 @@ def test_env_list_invalid_venv(mock_config, temp_repos_dir):
 
 def test_env_remove_list_groups(mock_config, temp_repos_dir):
     """Test env remove --list shows available groups."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directories
@@ -329,7 +329,7 @@ def test_env_remove_list_groups(mock_config, temp_repos_dir):
 
 def test_env_remove_no_group_shows_error(mock_config, temp_repos_dir):
     """Test env remove without arguments removes base dir venv."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create base dir venv
@@ -345,7 +345,7 @@ def test_env_remove_no_group_shows_error(mock_config, temp_repos_dir):
 
 def test_env_remove_invalid_group(mock_config):
     """Test env remove with invalid group shows error."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["env", "remove", "-g", "invalid"])
@@ -356,7 +356,7 @@ def test_env_remove_invalid_group(mock_config):
 
 def test_env_remove_group_dir_not_exists(mock_config, temp_repos_dir):
     """Test env remove when group directory doesn't exist."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["env", "remove", "-g", "pymongo"])
@@ -367,7 +367,7 @@ def test_env_remove_group_dir_not_exists(mock_config, temp_repos_dir):
 
 def test_env_remove_no_venv_exists(mock_config, temp_repos_dir):
     """Test env remove when no venv exists."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory without venv
@@ -382,7 +382,7 @@ def test_env_remove_no_venv_exists(mock_config, temp_repos_dir):
 
 def test_env_remove_with_confirmation_yes(mock_config, temp_repos_dir):
     """Test env remove with user confirming yes."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory with venv
@@ -400,7 +400,7 @@ def test_env_remove_with_confirmation_yes(mock_config, temp_repos_dir):
 
 def test_env_remove_with_confirmation_no(mock_config, temp_repos_dir):
     """Test env remove with user declining."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory with venv
@@ -418,7 +418,7 @@ def test_env_remove_with_confirmation_no(mock_config, temp_repos_dir):
 
 def test_env_remove_with_force_flag(mock_config, temp_repos_dir):
     """Test env remove with --force flag skips confirmation."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory with venv
@@ -435,7 +435,7 @@ def test_env_remove_with_force_flag(mock_config, temp_repos_dir):
 
 def test_env_init_repo_with_group(temp_repos_dir, mock_config):
     """Test env init with both repo and group specified."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory and repo
@@ -469,7 +469,7 @@ def test_env_init_repo_with_group(temp_repos_dir, mock_config):
 
 def test_env_remove_repo_with_group(temp_repos_dir, mock_config):
     """Test env remove with both repo and group specified."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory, repo, and venv
@@ -491,7 +491,7 @@ def test_env_remove_repo_with_group(temp_repos_dir, mock_config):
 
 def test_env_init_repo_with_group_not_found(temp_repos_dir, mock_config):
     """Test env init with repo not found in specified group."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory but not the repo
@@ -508,7 +508,7 @@ def test_env_init_repo_with_group_not_found(temp_repos_dir, mock_config):
 
 def test_env_remove_repo_with_group_not_found(temp_repos_dir, mock_config):
     """Test env remove with repo not found in specified group."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create group directory but not the repo

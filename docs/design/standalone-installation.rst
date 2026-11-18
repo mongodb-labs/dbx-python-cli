@@ -1,12 +1,12 @@
 Standalone Installation
 =======================
 
-**Decision: Install dbx-python-cli as a standalone tool, not requiring a clone of the CLI repository**
+**Decision: Install drivers-python-cli as a standalone tool, not requiring a clone of the CLI repository**
 
 Background
 ----------
 
-The predecessor to ``dbx-python-cli`` was `django-mongodb-cli <https://github.com/mongodb-labs/django-mongodb-cli>`_, which required users to:
+The predecessor to ``drivers-python-cli`` was `django-mongodb-cli <https://github.com/mongodb-labs/django-mongodb-cli>`_, which required users to:
 
 1. Clone the ``django-mongodb-cli`` repository
 2. Work within that repository's directory structure
@@ -23,16 +23,16 @@ This approach had several limitations:
 New Approach
 ------------
 
-``dbx-python-cli`` is designed as a **standalone tool** that can be installed globally and used from anywhere:
+``drivers-python-cli`` is designed as a **standalone tool** that can be installed globally and used from anywhere:
 
 .. code-block:: bash
 
    # Install globally using pipx
-   pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
+   pipx install git+https://github.com/mongodb-labs/drivers-python-cli.git
 
    # Use from anywhere
    cd ~/Developer/mongodb/
-   dbx clone -g pymongo
+   dpy clone -g pymongo
 
 Key Differences
 ---------------
@@ -49,7 +49,7 @@ Key Differences
        │   └── django-mongodb-backend/
        └── config.toml               # Configuration
 
-**dbx-python-cli (new approach):**
+**drivers-python-cli (new approach):**
 
 .. code-block:: text
 
@@ -66,7 +66,7 @@ Key Differences
        ├── django/
        └── django-mongodb-backend/
 
-   ~/.config/dbx-python-cli/         # Configuration (separate)
+   ~/.config/drivers-python-cli/         # Configuration (separate)
    └── config.toml
 
 Benefits
@@ -85,10 +85,10 @@ Benefits
    Uses standard Python packaging tools (``pipx install``) instead of requiring a git clone.
 
 **Global Availability**
-   The ``dbx`` command is available from anywhere in the terminal, not just within a specific directory.
+   The ``dpy`` command is available from anywhere in the terminal, not just within a specific directory.
 
 **Easier Updates**
-   Update the tool with ``pipx upgrade dbx-python-cli`` without affecting user repositories.
+   Update the tool with ``pipx upgrade drivers-python-cli`` without affecting user repositories.
 
 **Multiple Workspaces**
    Users can easily work with multiple base directories by updating the config, without needing multiple CLI clones.
@@ -100,8 +100,8 @@ Implementation Details
 
 Configuration is stored in the standard user config directory:
 
-- **macOS/Linux**: ``~/.config/dbx-python-cli/config.toml``
-- **Windows**: ``%APPDATA%\dbx-python-cli\config.toml``
+- **macOS/Linux**: ``~/.config/drivers-python-cli/config.toml``
+- **Windows**: ``%APPDATA%\drivers-python-cli\config.toml``
 
 **Base Directory**
 
@@ -116,12 +116,12 @@ This can be any directory on the user's system.
 
 **Initialization**
 
-The ``dbx config init`` command creates the initial configuration:
+The ``dpy config init`` command creates the initial configuration:
 
 .. code-block:: bash
 
-   $ dbx config init
-   Configuration file created at: ~/.config/dbx-python-cli/config.toml
+   $ dpy config init
+   Configuration file created at: ~/.config/drivers-python-cli/config.toml
 
    Default base directory: ~/Developer/mongodb/
 
@@ -129,7 +129,7 @@ The ``dbx config init`` command creates the initial configuration:
 
 **No Repository Required**
 
-Users never need to clone or interact with the ``dbx-python-cli`` repository itself. The tool is installed as a package and used as a command-line utility.
+Users never need to clone or interact with the ``drivers-python-cli`` repository itself. The tool is installed as a package and used as a command-line utility.
 
 Comparison with Other Tools
 ----------------------------
@@ -151,19 +151,19 @@ Migration from django-mongodb-cli
 
 Users migrating from ``django-mongodb-cli`` should:
 
-1. Install ``dbx-python-cli`` globally:
+1. Install ``drivers-python-cli`` globally:
 
    .. code-block:: bash
 
-      pipx install git+https://github.com/mongodb-labs/dbx-python-cli.git
+      pipx install git+https://github.com/mongodb-labs/drivers-python-cli.git
 
 2. Initialize configuration:
 
    .. code-block:: bash
 
-      dbx config init
+      dpy config init
 
-3. Update ``base_dir`` in ``~/.config/dbx-python-cli/config.toml`` to point to their existing repositories (or a new location)
+3. Update ``base_dir`` in ``~/.config/drivers-python-cli/config.toml`` to point to their existing repositories (or a new location)
 
 4. The ``django-mongodb-cli`` repository can be safely removed - it's no longer needed
 
@@ -178,4 +178,4 @@ This design decision reflects modern best practices for CLI tools:
 - **Standard**: Follows Python packaging conventions
 - **Flexible**: Users control their workspace organization
 
-The standalone installation model makes ``dbx-python-cli`` a true utility tool rather than a workspace that users must work within.
+The standalone installation model makes ``drivers-python-cli`` a true utility tool rather than a workspace that users must work within.

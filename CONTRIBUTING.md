@@ -1,6 +1,6 @@
-# Contributing to dbx-python-cli
+# Contributing to drivers-python-cli
 
-Thank you for your interest in contributing to dbx-python-cli! This project requires that **all contributions are made exclusively through AI coding assistants**. Direct, hand-written code changes are not accepted. Please read this document carefully before contributing.
+Thank you for your interest in contributing to drivers-python-cli! This project requires that **all contributions are made exclusively through AI coding assistants**. Direct, hand-written code changes are not accepted. Please read this document carefully before contributing.
 
 ## Table of Contents
 
@@ -25,8 +25,8 @@ Thank you for your interest in contributing to dbx-python-cli! This project requ
 1. **Fork and clone the repository:**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/dbx-python-cli.git
-cd dbx-python-cli
+git clone https://github.com/YOUR_USERNAME/drivers-python-cli.git
+cd drivers-python-cli
 ```
 
 2. **Install development dependencies:**
@@ -193,7 +193,7 @@ When prompting an AI assistant to contribute, give it enough context to do the j
 
 ### Project Conventions
 
-- Commands are organized in `src/dbx_python_cli/commands/`
+- Commands are organized in `src/drivers_python_cli/commands/`
 - Each command has its own module (e.g., `open.py`, `clone.py`)
 - Shared utilities go in `repo_utils.py` or similar utility modules
 - Tests mirror the source structure in `tests/`
@@ -256,4 +256,4 @@ If you have questions or need help, please:
 - Check existing documentation
 - Ask in pull request comments
 
-Thank you for contributing to dbx-python-cli! 🎉
+Thank you for contributing to drivers-python-cli! 🎉
