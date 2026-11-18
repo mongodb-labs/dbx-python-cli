@@ -324,6 +324,9 @@ repos = [
 # facts that registry cannot express.
 [infra.mongo-python-driver]
 
+[infra.mongo-python-driver.release]
+links = { release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/285096294/Python+Driver+Release+Process" }
+
 [infra.mongo-python-driver.load_balancer]
 requires_tools = ["haproxy"]
 
