@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
 def test_env_init_creates_real_venv(tmp_path, test_git_repo):
     """Test creating a real virtual environment."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -34,7 +34,7 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["env", "init", "-g", "test"])
@@ -51,7 +51,7 @@ repos = [
 
 def test_env_init_with_python_version(tmp_path, test_git_repo):
     """Test creating venv with specific Python version."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -73,7 +73,7 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["env", "init", "-g", "test", "-p", "3.11"])
@@ -84,7 +84,7 @@ repos = [
 
 def test_env_list_real_venvs(tmp_path, test_git_repo):
     """Test listing real virtual environments."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -112,7 +112,7 @@ repos = [
         ["python", "-m", "venv", str(venv_dir)], check=True, capture_output=True
     )
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["env", "list"])
@@ -123,7 +123,7 @@ repos = [
 
 def test_env_init_recreate_existing(tmp_path, test_git_repo):
     """Test recreating an existing venv."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -151,7 +151,7 @@ repos = [
         ["python", "-m", "venv", str(venv_dir)], check=True, capture_output=True
     )
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Try to create again without --recreate

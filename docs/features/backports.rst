@@ -2,11 +2,11 @@
 Finding backport candidates
 ===========================
 
-``dbx backports`` lists commits on a development branch that have not reached a
+``dpy backports`` lists commits on a development branch that have not reached a
 release branch — the raw material for the next "Backports for X.Y.Z" pull
 request::
 
-   dbx backports django-mongodb-backend
+   dpy backports django-mongodb-backend
 
 .. code-block:: text
 

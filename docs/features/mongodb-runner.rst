@@ -1,7 +1,7 @@
 MongoDB Integration
 ===================
 
-dbx-python-cli can automatically start MongoDB when needed, making it easy to get started with MongoDB projects without manually installing or configuring MongoDB.
+drivers-python-cli can automatically start MongoDB when needed, making it easy to get started with MongoDB projects without manually installing or configuring MongoDB.
 
 Three backends are supported:
 
@@ -15,11 +15,11 @@ How It Works
 When you run commands that require MongoDB (``project run``, ``project manage``, ``project migrate``, ``project su``), the CLI checks for a MongoDB connection in this order:
 
 1. **Environment variable**: Uses ``MONGODB_URI`` if set in your shell environment
-2. **Config file**: Uses ``MONGODB_URI`` from ``~/.config/dbx-python-cli/config.toml``
+2. **Config file**: Uses ``MONGODB_URI`` from ``~/.config/drivers-python-cli/config.toml``
 3. **Configured backend**: Uses mongodb-runner, docker, or atlas-local based on ``[project.mongodb] backend`` setting
 4. **Exit**: If all above fail, exits with ``no db running``
 
-This means if you run ``dbx project run`` in one terminal and then ``dbx project migrate`` in another, both will use the same MongoDB instance.
+This means if you run ``dpy project run`` in one terminal and then ``dpy project migrate`` in another, both will use the same MongoDB instance.
 
 Choosing an Edition
 -------------------
@@ -29,7 +29,7 @@ For **mongodb-runner** and **docker** backends, you can choose between Community
 - **Community Edition** (default): Free, open-source MongoDB
 - **Enterprise Edition**: Includes additional enterprise features (requires license)
 
-Set the edition in ``~/.config/dbx-python-cli/config.toml``:
+Set the edition in ``~/.config/drivers-python-cli/config.toml``:
 
 .. code-block:: toml
 
@@ -40,7 +40,7 @@ Or use the ``--edition`` CLI flag to override for a single command:
 
 .. code-block:: bash
 
-   dbx --edition enterprise project run myproject
+   dpy --edition enterprise project run myproject
 
 CLI Flags (Quick Override)
 ---------------------------
@@ -50,13 +50,13 @@ You can override the backend and edition without editing the config file using g
 .. code-block:: bash
 
    # Use Atlas Local for this run only
-   dbx --backend atlas-local project run myproject
+   dpy --backend atlas-local project run myproject
 
    # Use Docker with Enterprise edition
-   dbx --backend docker --edition enterprise project run myproject
+   dpy --backend docker --edition enterprise project run myproject
 
    # Use mongodb-runner with Enterprise edition
-   dbx --edition enterprise project run myproject
+   dpy --edition enterprise project run myproject
 
 **Available flags:**
 
@@ -104,7 +104,7 @@ Simply run your project without setting ``MONGODB_URI``:
 .. code-block:: bash
 
    # MongoDB Community will be started automatically (default)
-   dbx project run myproject
+   dpy project run myproject
 
 Example output when mongodb-runner starts:
 
@@ -178,7 +178,7 @@ Example output when starting a replica set:
 Test Commands
 ~~~~~~~~~~~~~
 
-By default, dbx starts MongoDB with ``--setParameter enableTestCommands=1``, which is required for features like fail points used in driver test suites. To disable this:
+By default, dpy starts MongoDB with ``--setParameter enableTestCommands=1``, which is required for features like fail points used in driver test suites. To disable this:
 
 .. code-block:: toml
 
@@ -190,7 +190,7 @@ This setting applies to both the ``runner`` and ``atlas-local`` backends.
 Stopping mongodb-runner
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-mongodb-runner instances started by dbx are managed separately. To stop all mongodb-runner instances:
+mongodb-runner instances started by dpy are managed separately. To stop all mongodb-runner instances:
 
 .. code-block:: bash
 
@@ -209,8 +209,8 @@ mongodb-runner uses the latest stable MongoDB version by default. To use a speci
 
 .. code-block:: bash
 
-   MONGODB_VERSION=7.0.0 dbx project run myproject
-   MONGODB_VERSION=^6.0.0 dbx project run myproject  # Latest 6.x
+   MONGODB_VERSION=7.0.0 dpy project run myproject
+   MONGODB_VERSION=^6.0.0 dpy project run myproject  # Latest 6.x
 
 Backend 2: Docker
 -----------------
@@ -228,7 +228,7 @@ To use Docker backend:
 Configuration
 ~~~~~~~~~~~~~
 
-To enable Docker backend, edit ``~/.config/dbx-python-cli/config.toml``:
+To enable Docker backend, edit ``~/.config/drivers-python-cli/config.toml``:
 
 .. code-block:: toml
 
@@ -240,7 +240,7 @@ To enable Docker backend, edit ``~/.config/dbx-python-cli/config.toml``:
    # Optional: override default image
    # image = "mongo"  # Use Docker Official Image instead
    tag = "latest"  # or "8.0", "7.0", etc.
-   container_name = "dbx-mongodb"
+   container_name = "dpy-mongodb"
    port = 27017
 
 Available Images
@@ -263,7 +263,7 @@ Once configured, run your project as normal:
 .. code-block:: bash
 
    # MongoDB will be started automatically
-   dbx project run myproject
+   dpy project run myproject
 
 Example output when Docker starts:
 
@@ -335,13 +335,13 @@ To stop the Docker container:
 
 .. code-block:: bash
 
-   docker stop dbx-mongodb
+   docker stop dpy-mongodb
 
 To remove the container:
 
 .. code-block:: bash
 
-   docker rm dbx-mongodb
+   docker rm dpy-mongodb
 
 Advanced Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -373,7 +373,7 @@ To use Atlas Local:
 Configuration
 ~~~~~~~~~~~~~
 
-To enable Atlas Local, edit ``~/.config/dbx-python-cli/config.toml``:
+To enable Atlas Local, edit ``~/.config/drivers-python-cli/config.toml``:
 
 .. code-block:: toml
 
@@ -383,7 +383,7 @@ To enable Atlas Local, edit ``~/.config/dbx-python-cli/config.toml``:
    [project.mongodb.atlas_local]
    image = "mongodb/mongodb-atlas-local"
    tag = "latest"  # or "8.0", "7.0", or specific version
-   container_name = "dbx-atlas-local"
+   container_name = "dpy-atlas-local"
    port = 27017
 
 Usage
@@ -394,7 +394,7 @@ Once configured, run your project as normal:
 .. code-block:: bash
 
    # MongoDB Atlas Local will be started automatically
-   dbx project run myproject
+   dpy project run myproject
 
 Example output when Atlas Local starts:
 
@@ -429,13 +429,13 @@ To stop the Atlas Local container:
 
 .. code-block:: bash
 
-   docker stop dbx-atlas-local
+   docker stop dpy-atlas-local
 
 To remove the container:
 
 .. code-block:: bash
 
-   docker rm dbx-atlas-local
+   docker rm dpy-atlas-local
 
 Advanced Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -461,7 +461,7 @@ For regular development, you may want to use a manually managed MongoDB instance
 
 **Option 1: Set MONGODB_URI in config**
 
-Add to ``~/.config/dbx-python-cli/config.toml``:
+Add to ``~/.config/drivers-python-cli/config.toml``:
 
 .. code-block:: toml
 
@@ -478,7 +478,7 @@ Add to ``~/.config/dbx-python-cli/config.toml``:
 
 .. code-block:: bash
 
-   dbx project run myproject --mongodb-uri mongodb://localhost:27017
+   dpy project run myproject --mongodb-uri mongodb://localhost:27017
 
 Installing MongoDB Permanently
 -------------------------------

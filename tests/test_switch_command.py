@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -86,9 +86,11 @@ def test_switch_list_no_repos(tmp_path):
 
     mock_config = {"repo": {"base_dir": str(empty_dir), "groups": {}}}
 
-    with patch("dbx_python_cli.commands.switch.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.switch.get_config", return_value=mock_config
+    ):
         with patch(
-            "dbx_python_cli.commands.switch.get_base_dir", return_value=empty_dir
+            "drivers_python_cli.commands.switch.get_base_dir", return_value=empty_dir
         ):
             result = runner.invoke(app, ["switch", "--list"])
             assert result.exit_code == 0
@@ -97,9 +99,12 @@ def test_switch_list_no_repos(tmp_path):
 
 def test_switch_list_shows_repos(temp_repos_dir, mock_config):
     """Test switch --list shows available repositories."""
-    with patch("dbx_python_cli.commands.switch.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.switch.get_config", return_value=mock_config
+    ):
         with patch(
-            "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.switch.get_base_dir",
+            return_value=temp_repos_dir,
         ):
             result = runner.invoke(app, ["switch", "--list"])
             assert result.exit_code == 0
@@ -109,9 +114,12 @@ def test_switch_list_shows_repos(temp_repos_dir, mock_config):
 
 def test_switch_no_repo_name(temp_repos_dir, mock_config):
     """Test switch without repo name shows error."""
-    with patch("dbx_python_cli.commands.switch.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.switch.get_config", return_value=mock_config
+    ):
         with patch(
-            "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.switch.get_base_dir",
+            return_value=temp_repos_dir,
         ):
             result = runner.invoke(app, ["switch"])
             # Typer exits with code 2 for missing arguments
@@ -120,37 +128,43 @@ def test_switch_no_repo_name(temp_repos_dir, mock_config):
 
 def test_switch_no_branch_name(temp_repos_dir, mock_config):
     """Test switch without branch name shows error."""
-    with patch("dbx_python_cli.commands.switch.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.switch.get_config", return_value=mock_config
+    ):
         with patch(
-            "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.switch.get_base_dir",
+            return_value=temp_repos_dir,
         ):
             result = runner.invoke(app, ["switch", "mongo-python-driver"])
             assert result.exit_code == 1
             # Check that usage message is shown
-            assert "Usage: dbx switch" in result.stdout
+            assert "Usage: dpy switch" in result.stdout
 
 
 def test_switch_repo_not_found(temp_repos_dir, mock_config):
     """Test switch with non-existent repository."""
-    with patch("dbx_python_cli.commands.switch.get_config", return_value=mock_config):
+    with patch(
+        "drivers_python_cli.commands.switch.get_config", return_value=mock_config
+    ):
         with patch(
-            "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.switch.get_base_dir",
+            return_value=temp_repos_dir,
         ):
             result = runner.invoke(app, ["switch", "nonexistent", "main"])
             assert result.exit_code == 1
             # Check that helpful message is shown
-            assert "dbx switch --list" in result.stdout
+            assert "dpy switch --list" in result.stdout
 
 
 def test_switch_basic(tmp_path, temp_repos_dir, mock_config):
     """Test basic switch to a branch."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stderr="")
                 result = runner.invoke(
                     app, ["switch", "mongo-python-driver", "PYTHON-5683"]
@@ -166,12 +180,12 @@ def test_switch_basic(tmp_path, temp_repos_dir, mock_config):
 def test_switch_with_create_flag(tmp_path, temp_repos_dir, mock_config):
     """Test switch with --create flag."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stderr="")
                 result = runner.invoke(
                     app, ["switch", "--create", "mongo-python-driver", "feature-123"]
@@ -186,12 +200,12 @@ def test_switch_with_create_flag(tmp_path, temp_repos_dir, mock_config):
 def test_switch_with_group(tmp_path, temp_repos_dir, mock_config):
     """Test switch with a group."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stderr="")
                 result = runner.invoke(app, ["switch", "-g", "pymongo", "main"])
                 assert result.exit_code == 0
@@ -203,10 +217,10 @@ def test_switch_with_group(tmp_path, temp_repos_dir, mock_config):
 def test_switch_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
     """Test switch with non-existent group."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
             result = runner.invoke(app, ["switch", "-g", "nonexistent", "main"])
             assert result.exit_code == 1
@@ -215,12 +229,12 @@ def test_switch_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
 def test_switch_with_project(tmp_path, temp_repos_dir, mock_config):
     """Test switch with a project."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stderr="")
                 result = runner.invoke(app, ["switch", "-p", "test-project", "feature"])
                 assert result.exit_code == 0
@@ -231,12 +245,12 @@ def test_switch_with_project(tmp_path, temp_repos_dir, mock_config):
 def test_switch_failure(tmp_path, temp_repos_dir, mock_config):
     """Test switch when git command fails."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=1,
                     stderr="error: pathspec 'nonexistent-branch' did not match any file(s) known to git",
@@ -256,12 +270,12 @@ def test_switch_failure(tmp_path, temp_repos_dir, mock_config):
 def test_verbose_flag_with_switch_command(tmp_path, temp_repos_dir, mock_config):
     """Test verbose flag with switch command."""
     with patch(
-        "dbx_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.switch.get_base_dir", return_value=temp_repos_dir
     ):
         with patch(
-            "dbx_python_cli.commands.switch.get_config", return_value=mock_config
+            "drivers_python_cli.commands.switch.get_config", return_value=mock_config
         ):
-            with patch("dbx_python_cli.commands.switch.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.switch.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stderr="")
                 result = runner.invoke(
                     app, ["-v", "switch", "mongo-python-driver", "main"]

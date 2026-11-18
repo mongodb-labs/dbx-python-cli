@@ -1,0 +1,366 @@
+# Drivers Python CLI Configuration
+# This is the default configuration file.
+# Copy this to ~/.config/drivers-python-cli/config.toml and customize as needed.
+
+# Default environment variables for Django projects
+[project.default_env]
+# MONGODB_URI: If not set, will automatically start MongoDB based on mongodb_backend setting
+# Uncomment and set this if you have MongoDB running elsewhere:
+# MONGODB_URI = "mongodb://localhost:27017"
+# Queryable Encryption support (set paths to your local builds)
+PYMONGOCRYPT_LIB = "~/Developer/mongodb/libmongocrypt/cmake-build/libmongocrypt.dylib"
+CRYPT_SHARED_LIB_PATH = "~/Downloads/mongo_crypt_shared_v1-macos-arm64-enterprise-8.3.2/lib/mongo_crypt_v1.dylib"
+
+# MongoDB backend configuration
+[project.mongodb]
+# Choose which MongoDB backend to use when MONGODB_URI is not set:
+# - "runner": Uses npx mongodb-runner (default, standard MongoDB)
+# - "docker": Uses Docker with official MongoDB images
+# - "atlas-local": Uses Docker with mongodb/mongodb-atlas-local image (includes Atlas Search & Vector Search)
+backend = "runner"
+
+# MongoDB edition (applies to both runner and docker backends)
+# - "community": MongoDB Community Server (default, free)
+# - "enterprise": MongoDB Enterprise Server (requires license)
+edition = "community"
+
+# Pass --setParameter enableTestCommands=1 to mongod (applies to runner and atlas-local backends)
+enable_test_commands = true
+
+# runner configuration (only used when backend = "runner")
+[project.mongodb.runner]
+# Topology type: "standalone", "replset", or "sharded"
+topology = "replset"
+# Number of shards (only for sharded topology)
+# shards = 2
+# Number of secondaries per replica set (for replset and sharded topologies)
+# secondaries = 2
+# Number of arbiters per replica set (for replset and sharded topologies)
+# arbiters = 0
+# Additional options to pass to mongodb-runner start
+# options = []
+
+# Docker configuration (only used when backend = "docker")
+[project.mongodb.docker]
+# Docker image to use (edition setting above determines community vs enterprise)
+# When edition = "community":
+#   - Default: "mongodb/mongodb-community-server"
+#   - Alternative: "mongo" (Docker Official Image)
+# When edition = "enterprise":
+#   - Default: "mongodb/mongodb-enterprise-server"
+# You can override by setting image explicitly:
+# image = "mongo"
+# Image tag (e.g., "latest", "8.0", "7.0", or specific version)
+tag = "latest"
+# Container name
+container_name = "dpy-mongodb"
+# Port to expose MongoDB on
+port = 27017
+# Replica set name (set this to run as a replica set instead of standalone)
+# replset = "rs0"
+# Additional docker run options (optional)
+# docker_options = ["--rm"]  # Uncomment to auto-remove container on stop
+
+# Atlas Local configuration (only used when backend = "atlas-local")
+[project.mongodb.atlas_local]
+# Docker image to use
+image = "mongodb/mongodb-atlas-local"
+# Image tag (e.g., "latest", "8.0", "7.0", "preview", or specific version like "8.0.17-20260218T161908Z")
+tag = "latest"
+# Container name
+container_name = "dpy-atlas-local"
+# Port to expose MongoDB on
+port = 27017
+# Additional docker run options (optional)
+# docker_options = ["--rm"]  # Uncomment to auto-remove container on stop
+
+[repo]
+base_dir = "~/Developer/mongodb"
+fork_user = "aclark4life"  # Change to your GitHub username for fork operations
+# Default Python version for virtual environments (can be overridden per group)
+python_version = "3.13"
+# Repos in these groups are installed into every other group's venv automatically
+global_groups = ["global"]
+# Priority ordering for groups when a repo exists in multiple groups
+# Higher priority groups are preferred when running commands without -g flag
+# Groups not listed have equal lower priority
+group_priority = ["pymongo", "django", "langchain"]
+# Set to true if repos live directly under base_dir instead of base_dir/<group>/<repo>
+flat = true
+# Default editor for all repos (can be overridden per group or per repo)
+editor = "vii"
+
+[repo.groups.global]
+repos = []
+
+[repo.groups.pymongo]
+# Python version for the group's virtual environment
+python_version = "3.13"
+repos = [
+    "git@github.com:mongodb/mongo-python-driver.git",
+    "git@github.com:mongodb/libmongocrypt.git",
+    "git@github.com:mongodb/specifications.git",
+    "git@github.com:mongodb-labs/mongo-arrow.git",
+    "git@github.com:mongodb/winkerberos.git",
+    "git@github.com:mongodb/motor.git",
+]
+# Automatically sync with upstream immediately after cloning
+sync_after_clone = ["mongo-python-driver"]
+
+# Environment variables for test runs
+[repo.groups.pymongo.test_env]
+mongo-python-driver = { DRIVERS_TOOLS = "{base_dir}/drivers-evergreen-tools", USE_ACTIVE_VENV = "1", COVERAGE = "1" }
+
+# Default extras to install automatically
+[repo.groups.pymongo.install_extras]
+mongo-python-driver = ["test"]
+
+# Build commands: specify commands to run before installing (e.g., rust builds)
+# Note: Rust build only works when the rust branch is checked out
+# [repo.groups.pymongo.build_commands]
+# mongo-python-driver = [
+#     "cd bson/_rbson && maturin build --release",
+# ]
+
+[repo.groups.pymongo.install_dirs]
+libmongocrypt = [
+    "bindings/python/",
+]
+
+[repo.groups.pymongo.build_commands]
+libmongocrypt = [
+    "mkdir -p cmake-build",
+    "cd cmake-build && cmake ..",
+    "cd cmake-build && make",
+]
+
+[repo.groups.langchain]
+repos = [
+    "git@github.com:mongodb-labs/pymongo-search-utils.git",
+    "git@github.com:langchain-ai/langchain-mongodb.git",
+    "git@github.com:WavEV/mlflow-mongodb.git",
+]
+
+# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
+# mlflow-mongodb is pinned to the WavEV fork, so --fork must not rewrite its owner.
+no_fork = ["mlflow-mongodb"]
+
+# Upstream remote URL for fork repos (added as `upstream` remote on clone)
+[repo.groups.langchain.upstream]
+mlflow-mongodb = "git@github.com:mongodb-developer/mlflow-mongodb.git"
+
+# Sub-directory configuration: specify install directories for repos with multiple packages
+[repo.groups.langchain.install_dirs]
+langchain-mongodb = [
+    "libs/langchain-mongodb/",
+    "libs/langgraph-checkpoint-mongodb/",
+    "libs/langgraph-store-mongodb/",
+]
+
+# Default dependency groups to install automatically (e.g., always install dev group)
+[repo.groups.langchain.install_groups]
+langchain-mongodb = ["dev"]
+
+[repo.groups.ci]
+repos = [
+    "git@github.com:mongodb-labs/drivers-evergreen-tools.git",
+    "git@github.com:mongodb-labs/drivers-github-tools.git",
+    "git@github.com:mongodb/mongo-orchestration.git",
+    "git@github.com:mongodb-labs/ai-ml-pipeline-testing.git",
+]
+
+[repo.groups.django]
+# Python version for the group's virtual environment (requires Python >= 3.12 for django-mongodb-backend)
+python_version = "3.13"
+repos = [
+    "git@github.com:mongodb-forks/django.git",
+    "git@github.com:mongodb-labs/django-mongodb-backend.git",
+    "git@github.com:mongodb-labs/django-mongodb-extensions.git",
+    "git@github.com:mongodb-labs/django-mongodb-project.git",
+]
+# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
+# Use this for repos that are already organisation forks rather than personal forks.
+no_fork = ["django"]
+# Automatically sync with upstream immediately after cloning
+sync_after_clone = ["django-mongodb-backend"]
+# Create a sibling `<repo>-upstream` git worktree after cloning, so the fork
+# and its upstream can both be developed from a single clone (one object store,
+# two working trees). The worktree checks out `upstream-<default branch>`.
+upstream_worktree = ["django"]
+
+# Upstream remote URL for fork repos (added as `upstream` remote on clone)
+# Use this when the group contains forks that need to track the original repo.
+[repo.groups.django.upstream]
+django = "git@github.com:django/django.git"
+django-mongodb-backend = "git@github.com:mongodb-labs/django-mongodb-backend.git"
+django-mongodb-extensions = "git@github.com:mongodb-labs/django-mongodb-extensions.git"
+
+# Upstream branch mapping: maps the local branch to the upstream branch to rebase against.
+# Required when the local branch name differs from the upstream branch (e.g. mongodb-6.0.x → stable/6.0.x).
+# Only branches whose upstream target currently exists are listed here. Add a branch once
+# Django cuts its stable/<version>.x branch; drop it once that upstream branch is deleted (EOL).
+# mongodb-6.2.x currently tracks Django's main branch (Django 6.2 is unreleased); switch it to
+# stable/6.2.x once Django cuts that branch.
+# Not currently mapped: mongodb-5.0.x / mongodb-5.1.x (upstream stable branches deleted, EOL).
+# Django applies security / data-loss fixes to the last two feature release branches plus any
+# supported LTS (docs/internals/release-process.txt), so with 6.1 released, stable/6.0.x and
+# stable/6.1.x are both still live. 6.0 is not an LTS (X.2 is: 5.2, then 6.2), so mongodb-6.0.x
+# stays mapped until Django 6.2 ships and stable/6.0.x is deleted.
+[repo.groups.django.upstream_branch]
+django = {"mongodb-6.2.x" = "main", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
+
+# Custom test runner configuration: specify test runner script for repos that don't use pytest
+[repo.groups.django.test_runner]
+django = "tests/runtests.py"
+
+# Default arguments passed to the custom test runner
+[repo.groups.django.test_runner_args]
+django = ["-v", "2"]
+
+# Preferred branch to switch to after cloning (runs `git switch <branch>` automatically)
+[repo.groups.django.preferred_branch]
+django = "mongodb-6.0.x"
+
+# Downstream repo (in this group) that is released from the synced fork. With
+# `dpy sync <repo> --all-branches --backport-report`, each mapped fork branch is
+# compared against the matching release tag in this repo (mongodb-5.2.x -> the highest
+# 5.2.* tag), and any upstream commits that landed after that release are reported,
+# labelled with the upstream dev cycle they were backported from. Off by default.
+[repo.groups.django.release_repo]
+django = "django-mongodb-backend"
+
+# Per-branch downstream CI to re-run after that branch rebases, but only when the
+# branch actually synced. Keyed by the synced repo, then by the fork branch; the
+# value maps each `owner/name` GitHub repo to a target that is either:
+#   * an integer PR number  — re-runs the workflow runs on that PR (needs an open
+#     PR with a prior run; updates the PR's own status checks), or
+#   * a string git ref      — dispatches the repo's `test-python*` workflows on
+#     that backend branch via workflow_dispatch (no PR needed; each backend branch
+#     pins the fork branch it tests via `ref:`, so the ref selects the fork branch), or
+#   * an object {pr = <n>, evergreen = true} — re-runs PR <n>'s workflow runs (as
+#     the bare integer does) AND re-triggers that PR's Evergreen patch by commenting
+#     `evergreen retry` on it (Evergreen, like Actions, pins the fork branch at a ref,
+#     so a rebased branch won't re-run it otherwise). Set evergreen = false / use the
+#     bare integer for Actions only.
+# A list may mix these forms.
+[repo.groups.django.ci_rerun.django]
+# PR 608 (INTPYTHON-1006 Update to Django 6.1) merged 2026-08-12, so backend main now
+# pins mongodb-6.1.x and the 6.0 line moved to the 6.0.x maintenance branch cut off main
+# just before that merge (per the backend's docs/internals/release-process.rst branch policy).
+"mongodb-6.0.x" = {"mongodb/django-mongodb-backend" = "6.0.x"}
+"mongodb-6.1.x" = {"mongodb/django-mongodb-backend" = "main"}
+# 607 (INTPYTHON-528 Backports for 5.2.4 LTS) merged 2026-08-21 with the 5.2.4 release;
+# 622 (INTPYTHON-1077 5.2.5 LTS backports) succeeds it as the 5.2.x head PR.
+"mongodb-5.2.x" = {"mongodb/django-mongodb-backend" = {pr = 622, evergreen = true}}
+# 535 was closed and superseded by 602 for the same head branch (django62).
+"mongodb-6.2.x" = {"mongodb/django-mongodb-backend" = {pr = 602, evergreen = true}}
+
+# Environment variables for test runs
+[repo.groups.django.test_env]
+
+[repo.groups.wagtail]
+repos = [
+    "git@github.com:wagtail/wagtail.git",
+    "git@github.com:mongodb-labs/wagtail-mongodb-project.git",
+]
+
+[repo.groups.fastapi]
+repos = [
+    "git@github.com:mongodb-labs/full-stack-fastapi-mongodb.git",
+    "git@github.com:aclark4life/create-mongo-app.git",
+    "git@github.com:mongodb/fastapi-pymongo.git",
+]
+
+[repo.groups.abx]
+repos = [
+    "git@github.com:mongodb-labs/abx-release-tools.git",
+    "git@github.com:mongodb/strands-mongodb.git",
+    "git@github.com:mongodb-developer/ms-agent-framework-mongodb.git",
+    "git@github.com:mongodb-developer/claude-agent-sdk-mongodb-session-store.git",
+]
+# No Python package: the repo holds GitHub Actions, docs, and scripts.
+skip_install = ["abx-release-tools"]
+
+[evergreen.mongo-python-driver]
+project_name = "mongo-python-driver"
+
+[evergreen.django-mongodb-backend]
+project_name = "django-mongodb-backend"
+
+[evergreen.libmongocrypt]
+project_name = "libmongocrypt"
+
+[evergreen.mongo-orchestration]
+project_name = "mongo-orchestration"
+
+[evergreen.ai-ml-pipeline-testing]
+project_name = "ai-ml-pipeline-testing"
+
+[repo.groups.demo]
+repos = [
+    "git@github.com:wagtail/bakerydemo.git",
+    "git@github.com:aclark4life/mflix.git",
+    "git@github.com:aclark4life/polls.git",
+    "git@github.com:aclark4life/medical-records.git",
+]
+
+[repo.groups.demo.sys_path]
+bakerydemo = true
+
+[repo.groups.django-thirdparty]
+# Python version for the group's virtual environment
+python_version = "3.13"
+repos = [
+    "git@github.com:pennersr/django-allauth.git",
+    "git@github.com:encode/django-rest-framework.git",
+    "git@github.com:jazzband/django-taggit.git",
+    "git@github.com:jazzband/django-debug-toolbar.git",
+]
+
+# Infrastructure requirements overlay. Public-safe facts only: tool names,
+# secret vault names, env var names, host constraints, links. Never secret
+# values. Consumed by `dpy infra list` and `dpy infra check`. Suite names
+# come from each repo's .evergreen/scripts/utils.py; this overlay adds the
+# facts that registry cannot express.
+[infra.mongo-python-driver]
+
+[infra.mongo-python-driver.release]
+links = { release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/285096294/Python+Driver+Release+Process" }
+
+[infra.mongo-python-driver.load_balancer]
+requires_tools = ["haproxy"]
+
+[infra.mongo-python-driver.auth_oidc]
+notes = "Types: default, azure, gcp, eks, aks, gke. eks needs drivers-test-secrets-role access."
+links = { aws-secrets = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/239737385/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets" }
+
+[infra.mongo-python-driver.kms]
+notes = "Local variants are expected to fail (e.g. kms azure-fail); remote variants pass (e.g. kms gcp)."
+
+[infra.mongo-python-driver.enterprise_auth]
+evergreen_only = true
+
+[infra.mongo-python-driver.atlas_connect]
+vaults = ["drivers/atlas_connect"]
+
+[infra.mongo-python-driver.search_index]
+notes = "Runs against a Search Index cluster in the Atlas QA drivers-testing project."
+links = { atlas-qa-admin = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/473895025/Atlas+QA+Admin" }
+
+[infra.mongo-python-driver.ocsp]
+env_names = ["ORCHESTRATION_FILE"]
+notes = "setup-tests starts the server; omit run-server for no-responder tests. MacOS and Windows servers do not staple OCSP and only support RSA."
+
+[infra.mongo-python-driver.aws_lambda]
+notes = "Needs drivers-test-secrets-role access (EKS, Lambda SAM, Bedrock)."
+links = { aws-secrets = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/239737385/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets" }
+
+[infra.mongo-python-driver.mod_wsgi]
+requires_tools = ["docker"]
+notes = "Linux: install apache2 and mod_wsgi, then just setup-tests mod_wsgi <mode>. Non-Linux: runs in an ubuntu container (no run-server step)."
+
+[infra.mongo-python-driver.perf]
+notes = "Start a perf server first, e.g. just run-server --version=v8.0-perf --ssl. Setup with sync or async."
+
+[infra.mongo-python-driver.fuzz]
+notes = "Fuzz tests run only in Evergreen builds."

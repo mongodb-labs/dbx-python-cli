@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -45,7 +45,7 @@ def temp_repos_dir(tmp_path):
 @pytest.fixture
 def mock_config(tmp_path, temp_repos_dir):
     """Create a mock config file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     # Convert path to use forward slashes for TOML compatibility on Windows
@@ -75,9 +75,9 @@ def test_just_help():
 def test_just_no_repo_name(tmp_path, temp_repos_dir, mock_config):
     """Test that just without repo name shows help."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just"])
             # Typer exits with code 2 when showing help due to no_args_is_help=True
             assert result.exit_code == 2
@@ -89,9 +89,9 @@ def test_just_no_repo_name(tmp_path, temp_repos_dir, mock_config):
 def test_just_repo_not_found(tmp_path, temp_repos_dir, mock_config):
     """Test that just with non-existent repo shows error."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just", "nonexistent-repo"])
             assert result.exit_code == 1
             # Error messages can be in stdout or stderr
@@ -105,9 +105,9 @@ def test_just_dot_from_repo_root(tmp_path, temp_repos_dir, mock_config, monkeypa
 
     monkeypatch.chdir(repo_dir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch(
-            "dbx_python_cli.commands.just.ensure_mongodb",
+            "drivers_python_cli.commands.just.ensure_mongodb",
             side_effect=lambda e, *a, **k: e,
         ):
             with patch("subprocess.run") as mock_run:
@@ -129,7 +129,7 @@ def test_just_dot_not_in_managed_repo(
     unrelated.mkdir()
     monkeypatch.chdir(unrelated)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["just", "."])
@@ -141,9 +141,9 @@ def test_just_dot_not_in_managed_repo(
 def test_just_no_justfile(tmp_path, temp_repos_dir, mock_config):
     """Test that just with repo without justfile shows warning."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just", "specifications"])
             assert result.exit_code == 1
             # Error messages can be in stdout or stderr
@@ -154,11 +154,11 @@ def test_just_no_justfile(tmp_path, temp_repos_dir, mock_config):
 def test_just_without_command(tmp_path, temp_repos_dir, mock_config):
     """Test running just without a command."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             with patch(
-                "dbx_python_cli.commands.just.ensure_mongodb",
+                "drivers_python_cli.commands.just.ensure_mongodb",
                 side_effect=lambda e, *a, **k: e,
             ):
                 with patch("subprocess.run") as mock_run:
@@ -174,11 +174,11 @@ def test_just_without_command(tmp_path, temp_repos_dir, mock_config):
 def test_just_with_command(tmp_path, temp_repos_dir, mock_config):
     """Test running just with a command."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             with patch(
-                "dbx_python_cli.commands.just.ensure_mongodb",
+                "drivers_python_cli.commands.just.ensure_mongodb",
                 side_effect=lambda e, *a, **k: e,
             ):
                 with patch("subprocess.run") as mock_run:
@@ -194,11 +194,11 @@ def test_just_with_command(tmp_path, temp_repos_dir, mock_config):
 def test_just_with_command_and_args(tmp_path, temp_repos_dir, mock_config):
     """Test running just with a command and arguments."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             with patch(
-                "dbx_python_cli.commands.just.ensure_mongodb",
+                "drivers_python_cli.commands.just.ensure_mongodb",
                 side_effect=lambda e, *a, **k: e,
             ):
                 with patch("subprocess.run") as mock_run:
@@ -216,11 +216,11 @@ def test_just_with_command_and_args(tmp_path, temp_repos_dir, mock_config):
 def test_verbose_flag_with_just_command(tmp_path, temp_repos_dir, mock_config):
     """Test that verbose flag shows detailed output."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             with patch(
-                "dbx_python_cli.commands.just.ensure_mongodb",
+                "drivers_python_cli.commands.just.ensure_mongodb",
                 side_effect=lambda e, *a, **k: e,
             ):
                 with patch("subprocess.run") as mock_run:
@@ -237,9 +237,9 @@ def test_verbose_flag_with_just_command(tmp_path, temp_repos_dir, mock_config):
 def test_just_list_shows_repos_with_justfiles(tmp_path, temp_repos_dir, mock_config):
     """Test that 'just list' shows repositories with justfiles."""
     with patch(
-        "dbx_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.just.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just", "list"])
             assert result.exit_code == 0
             output = strip_ansi(result.stdout)
@@ -265,8 +265,8 @@ def test_just_list_no_repos_with_justfiles(tmp_path):
     (repo1 / ".git").mkdir()
     # No justfile
 
-    with patch("dbx_python_cli.commands.just.get_base_dir", return_value=repos_dir):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+    with patch("drivers_python_cli.commands.just.get_base_dir", return_value=repos_dir):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just", "list"])
             assert result.exit_code == 0
             output = strip_ansi(result.stdout)
@@ -293,8 +293,8 @@ def test_just_list_multiple_repos(tmp_path):
     (repo2 / ".git").mkdir()
     (repo2 / "Justfile").write_text("lint:\n\techo lint\n")  # Capital J
 
-    with patch("dbx_python_cli.commands.just.get_base_dir", return_value=repos_dir):
-        with patch("dbx_python_cli.commands.just.get_config", return_value={}):
+    with patch("drivers_python_cli.commands.just.get_base_dir", return_value=repos_dir):
+        with patch("drivers_python_cli.commands.just.get_config", return_value={}):
             result = runner.invoke(app, ["just", "list"])
             assert result.exit_code == 0
             output = strip_ansi(result.stdout)

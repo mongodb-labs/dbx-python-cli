@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -78,7 +78,7 @@ def mock_config(tmp_path, temp_repos_dir):
 def test_remove_single_repo_with_confirmation_no(mock_config, temp_repos_dir):
     """Test removing a single repo with confirmation declined."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Simulate user saying "no" to confirmation
         result = runner.invoke(app, ["remove", "mongo-python-driver"], input="n\n")
@@ -92,7 +92,7 @@ def test_remove_single_repo_with_confirmation_no(mock_config, temp_repos_dir):
 def test_remove_single_repo_with_force(mock_config, temp_repos_dir):
     """Test removing a single repo with --force flag."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Options must come before positional arguments with allow_interspersed_args=False
         result = runner.invoke(app, ["remove", "--force", "mongo-python-driver"])
@@ -109,7 +109,7 @@ def test_remove_single_repo_with_force(mock_config, temp_repos_dir):
 def test_remove_multiple_repos_with_force(mock_config, temp_repos_dir):
     """Test removing multiple repos with --force flag."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         result = runner.invoke(
             app,
@@ -126,7 +126,7 @@ def test_remove_multiple_repos_with_force(mock_config, temp_repos_dir):
 def test_remove_group_with_confirmation_yes(mock_config, temp_repos_dir):
     """Test removing all repos in a group with confirmation accepted."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Simulate user saying "yes" to confirmation
         result = runner.invoke(app, ["remove", "-g", "django"], input="y\n")
@@ -141,7 +141,7 @@ def test_remove_group_with_confirmation_yes(mock_config, temp_repos_dir):
 def test_remove_group_with_force(mock_config, temp_repos_dir):
     """Test removing all repos in a group with --force flag."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         result = runner.invoke(app, ["remove", "-g", "pymongo", "--force"])
         assert result.exit_code == 0
@@ -156,20 +156,20 @@ def test_remove_group_with_force(mock_config, temp_repos_dir):
 def test_remove_nonexistent_repo(mock_config):
     """Test removing a non-existent repo."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         result = runner.invoke(app, ["remove", "nonexistent"])
         assert result.exit_code == 1
         stderr = strip_ansi(result.stderr)
         stdout = strip_ansi(result.stdout)
         assert "Repository 'nonexistent' not found" in stderr
-        assert "dbx list" in stdout
+        assert "dpy list" in stdout
 
 
 def test_remove_nonexistent_group(mock_config):
     """Test removing repos from a non-existent group."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         result = runner.invoke(app, ["remove", "-g", "nonexistent"])
         assert result.exit_code == 1
@@ -180,7 +180,7 @@ def test_remove_nonexistent_group(mock_config):
 def test_remove_no_args(mock_config):
     """Test remove command without arguments shows help."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         result = runner.invoke(app, ["remove"])
         # With no_args_is_help=True, shows help with exit code 2
@@ -199,7 +199,7 @@ def test_remove_repo_with_group_flag(mock_config, temp_repos_dir):
     (duplicate_repo / ".git").mkdir()
 
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Remove from langchain group specifically
         # Options must come before positional arguments with allow_interspersed_args=False
@@ -224,7 +224,7 @@ def test_remove_repo_in_multiple_groups_warning(mock_config, temp_repos_dir):
     (duplicate_repo / ".git").mkdir()
 
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Remove without -G flag should warn
         result = runner.invoke(app, ["remove", "--force", "mongo-python-driver"])
@@ -237,7 +237,7 @@ def test_remove_repo_in_multiple_groups_warning(mock_config, temp_repos_dir):
 def test_remove_both_repo_and_group_flag_error(mock_config):
     """Test error when specifying both repo names and -g flag."""
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         # Options must come before positional arguments with allow_interspersed_args=False
         result = runner.invoke(app, ["remove", "-g", "pymongo", "mongo-python-driver"])
@@ -250,7 +250,7 @@ def test_remove_clone_also_removes_its_worktrees(mock_config, temp_repos_dir):
     """Removing a primary clone must take its linked worktrees with it.
 
     A worktree's .git file points into the clone's object store, so deleting the
-    clone alone left a directory where every git command fails and which no dbx
+    clone alone left a directory where every git command fails and which no dpy
     command could clean up.
     """
     clone = temp_repos_dir / "django" / "django-mongodb-backend"
@@ -265,20 +265,20 @@ def test_remove_clone_also_removes_its_worktrees(mock_config, temp_repos_dir):
         return True, ""
 
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         with patch(
-            "dbx_python_cli.commands.remove.list_worktrees",
+            "drivers_python_cli.commands.remove.list_worktrees",
             return_value=[
                 {"path": clone, "branch": "main", "head": None, "bare": False},
                 {"path": worktree, "branch": "upstream", "head": None, "bare": False},
             ],
         ):
             with patch(
-                "dbx_python_cli.commands.remove.remove_worktree",
+                "drivers_python_cli.commands.remove.remove_worktree",
                 side_effect=fake_remove_worktree,
             ):
-                with patch("dbx_python_cli.commands.remove.prune_worktrees"):
+                with patch("drivers_python_cli.commands.remove.prune_worktrees"):
                     with patch("shutil.rmtree") as mock_rmtree:
                         result = runner.invoke(
                             app, ["remove", "-f", "django-mongodb-backend"]
@@ -303,20 +303,20 @@ def test_remove_skips_clone_when_its_worktree_cannot_be_removed(
     (worktree / ".git").write_text(f"gitdir: {clone}/.git/worktrees/upstream\n")
 
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
         with patch(
-            "dbx_python_cli.commands.remove.list_worktrees",
+            "drivers_python_cli.commands.remove.list_worktrees",
             return_value=[
                 {"path": clone, "branch": "main", "head": None, "bare": False},
                 {"path": worktree, "branch": "upstream", "head": None, "bare": False},
             ],
         ):
             with patch(
-                "dbx_python_cli.commands.remove.remove_worktree",
+                "drivers_python_cli.commands.remove.remove_worktree",
                 return_value=(False, "worktree contains modified files"),
             ):
-                with patch("dbx_python_cli.commands.remove.prune_worktrees"):
+                with patch("drivers_python_cli.commands.remove.prune_worktrees"):
                     with patch("shutil.rmtree") as mock_rmtree:
                         result = runner.invoke(
                             app, ["remove", "-f", "django-mongodb-backend"]
@@ -340,9 +340,11 @@ def test_remove_group_lists_non_repo_contents_before_deleting(
     group_venv.mkdir()
 
     with patch(
-        "dbx_python_cli.commands.remove.repo.get_config", return_value=mock_config
+        "drivers_python_cli.commands.remove.repo.get_config", return_value=mock_config
     ):
-        with patch("dbx_python_cli.commands.remove.list_worktrees", return_value=[]):
+        with patch(
+            "drivers_python_cli.commands.remove.list_worktrees", return_value=[]
+        ):
             result = runner.invoke(app, ["remove", "-g", "pymongo", "--dry-run"])
 
     output = strip_ansi(result.stdout)

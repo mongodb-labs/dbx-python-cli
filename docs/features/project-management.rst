@@ -1,7 +1,7 @@
 Project Management
 ==================
 
-The ``dbx project`` command provides tools for creating and managing Django projects with MongoDB backend support.
+The ``dpy project`` command provides tools for creating and managing Django projects with MongoDB backend support.
 
 Overview
 --------
@@ -14,7 +14,7 @@ Projects are Django applications created from bundled templates that include:
 - Justfile for common development tasks
 - Pre-generated migrations for Django's built-in apps
 
-Projects are created in ``base_dir/projects/`` by default, where ``base_dir`` is configured in your ``~/.config/dbx-python-cli/config.toml`` file.
+Projects are created in ``base_dir/projects/`` by default, where ``base_dir`` is configured in your ``~/.config/drivers-python-cli/config.toml`` file.
 
 Newest Project Default
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -29,12 +29,12 @@ The "newest" project is determined by the most recently modified project directo
 
 Commands that support this behavior:
 
-- ``dbx project run`` - Run the Django development server
-- ``dbx project remove`` - Remove a project
-- ``dbx project manage`` - Run Django management commands
-- ``dbx project migrate`` - Run Django migrations
-- ``dbx project su`` - Create a superuser
-- ``dbx project edit`` - Open the project's settings files in an editor
+- ``dpy project run`` - Run the Django development server
+- ``dpy project remove`` - Remove a project
+- ``dpy project manage`` - Run Django management commands
+- ``dpy project migrate`` - Run Django migrations
+- ``dpy project su`` - Create a superuser
+- ``dpy project edit`` - Open the project's settings files in an editor
 
 This feature is particularly useful during active development when you're frequently working with the same project.
 
@@ -46,36 +46,36 @@ Create a new Django project with the ``add`` command:
 .. code-block:: bash
 
    # Create a project with explicit name (includes frontend by default)
-   dbx project add myproject
+   dpy project add myproject
 
    # Create without frontend
-   dbx project add myproject --no-frontend
+   dpy project add myproject --no-frontend
 
    # Generate a random project name (omit the name argument)
-   dbx project add
+   dpy project add
 
    # Create in a custom directory
-   dbx project add myproject -d ~/custom/path
+   dpy project add myproject -d ~/custom/path
 
    # Enable Wagtail CMS
-   dbx project add myproject --wagtail
+   dpy project add myproject --wagtail
 
    # Enable Wagtail with the official bakerydemo content apps
-   dbx project add myproject --wagtail --bakerydemo
+   dpy project add myproject --wagtail --bakerydemo
 
    # Enable Queryable Encryption
-   dbx project add myproject --qe
+   dpy project add myproject --qe
 
    # Stack flags: Wagtail + QE
-   dbx project add myproject --wagtail --qe
+   dpy project add myproject --wagtail --qe
 
    # Install local clones into the project venv after creation
-   dbx project add myproject --with medical-records
-   dbx project add myproject --with django --with django-mongodb-extensions
+   dpy project add myproject --with medical-records
+   dpy project add myproject --with django --with django-mongodb-extensions
 
 Omitting the project name generates a random name from adjectives and nouns (e.g., ``swift_seal``, ``brave_eagle``).
 
-If no virtual environment exists when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level and Django is installed into it before scaffolding begins.
+If no virtual environment exists when ``dpy project add`` runs, one is created automatically at the ``projects/`` group level and Django is installed into it before scaffolding begins.
 
 Project Structure
 -----------------
@@ -111,19 +111,19 @@ A generated project includes:
 Installing Projects
 -------------------
 
-Projects can be installed using the standard ``dbx install`` command:
+Projects can be installed using the standard ``dpy install`` command:
 
 .. code-block:: bash
 
    # Install a project (automatically finds it in base_dir/projects/)
-   dbx install myproject
+   dpy install myproject
 
 This will:
 
 1. Install the project's Python dependencies using pip
 2. Automatically detect and install frontend npm dependencies if a ``frontend/`` directory with ``package.json`` exists
 
-The ``dbx install`` command now supports frontend installation for both projects and regular repositories. If a ``frontend/`` directory is detected with a ``package.json`` file, npm dependencies will be installed automatically after the Python package installation completes.
+The ``dpy install`` command now supports frontend installation for both projects and regular repositories. If a ``frontend/`` directory is detected with a ``package.json`` file, npm dependencies will be installed automatically after the Python package installation completes.
 
 .. _wagtail-init:
 
@@ -134,7 +134,7 @@ After running ``migrate`` on a Wagtail project, run the ``init`` management comm
 
 .. code-block:: bash
 
-   dbx project manage <project_name> init
+   dpy project manage <project_name> init
 
 This is necessary because ``MIGRATION_MODULES`` redirects Wagtail's migrations to in-project stub packages, so Wagtail's own data migrations — which normally create the root ``Page`` and default ``Site`` — never run. The ``init`` command recreates them programmatically.
 
@@ -206,7 +206,7 @@ After switching the import:
 
    .. code-block:: bash
 
-      dbx project migrate <project_name>
+      dpy project migrate <project_name>
 
 The custom app configurations in ``apps.py`` automatically detect which database backend is configured and use the appropriate ``default_auto_field``:
 
@@ -248,16 +248,16 @@ Run a Django project's development server with the ``run`` command:
 .. code-block:: bash
 
    # Run the newest project (no name required)
-   dbx project run
+   dpy project run
 
    # Run a specific project
-   dbx project run myproject
+   dpy project run myproject
 
    # Run with custom host and port
-   dbx project run myproject --host 0.0.0.0 --port 8080
+   dpy project run myproject --host 0.0.0.0 --port 8080
 
    # Run with custom MongoDB URI
-   dbx project run myproject --mongodb-uri mongodb://localhost:27017
+   dpy project run myproject --mongodb-uri mongodb://localhost:27017
 
 This will:
 
@@ -278,16 +278,16 @@ Run Django management commands with the ``manage`` command:
 .. code-block:: bash
 
    # Run shell on the newest project (no name required)
-   dbx project manage shell
+   dpy project manage shell
 
    # Run migrations on a specific project
-   dbx project manage myproject migrate
+   dpy project manage myproject migrate
 
    # Create migrations
-   dbx project manage myproject makemigrations
+   dpy project manage myproject makemigrations
 
    # Run with MongoDB URI
-   dbx project manage myproject --mongodb-uri mongodb://localhost:27017 shell
+   dpy project manage myproject --mongodb-uri mongodb://localhost:27017 shell
 
 Editing Settings
 ----------------
@@ -297,14 +297,14 @@ Open the project's settings files in your default editor with the ``edit`` comma
 .. code-block:: bash
 
    # Open all settings files for the newest project
-   dbx project edit
+   dpy project edit
 
    # Open all settings files for a specific project
-   dbx project edit myproject
+   dpy project edit myproject
 
    # Open a single settings file by name
-   dbx project edit myproject --settings base
-   dbx project edit myproject -s qe
+   dpy project edit myproject --settings base
+   dpy project edit myproject -s qe
 
 By default all ``.py`` files in the project's ``settings/`` directory (excluding ``__init__.py``) are opened together in one editor invocation. Pass ``--settings <name>`` to open only that file.
 
@@ -313,10 +313,10 @@ The editor is determined by the ``EDITOR`` environment variable. If ``EDITOR`` i
 .. code-block:: bash
 
    # Use VS Code
-   EDITOR=code dbx project edit myproject
+   EDITOR=code dpy project edit myproject
 
    # Use a specific settings file
-   EDITOR=nano dbx project edit myproject -s qe
+   EDITOR=nano dpy project edit myproject -s qe
 
 Creating Superusers
 -------------------
@@ -326,16 +326,16 @@ Create a Django superuser with the ``su`` command:
 .. code-block:: bash
 
    # Create superuser on the newest project (no name required)
-   dbx project su
+   dpy project su
 
    # Create superuser on a specific project
-   dbx project su myproject
+   dpy project su myproject
 
    # Create with custom credentials
-   dbx project su myproject -u admin -p secretpass -e admin@example.com
+   dpy project su myproject -u admin -p secretpass -e admin@example.com
 
    # Create with custom MongoDB URI
-   dbx project su myproject --mongodb-uri mongodb://localhost:27017
+   dpy project su myproject --mongodb-uri mongodb://localhost:27017
 
 The default username and password are both ``admin``. The email defaults to the ``PROJECT_EMAIL`` environment variable or ``admin@example.com`` if not set.
 
@@ -347,19 +347,19 @@ Run Django migrations with the ``migrate`` command:
 .. code-block:: bash
 
    # Run migrations on the newest project (no name required)
-   dbx project migrate
+   dpy project migrate
 
    # Run migrations on a specific project
-   dbx project migrate myproject
+   dpy project migrate myproject
 
    # Run migrations with custom settings
-   dbx project migrate myproject --settings base
+   dpy project migrate myproject --settings base
 
    # Run migrations on a specific database
-   dbx project migrate myproject --database encrypted
+   dpy project migrate myproject --database encrypted
 
    # Run migrations with custom MongoDB URI
-   dbx project migrate myproject --mongodb-uri mongodb://localhost:27017
+   dpy project migrate myproject --mongodb-uri mongodb://localhost:27017
 
 This is a convenience command that wraps ``django-admin migrate`` with the same environment setup as other project commands.
 
@@ -371,13 +371,13 @@ Remove a project with the ``remove`` command:
 .. code-block:: bash
 
    # Remove the newest project (no name required)
-   dbx project remove
+   dpy project remove
 
    # Remove a specific project
-   dbx project remove myproject
+   dpy project remove myproject
 
    # Remove from custom directory
-   dbx project remove myproject -d ~/custom/path
+   dpy project remove myproject -d ~/custom/path
 
 This will:
 
@@ -394,20 +394,20 @@ Database deletion is non-fatal — if the database cannot be reached the warning
 Installing Local Clones
 -----------------------
 
-The ``--with`` flag installs one or more local clones (managed by ``dbx clone``) as editable packages into the project venv immediately after project creation:
+The ``--with`` flag installs one or more local clones (managed by ``dpy clone``) as editable packages into the project venv immediately after project creation:
 
 .. code-block:: bash
 
    # Install a single local clone
-   dbx project add myproject --with medical-records
+   dpy project add myproject --with medical-records
 
    # Install multiple local clones
-   dbx project add myproject --with django --with django-mongodb-extensions
+   dpy project add myproject --with django --with django-mongodb-extensions
 
    # Combine with other flags
-   dbx project add myproject --wagtail --with medical-records
+   dpy project add myproject --wagtail --with medical-records
 
-Each ``--with`` value is looked up by name using the same discovery logic as ``dbx install`` (respecting group priority from your config). If the clone is not found locally but the repo name appears in your config groups, it is cloned automatically before installation. If it cannot be found or cloned, a warning is printed and that repo is skipped — the project is still created successfully.
+Each ``--with`` value is looked up by name using the same discovery logic as ``dpy install`` (respecting group priority from your config). If the clone is not found locally but the repo name appears in your config groups, it is cloned automatically before installation. If it cannot be found or cloned, a warning is printed and that repo is skipped — the project is still created successfully.
 
 This is useful when you want to develop against a local fork or in-progress version of a library rather than the PyPI release. For a dependency already in ``pyproject.toml`` (e.g. ``django-mongodb-extensions``), specifying ``--with`` reinstalls it from the local clone, overriding the PyPI version.
 
@@ -419,20 +419,20 @@ Projects use a shared virtual environment in the ``projects/`` directory:
 .. code-block:: bash
 
    # Create a virtual environment for all projects
-   dbx env init -g projects
+   dpy env init -g projects
 
    # List all virtual environments
-   dbx env list
+   dpy env list
 
    # Show which virtual environment is selected for a repo or the current directory
-   dbx env status
-   dbx env status mongo-python-driver
+   dpy env status
+   dpy env status mongo-python-driver
 
-``dbx env status`` walks the full venv resolution chain — repo-level → group-level → base-level →
+``dpy env status`` walks the full venv resolution chain — repo-level → group-level → base-level →
 activated venv — and marks the selected environment with ``← selected (Python X.Y.Z)``. This is
 useful for diagnosing which venv a command will actually use.
 
-**Auto-creation**: If no virtual environment is found when ``dbx project add`` runs, one is created automatically at the ``projects/`` group level (``base_dir/projects/.venv``) and Django is bootstrapped into it before project scaffolding begins. You do not need to run ``dbx env init`` manually before your first ``dbx project add``.
+**Auto-creation**: If no virtual environment is found when ``dpy project add`` runs, one is created automatically at the ``projects/`` group level (``base_dir/projects/.venv``) and Django is bootstrapped into it before project scaffolding begins. You do not need to run ``dpy env init`` manually before your first ``dpy project add``.
 
 **Python version**: The venv is always created using the Python version specified by ``python_version`` in your config (e.g. ``3.13``). If an existing group venv is found but its Python version does not match the configured version, a fresh project-specific venv is created with the correct version instead.
 
@@ -455,7 +455,7 @@ With this configuration, projects will be created in ``~/Developer/mongodb/proje
 Environment Variables
 ---------------------
 
-Project commands automatically set environment variables from your ``~/.config/dbx-python-cli/config.toml`` file. The default configuration includes:
+Project commands automatically set environment variables from your ``~/.config/drivers-python-cli/config.toml`` file. The default configuration includes:
 
 .. code-block:: toml
 
@@ -474,10 +474,10 @@ These environment variables are automatically used by the ``run``, ``manage``, `
 .. code-block:: bash
 
    # Override MongoDB URI
-   dbx project run myproject --mongodb-uri mongodb://custom-host:27017
+   dpy project run myproject --mongodb-uri mongodb://custom-host:27017
 
    # Environment variables from config are used if not overridden
-   dbx project migrate myproject
+   dpy project migrate myproject
 
 Automatic MongoDB Startup
 -------------------------
@@ -515,7 +515,7 @@ If ``MONGODB_URI`` is not set in your environment or config, the CLI will automa
    ❌ mongodb-runner failed to start: <error message>
    no db running
 
-This feature makes it easy to get started with Django + MongoDB projects without manually configuring a database. Simply run ``dbx project run`` and the CLI will handle the rest.
+This feature makes it easy to get started with Django + MongoDB projects without manually configuring a database. Simply run ``dpy project run`` and the CLI will handle the rest.
 
 .. note::
 
@@ -542,7 +542,7 @@ Queryable Encryption Support
 Automatic Setup with ``--qe``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When you run ``dbx project add --qe``, the CLI now:
+When you run ``dpy project add --qe``, the CLI now:
 
 1. Clones ``libmongocrypt`` from the ``pymongocrypt`` group if it is not
    already present at ``base_dir/libmongocrypt``.
@@ -557,7 +557,7 @@ When you run ``dbx project add --qe``, the CLI now:
    ``crypt_shared`` library must be downloaded manually from
    https://www.mongodb.com/try/download/enterprise.
 
-At ``dbx project run`` / ``migrate`` time, when an ``encrypted`` database is
+At ``dpy project run`` / ``migrate`` time, when an ``encrypted`` database is
 configured in settings, missing QE env vars become a fatal error so the
 problem surfaces before Django tries to connect.
 
@@ -606,7 +606,7 @@ Projects include commented configuration for MongoDB Queryable Encryption (QE) i
           ]
       )
 
-3. **Ensure environment variables are set** in your ``~/.config/dbx-python-cli/config.toml``:
+3. **Ensure environment variables are set** in your ``~/.config/drivers-python-cli/config.toml``:
 
    - ``PYMONGOCRYPT_LIB``: Path to the libmongocrypt shared library
    - ``CRYPT_SHARED_LIB_PATH``: Path to the MongoDB Automatic Encryption Shared Library
@@ -617,15 +617,15 @@ Projects include commented configuration for MongoDB Queryable Encryption (QE) i
    .. code-block:: bash
 
       # Install libmongocrypt (includes cmake build step)
-      dbx install libmongocrypt
+      dpy install libmongocrypt
 
-The ``dbx install`` command will automatically run the cmake build commands configured in ``config.toml`` to build the libmongocrypt C library.
+The ``dpy install`` command will automatically run the cmake build commands configured in ``config.toml`` to build the libmongocrypt C library.
 
 .. note::
 
    **Queryable Encryption Requirements:**
 
    - MongoDB 7.0+ (replica set or sharded cluster)
-   - libmongocrypt C library (built via ``dbx install libmongocrypt``)
+   - libmongocrypt C library (built via ``dpy install libmongocrypt``)
    - MongoDB Automatic Encryption Shared Library (download from MongoDB)
    - pymongocrypt Python package (installed automatically with django-mongodb-backend)

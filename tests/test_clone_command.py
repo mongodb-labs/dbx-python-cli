@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -36,7 +36,7 @@ def _make_config(tmp_path, global_groups=None, extra_groups=None):
 
 def test_clone_no_args_shows_error():
     """Test that clone with no arguments shows an error."""
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value={}):
+    with patch("drivers_python_cli.commands.clone.repo.get_config", return_value={}):
         result = runner.invoke(app, ["clone"])
         assert result.exit_code != 0
 
@@ -47,7 +47,9 @@ def test_clone_nonexistent_group(tmp_path):
         tmp_path,
         extra_groups={"pymongo": ["git@github.com:mongodb/specifications.git"]},
     )
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         result = runner.invoke(app, ["clone", "-g", "nonexistent"])
         assert result.exit_code == 1
         assert "not found" in result.stdout or "not found" in (result.stderr or "")
@@ -68,7 +70,9 @@ def test_clone_group_includes_global_repos(tmp_path):
         },
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -95,7 +99,9 @@ def test_clone_group_global_repos_cloned_into_target_dir(tmp_path):
         extra_groups={"pymongo": ["git@github.com:mongodb/specifications.git"]},
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -120,7 +126,9 @@ def test_clone_group_no_global_groups_configured(tmp_path):
         extra_groups={"pymongo": ["git@github.com:mongodb/specifications.git"]},
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -154,7 +162,9 @@ def test_clone_switches_to_preferred_branch(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -183,7 +193,9 @@ def test_clone_no_switch_when_preferred_branch_not_configured(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -220,7 +232,9 @@ def test_clone_branch_switch_failure_is_non_fatal(tmp_path):
             mock.stderr = ""
         return mock
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run", side_effect=_mock_run):
             result = runner.invoke(app, ["clone", "-g", "django", "--no-install"])
             # Clone itself should still succeed
@@ -248,7 +262,9 @@ def test_clone_switches_to_preferred_branch_when_already_cloned(tmp_path):
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -271,7 +287,9 @@ def test_clone_global_group_itself_not_doubled(tmp_path):
         global_groups={"global": ["git@github.com:mongodb/mongo-python-driver.git"]},
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -302,7 +320,9 @@ def test_clone_global_repo_by_name_uses_first_group(tmp_path):
     # Add group_priority to config
     config["repo"]["group_priority"] = ["pymongo", "django"]
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -340,7 +360,9 @@ def test_clone_all_groups(tmp_path):
         },
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -379,7 +401,9 @@ def test_clone_all_groups_with_global_repos(tmp_path):
         },
     )
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -412,7 +436,7 @@ def test_clone_all_groups_with_global_repos(tmp_path):
 
 
 def test_clone_syncs_when_sync_after_clone_configured(tmp_path):
-    """After a successful clone, dbx sync runs when sync_after_clone lists the repo."""
+    """After a successful clone, dpy sync runs when sync_after_clone lists the repo."""
     config = {
         "repo": {
             "base_dir": str(tmp_path),
@@ -425,10 +449,14 @@ def test_clone_syncs_when_sync_after_clone_configured(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
-            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+            with patch(
+                "drivers_python_cli.commands.sync._sync_repository"
+            ) as mock_sync:
                 mock_sync.return_value = "synced"
 
                 result = runner.invoke(app, ["clone", "-g", "pymongo", "--no-install"])
@@ -440,7 +468,7 @@ def test_clone_syncs_when_sync_after_clone_configured(tmp_path):
 
 
 def test_clone_no_sync_when_not_configured(tmp_path):
-    """dbx sync is NOT run after cloning when sync_after_clone is not configured."""
+    """dpy sync is NOT run after cloning when sync_after_clone is not configured."""
     config = {
         "repo": {
             "base_dir": str(tmp_path),
@@ -452,10 +480,14 @@ def test_clone_no_sync_when_not_configured(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
-            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+            with patch(
+                "drivers_python_cli.commands.sync._sync_repository"
+            ) as mock_sync:
                 result = runner.invoke(app, ["clone", "-g", "pymongo", "--no-install"])
                 assert result.exit_code == 0
                 mock_sync.assert_not_called()
@@ -475,10 +507,14 @@ def test_clone_no_sync_flag_overrides_config(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
-            with patch("dbx_python_cli.commands.sync._sync_repository") as mock_sync:
+            with patch(
+                "drivers_python_cli.commands.sync._sync_repository"
+            ) as mock_sync:
                 result = runner.invoke(
                     app,
                     ["clone", "-g", "pymongo", "--no-install", "--no-sync"],
@@ -496,7 +532,9 @@ def test_clone_all_groups_empty_config(tmp_path):
         }
     }
 
-    with patch("dbx_python_cli.commands.clone.repo.get_config", return_value=config):
+    with patch(
+        "drivers_python_cli.commands.clone.repo.get_config", return_value=config
+    ):
         result = runner.invoke(app, ["clone", "-a"])
         assert result.exit_code != 0
         output = result.stdout + (result.stderr or "")

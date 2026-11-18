@@ -1,7 +1,7 @@
 Overview
 ========
 
-This page provides a high-level overview of dbx-python-cli's features and capabilities.
+This page provides a high-level overview of drivers-python-cli's features and capabilities.
 
 Core Features
 -------------
@@ -70,11 +70,11 @@ See :doc:`../features/just-commands` for details.
 Command Structure
 -----------------
 
-dbx-python-cli uses a hierarchical command structure:
+drivers-python-cli uses a hierarchical command structure:
 
 .. code-block:: text
 
-   dbx [global-options] <command> [command-options] [arguments]
+   dpy [global-options] <command> [command-options] [arguments]
 
 Global Options
 ~~~~~~~~~~~~~~
@@ -121,10 +121,15 @@ Configuration
 Configuration File
 ~~~~~~~~~~~~~~~~~~
 
-dbx-python-cli uses a TOML configuration file located at:
+drivers-python-cli uses a TOML configuration file located at:
 
-- **macOS/Linux**: ``~/.config/dbx-python-cli/config.toml``
-- **Windows**: ``%APPDATA%\dbx-python-cli\config.toml``
+- **macOS/Linux**: ``~/.config/drivers-python-cli/config.toml``
+- **Windows**: ``%APPDATA%\drivers-python-cli\config.toml``
+
+The tool was previously named ``dbx-python-cli`` with the ``dbx`` command.
+An existing ``~/.config/dbx-python-cli/config.toml`` is still read as a
+fallback. To migrate, copy it to the new location; ``dpy config show``
+reports which file is in use.
 
 Example configuration:
 
@@ -172,7 +177,7 @@ Typical directory structure after setup:
    ~/Developer/mongodb/              # base_dir
    ├── projects/                     # Django projects
    │   ├── .venv/                    # Shared venv for all projects
-   │   ├── myproject/               # Created with dbx project add
+   │   ├── myproject/               # Created with dpy project add
    │   └── another_project/
    ├── pymongo/                      # Group directory
    │   ├── .venv/                    # Group-level virtual environment
@@ -212,7 +217,7 @@ live directly under ``base_dir`` instead of in per-group subdirectories:
    ├── mongo-python-driver/          # pymongo group repo
    └── django-mongodb-backend/       # django group repo
 
-In flat mode ``dbx list`` still shows repos grouped by their config group in a
+In flat mode ``dpy list`` still shows repos grouped by their config group in a
 tree view, and all group-aware commands (``-g``, install, test) continue to work
 normally — group membership is resolved from the config rather than the directory
 structure.
@@ -238,7 +243,7 @@ Design Philosophy
 Technology Stack
 ----------------
 
-dbx-python-cli is built with:
+drivers-python-cli is built with:
 
 - **CLI Framework**: `Typer <https://typer.tiangolo.com/>`_ - Modern, intuitive CLI framework
 - **Package Manager**: `uv <https://github.com/astral-sh/uv>`_ - Ultra-fast Python package installer
@@ -251,7 +256,7 @@ dbx-python-cli is built with:
 Next Steps
 ----------
 
-- :doc:`installation` - Install dbx-python-cli
+- :doc:`installation` - Install drivers-python-cli
 - :doc:`quick-start` - Get started with a quick tutorial
 - :doc:`../features/index` - Explore all features in detail
 - :doc:`../development/index` - Contribute to the project

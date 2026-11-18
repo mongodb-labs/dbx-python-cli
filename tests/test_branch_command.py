@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -49,7 +49,7 @@ def temp_repos_dir(tmp_path):
 @pytest.fixture
 def mock_config(tmp_path, temp_repos_dir):
     """Create a mock config file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
     # Convert path to use forward slashes for TOML compatibility on Windows
@@ -79,9 +79,9 @@ def test_branch_help():
 def test_branch_no_repo_name(tmp_path, temp_repos_dir, mock_config):
     """Test that branch without repo name shows help."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             result = runner.invoke(app, ["branch"])
             # Typer exits with code 2 when showing help due to no_args_is_help=True
             assert result.exit_code == 2
@@ -93,9 +93,9 @@ def test_branch_no_repo_name(tmp_path, temp_repos_dir, mock_config):
 def test_branch_repo_not_found(tmp_path, temp_repos_dir, mock_config):
     """Test that branch with non-existent repo shows error."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             result = runner.invoke(app, ["branch", "nonexistent-repo"])
             assert result.exit_code == 1
             # Error messages can be in stdout or stderr
@@ -106,9 +106,9 @@ def test_branch_repo_not_found(tmp_path, temp_repos_dir, mock_config):
 def test_branch_without_args(tmp_path, temp_repos_dir, mock_config):
     """Test running branch without arguments."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 result = runner.invoke(app, ["branch", "mongo-python-driver"])
@@ -122,9 +122,9 @@ def test_branch_without_args(tmp_path, temp_repos_dir, mock_config):
 def test_branch_with_args(tmp_path, temp_repos_dir, mock_config):
     """Test running branch with arguments (use -r for remote branches)."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 result = runner.invoke(app, ["branch", "mongo-python-driver", "-r"])
@@ -151,11 +151,13 @@ def test_branch_with_group(tmp_path, temp_repos_dir, mock_config):
         }
     }
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
@@ -177,11 +179,13 @@ def test_branch_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
         }
     }
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 result = runner.invoke(app, ["branch", "-g", "nonexistent"])
@@ -193,9 +197,9 @@ def test_branch_with_nonexistent_group(tmp_path, temp_repos_dir, mock_config):
 def test_verbose_flag_with_branch_command(tmp_path, temp_repos_dir, mock_config):
     """Test that verbose flag shows detailed output and all branches."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 result = runner.invoke(app, ["-v", "branch", "mongo-python-driver"])
@@ -211,7 +215,7 @@ def test_verbose_flag_with_branch_command(tmp_path, temp_repos_dir, mock_config)
 def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
     """Test that --all-repos triggers all-groups mode.
 
-    -a is deliberately *not* claimed by dbx: it belongs to git branch and is
+    -a is deliberately *not* claimed by dpy: it belongs to git branch and is
     passed straight through (see test_branch_dash_a_is_passed_through_to_git).
     """
     config = {
@@ -225,15 +229,18 @@ def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
         }
     }
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch(
-                    "dbx_python_cli.commands.branch.get_global_groups", return_value=[]
+                    "drivers_python_cli.commands.branch.get_global_groups",
+                    return_value=[],
                 ):
                     with patch("subprocess.run") as mock_run:
                         mock_run.return_value = MagicMock(
@@ -247,11 +254,11 @@ def test_branch_with_all_flag(tmp_path, temp_repos_dir, mock_config):
 
 
 def test_verbose_flag_shows_all_branches(tmp_path, temp_repos_dir, mock_config):
-    """Test that dbx -v branch shows all branches (local and remote) via -a flag."""
+    """Test that dpy -v branch shows all branches (local and remote) via -a flag."""
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value={}):
+        with patch("drivers_python_cli.commands.branch.get_config", return_value={}):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 result = runner.invoke(app, ["-v", "branch", "mongo-python-driver"])
@@ -278,11 +285,13 @@ def test_branch_with_group_and_verbose(tmp_path, temp_repos_dir, mock_config):
         }
     }
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
@@ -336,15 +345,18 @@ def test_branch_all_groups(tmp_path, temp_repos_dir, mock_config):
     (django_repo / ".git").mkdir()
 
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch(
-                    "dbx_python_cli.commands.branch.get_global_groups", return_value=[]
+                    "drivers_python_cli.commands.branch.get_global_groups",
+                    return_value=[],
                 ):
                     with patch("subprocess.run") as mock_run:
                         mock_run.return_value = MagicMock(
@@ -376,15 +388,17 @@ def test_branch_all_groups_excludes_global(tmp_path, temp_repos_dir, mock_config
     }
 
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch(
-                    "dbx_python_cli.commands.branch.get_global_groups",
+                    "drivers_python_cli.commands.branch.get_global_groups",
                     return_value=["global"],
                 ):
                     with patch("subprocess.run") as mock_run:
@@ -418,16 +432,18 @@ def _branch_config(temp_repos_dir):
 
 
 def test_branch_dash_a_is_passed_through_to_git(tmp_path, temp_repos_dir, mock_config):
-    """`-a` belongs to git branch, not dbx.
+    """`-a` belongs to git branch, not dpy.
 
-    It used to be dbx's own --all short flag, so `dbx branch <repo> -a` silently
+    It used to be dpy's own --all short flag, so `dpy branch <repo> -a` silently
     ignored <repo> and fanned the command out to every cloned repository.
     """
     config = _branch_config(temp_repos_dir)
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0, stdout="  main\n", stderr=""
@@ -448,11 +464,13 @@ def test_branch_mutating_fanout_prompts_before_running(
     """A group-wide `branch -D` asks for confirmation and aborts on "no"."""
     config = _branch_config(temp_repos_dir)
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
@@ -477,11 +495,13 @@ def test_branch_mutating_fanout_runs_after_confirmation(
     """Confirming the prompt lets the mutating fan-out proceed."""
     config = _branch_config(temp_repos_dir)
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
@@ -500,11 +520,13 @@ def test_branch_mutating_fanout_yes_skips_prompt(tmp_path, temp_repos_dir, mock_
     """-y bypasses the confirmation for scripted use."""
     config = _branch_config(temp_repos_dir)
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:
@@ -524,11 +546,13 @@ def test_branch_listing_fanout_does_not_prompt(tmp_path, temp_repos_dir, mock_co
     """A non-mutating fan-out (plain listing) is not gated behind a prompt."""
     config = _branch_config(temp_repos_dir)
     with patch(
-        "dbx_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.branch.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.branch.get_config", return_value=config):
+        with patch(
+            "drivers_python_cli.commands.branch.get_config", return_value=config
+        ):
             with patch(
-                "dbx_python_cli.commands.branch.get_repo_groups",
+                "drivers_python_cli.commands.branch.get_repo_groups",
                 return_value=config["repo"]["groups"],
             ):
                 with patch("subprocess.run") as mock_run:

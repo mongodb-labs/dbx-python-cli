@@ -4,7 +4,7 @@ import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -63,9 +63,9 @@ def test_edit_help():
 
 def test_edit_no_repo_name(temp_repos_dir, mock_config):
     """Test edit without repo name shows error."""
-    with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
+    with patch("drivers_python_cli.commands.edit.get_config", return_value=mock_config):
         with patch(
-            "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
         ):
             result = runner.invoke(app, ["edit"])
             # Typer exits with code 2 for missing arguments
@@ -74,24 +74,30 @@ def test_edit_no_repo_name(temp_repos_dir, mock_config):
 
 def test_edit_repo_not_found(temp_repos_dir, mock_config):
     """Test edit with non-existent repository."""
-    with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
+    with patch("drivers_python_cli.commands.edit.get_config", return_value=mock_config):
         with patch(
-            "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+            "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
         ):
             result = runner.invoke(app, ["edit", "nonexistent"])
             assert result.exit_code == 1
             # Check that helpful message is shown
-            assert "dbx list" in result.stdout
+            assert "dpy list" in result.stdout
 
 
 def test_edit_basic(tmp_path, temp_repos_dir, mock_config):
     """Test basic edit of a repository."""
     with patch(
-        "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.edit.get_editor", return_value="vim"):
-                with patch("dbx_python_cli.commands.edit.subprocess.run") as mock_run:
+        with patch(
+            "drivers_python_cli.commands.edit.get_config", return_value=mock_config
+        ):
+            with patch(
+                "drivers_python_cli.commands.edit.get_editor", return_value="vim"
+            ):
+                with patch(
+                    "drivers_python_cli.commands.edit.subprocess.run"
+                ) as mock_run:
                     # Mock successful editor execution
                     mock_run.return_value = MagicMock(returncode=0)
 
@@ -110,11 +116,17 @@ def test_edit_basic(tmp_path, temp_repos_dir, mock_config):
 def test_edit_with_custom_editor(tmp_path, temp_repos_dir, mock_config):
     """Test edit with custom editor from config."""
     with patch(
-        "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.edit.get_editor", return_value="nvim"):
-                with patch("dbx_python_cli.commands.edit.subprocess.run") as mock_run:
+        with patch(
+            "drivers_python_cli.commands.edit.get_config", return_value=mock_config
+        ):
+            with patch(
+                "drivers_python_cli.commands.edit.get_editor", return_value="nvim"
+            ):
+                with patch(
+                    "drivers_python_cli.commands.edit.subprocess.run"
+                ) as mock_run:
                     # Mock successful editor execution
                     mock_run.return_value = MagicMock(returncode=0)
 
@@ -131,14 +143,18 @@ def test_edit_with_custom_editor(tmp_path, temp_repos_dir, mock_config):
 def test_edit_editor_not_found(tmp_path, temp_repos_dir, mock_config):
     """Test edit when editor executable is not found."""
     with patch(
-        "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
+        with patch(
+            "drivers_python_cli.commands.edit.get_config", return_value=mock_config
+        ):
             with patch(
-                "dbx_python_cli.commands.edit.get_editor",
+                "drivers_python_cli.commands.edit.get_editor",
                 return_value="nonexistent-editor",
             ):
-                with patch("dbx_python_cli.commands.edit.subprocess.run") as mock_run:
+                with patch(
+                    "drivers_python_cli.commands.edit.subprocess.run"
+                ) as mock_run:
                     # Mock FileNotFoundError when editor is not found
                     mock_run.side_effect = FileNotFoundError("Editor not found")
 
@@ -152,11 +168,17 @@ def test_edit_editor_not_found(tmp_path, temp_repos_dir, mock_config):
 def test_edit_editor_fails(tmp_path, temp_repos_dir, mock_config):
     """Test edit when editor execution fails."""
     with patch(
-        "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.edit.get_editor", return_value="vim"):
-                with patch("dbx_python_cli.commands.edit.subprocess.run") as mock_run:
+        with patch(
+            "drivers_python_cli.commands.edit.get_config", return_value=mock_config
+        ):
+            with patch(
+                "drivers_python_cli.commands.edit.get_editor", return_value="vim"
+            ):
+                with patch(
+                    "drivers_python_cli.commands.edit.subprocess.run"
+                ) as mock_run:
                     # Mock CalledProcessError when editor fails
                     from subprocess import CalledProcessError
 
@@ -172,11 +194,17 @@ def test_edit_editor_fails(tmp_path, temp_repos_dir, mock_config):
 def test_verbose_flag_with_edit_command(tmp_path, temp_repos_dir, mock_config):
     """Test verbose flag with edit command."""
     with patch(
-        "dbx_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
+        "drivers_python_cli.commands.edit.get_base_dir", return_value=temp_repos_dir
     ):
-        with patch("dbx_python_cli.commands.edit.get_config", return_value=mock_config):
-            with patch("dbx_python_cli.commands.edit.get_editor", return_value="vim"):
-                with patch("dbx_python_cli.commands.edit.subprocess.run") as mock_run:
+        with patch(
+            "drivers_python_cli.commands.edit.get_config", return_value=mock_config
+        ):
+            with patch(
+                "drivers_python_cli.commands.edit.get_editor", return_value="vim"
+            ):
+                with patch(
+                    "drivers_python_cli.commands.edit.subprocess.run"
+                ) as mock_run:
                     mock_run.return_value = MagicMock(returncode=0)
 
                     result = runner.invoke(
@@ -190,7 +218,7 @@ def test_verbose_flag_with_edit_command(tmp_path, temp_repos_dir, mock_config):
 
 def test_get_editor_priority():
     """Test get_editor function priority order."""
-    from dbx_python_cli.utils.repo import get_editor
+    from drivers_python_cli.utils.repo import get_editor
 
     # Test 1: Repo-specific editor (highest priority)
     config = {

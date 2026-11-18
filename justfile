@@ -43,21 +43,21 @@ alias c := clean
 
 # Run the CLI with --help
 run:
-    dbx --help
+    dpy --help
 
 # Alias for run
 alias r := run
 
 # Run the CLI with --version
 version:
-    dbx --version
+    dpy --version
 
 # Alias for version
 alias v := version
 
 # Uninstall the package
 uninstall:
-    uv pip uninstall dbx
+    uv pip uninstall drivers-python-cli
 
 # Alias for uninstall
 alias u := uninstall
@@ -88,7 +88,7 @@ alias t := test
 
 # Run tests with coverage report
 test-cov:
-    python -m pytest --cov=dbx --cov-report=term-missing --cov-report=html
+    python -m pytest --cov=drivers_python_cli --cov-report=term-missing --cov-report=html
 
 # Run tests in watch mode (requires pytest-watch)
 test-watch:

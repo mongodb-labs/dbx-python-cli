@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -15,7 +15,7 @@ runner = CliRunner()
 @pytest.fixture
 def temp_config_dir(tmp_path):
     """Create a temporary config directory."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     return config_dir
 
@@ -57,9 +57,9 @@ def test_repo_help():
 
 
 def test_repo_list_no_repos():
-    """Test that 'dbx list' shows message when no repos are cloned."""
-    with patch("dbx_python_cli.commands.list.get_config") as mock_config:
-        with patch("dbx_python_cli.commands.list.list_repos") as mock_find:
+    """Test that 'dpy list' shows message when no repos are cloned."""
+    with patch("drivers_python_cli.commands.list.get_config") as mock_config:
+        with patch("drivers_python_cli.commands.list.list_repos") as mock_find:
             mock_config.return_value = {"repo": {"base_dir": "/tmp/test"}}
             mock_find.return_value = ""
             result = runner.invoke(app, ["list"])
@@ -69,9 +69,9 @@ def test_repo_list_no_repos():
 
 
 def test_repo_list_with_repos():
-    """Test that 'dbx list' lists all cloned repositories."""
-    with patch("dbx_python_cli.commands.list.get_config") as mock_config:
-        with patch("dbx_python_cli.commands.list.list_repos") as mock_find:
+    """Test that 'dpy list' lists all cloned repositories."""
+    with patch("drivers_python_cli.commands.list.get_config") as mock_config:
+        with patch("drivers_python_cli.commands.list.list_repos") as mock_find:
             mock_config.return_value = {"repo": {"base_dir": "/tmp/test"}}
             mock_find.return_value = (
                 "├── django/\n│   └── ✓ django\n"
@@ -91,9 +91,9 @@ def test_repo_list_with_repos():
 
 
 def test_repo_list_long_form():
-    """Test that 'dbx list' works (long form test)."""
-    with patch("dbx_python_cli.commands.list.get_config") as mock_config:
-        with patch("dbx_python_cli.commands.list.list_repos") as mock_find:
+    """Test that 'dpy list' works (long form test)."""
+    with patch("drivers_python_cli.commands.list.get_config") as mock_config:
+        with patch("drivers_python_cli.commands.list.list_repos") as mock_find:
             mock_config.return_value = {"repo": {"base_dir": "/tmp/test"}}
             mock_find.return_value = ""
             result = runner.invoke(app, ["list"])
@@ -103,7 +103,7 @@ def test_repo_list_long_form():
 
 def test_repo_init_creates_config(tmp_path):
     """Test that config init creates a config file."""
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
         config_path = tmp_path / "config.toml"
         mock_get_path.return_value = config_path
 
@@ -115,7 +115,7 @@ def test_repo_init_creates_config(tmp_path):
 
 def test_repo_init_existing_config_no_overwrite(tmp_path):
     """Test that config init doesn't overwrite existing config without confirmation."""
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
         config_path = tmp_path / "config.toml"
         config_path.write_text("existing content")
         mock_get_path.return_value = config_path
@@ -129,7 +129,7 @@ def test_repo_init_existing_config_no_overwrite(tmp_path):
 
 def test_repo_init_existing_config_with_yes_flag(tmp_path):
     """Test that config init --yes overwrites existing config without prompting."""
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
         config_path = tmp_path / "config.toml"
         config_path.write_text("existing content")
         mock_get_path.return_value = config_path
@@ -165,7 +165,7 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["config", "show"])
@@ -197,7 +197,7 @@ langchain-mongodb = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["config", "show"])
@@ -226,8 +226,8 @@ mongo-python-driver = {{ DRIVERS_TOOLS = "{{base_dir}}/{{group}}/drivers-evergre
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.commands.config.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path2:
+    with patch("drivers_python_cli.commands.config.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path2:
             mock_get_path.return_value = config_path
             mock_get_path2.return_value = config_path
 
@@ -251,7 +251,7 @@ def test_repo_clone_help():
 
 def test_repo_clone_invalid_group(tmp_path, mock_config):
     """Test that repo clone fails with invalid group."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["clone", "-g", "nonexistent"])
@@ -262,8 +262,8 @@ def test_repo_clone_invalid_group(tmp_path, mock_config):
 
 def test_repo_clone_success(tmp_path, mock_config, temp_repos_dir):
     """Test successful repo clone."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -275,8 +275,8 @@ def test_repo_clone_success(tmp_path, mock_config, temp_repos_dir):
 
 def test_repo_clone_creates_group_directory(tmp_path, mock_config, temp_repos_dir):
     """Test that repo clone creates group subdirectory."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = mock_config
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -291,7 +291,7 @@ def test_repo_clone_creates_group_directory(tmp_path, mock_config, temp_repos_di
 
 def test_repo_clone_skips_existing(tmp_path, mock_config, temp_repos_dir):
     """Test that repo clone skips existing repositories."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Create existing repo
@@ -301,7 +301,7 @@ def test_repo_clone_skips_existing(tmp_path, mock_config, temp_repos_dir):
         existing_repo.mkdir()
         (existing_repo / ".git").mkdir()
 
-        with patch("dbx_python_cli.commands.clone.subprocess.run"):
+        with patch("drivers_python_cli.commands.clone.subprocess.run"):
             result = runner.invoke(app, ["clone", "-g", "test"])
             assert result.exit_code == 0
             assert "already exists" in result.stdout
@@ -311,11 +311,11 @@ def test_repo_clone_git_failure(mock_config, temp_repos_dir):
     """Test that repo clone handles git clone failures gracefully."""
     import subprocess
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         # Mock subprocess.run to raise CalledProcessError
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.CalledProcessError(
                 1, "git clone", stderr="fatal: repository not found"
             )
@@ -340,7 +340,7 @@ repos = []
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
         result = runner.invoke(app, ["clone", "-g", "empty"])
         assert result.exit_code == 1
@@ -351,10 +351,10 @@ repos = []
 
 def test_get_config_fallback_to_default(temp_config_dir):
     """Test that get_config falls back to default config when user config doesn't exist."""
-    from dbx_python_cli.utils.repo import get_config
+    from drivers_python_cli.utils.repo import get_config
 
     # Don't create user config, should fall back to package default
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         # Point to non-existent user config
         mock_get_path.return_value = temp_config_dir / "nonexistent.toml"
         config = get_config()
@@ -366,7 +366,7 @@ def test_get_config_fallback_to_default(temp_config_dir):
 
 def test_repo_clone_no_group_shows_error(mock_config):
     """Test that repo clone without -g shows help."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = mock_config
 
         result = runner.invoke(app, ["clone"])
@@ -378,7 +378,7 @@ def test_repo_clone_no_group_shows_error(mock_config):
 
 def test_repo_clone_multiple_groups(tmp_path, temp_repos_dir):
     """Test cloning multiple groups at once."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -397,8 +397,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -428,7 +428,7 @@ repos = [
 
 def test_repo_clone_multiple_groups_csv(tmp_path, temp_repos_dir):
     """Test cloning multiple groups using comma-separated values."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -447,8 +447,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -479,7 +479,7 @@ repos = [
 
 def test_repo_clone_single_repo_by_name(tmp_path, temp_repos_dir):
     """Test cloning a single repository by name."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -499,8 +499,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -518,7 +518,7 @@ repos = [
 
 def test_repo_clone_single_repo_not_found(tmp_path, temp_repos_dir):
     """Test cloning a repository that doesn't exist."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -532,7 +532,7 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["clone", "nonexistent-repo"])
@@ -543,7 +543,7 @@ repos = [
 
 def test_repo_clone_single_repo_with_fork(tmp_path, temp_repos_dir):
     """Test cloning a single repository with --fork-user <username> flag."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -557,8 +557,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -585,7 +585,7 @@ repos = [
 
 def test_repo_clone_with_fork_user(tmp_path, temp_repos_dir):
     """Test cloning with --fork-user <username> flag and explicit username."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -599,8 +599,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -630,7 +630,7 @@ repos = [
 
 def test_repo_clone_with_fork_from_config(tmp_path, temp_repos_dir):
     """Test cloning with --fork flag using fork_user from config."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -645,8 +645,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -658,7 +658,7 @@ repos = [
 
 def test_repo_clone_fork_without_config_shows_warning(tmp_path, temp_repos_dir):
     """Test that --fork without config fork_user shows warning and falls back to upstream clone."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -672,8 +672,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -698,7 +698,7 @@ repos = [
 
 def test_repo_clone_fork_https_url(tmp_path, temp_repos_dir):
     """Test cloning with --fork-user <username> flag using HTTPS URL."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -712,8 +712,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -732,7 +732,7 @@ repos = [
 
 def test_repo_clone_fork_fallback_when_fork_not_found(tmp_path, temp_repos_dir):
     """Test that clone falls back to upstream when fork doesn't exist."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -746,8 +746,8 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.clone.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.clone.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Simulate fork clone failing, upstream clone succeeding
@@ -795,7 +795,7 @@ def test_repo_sync_help():
 
 def test_repo_sync_single_repo(tmp_path, temp_repos_dir):
     """Test syncing a single repository."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -815,8 +815,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git commands
@@ -860,7 +860,7 @@ repos = [
 
 def test_repo_sync_dot_from_repo_root(tmp_path, temp_repos_dir, monkeypatch):
     """Test syncing with '.' resolves to the repo at the current directory."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -883,8 +883,8 @@ repos = [
     # Change into the repo root so that "." resolves to it
     monkeypatch.chdir(repo_dir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -910,7 +910,7 @@ repos = [
 
 def test_repo_sync_dot_from_repo_subdirectory(tmp_path, temp_repos_dir, monkeypatch):
     """Test that '.' resolves correctly when run from inside a repo subdirectory."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -934,8 +934,8 @@ repos = [
     # Change into a subdirectory of the repo
     monkeypatch.chdir(subdir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -961,7 +961,7 @@ repos = [
 
 def test_repo_sync_dot_not_in_managed_repo(tmp_path, temp_repos_dir, monkeypatch):
     """Test that '.' in an unmanaged directory gives a clear error."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -980,7 +980,7 @@ repos = [
     unrelated_dir.mkdir()
     monkeypatch.chdir(unrelated_dir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["sync", "."])
@@ -991,7 +991,7 @@ repos = [
 
 def test_repo_sync_group(tmp_path, temp_repos_dir):
     """Test syncing all repositories in a group."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1013,8 +1013,8 @@ repos = [
         repo_dir.mkdir(parents=True)
         (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git commands
@@ -1051,7 +1051,7 @@ repos = [
 
 def test_repo_sync_no_upstream_remote(tmp_path, temp_repos_dir):
     """Test syncing a repository without upstream remote."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1071,8 +1071,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git remote to return only origin (no upstream)
@@ -1098,7 +1098,7 @@ repos = [
 
 def test_repo_sync_no_args_shows_error(tmp_path, temp_repos_dir):
     """Test that repo sync without args shows error."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1110,7 +1110,7 @@ repos = []
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["sync"])
@@ -1122,7 +1122,7 @@ repos = []
 
 def test_repo_sync_feature_branch_to_upstream_main(tmp_path, temp_repos_dir):
     """Test syncing a feature branch rebases to upstream/main."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1142,8 +1142,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git commands
@@ -1196,7 +1196,7 @@ repos = [
 
 def test_repo_sync_feature_branch_fallback_to_main(tmp_path, temp_repos_dir):
     """Test syncing a feature branch falls back to main when symbolic-ref fails."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1216,8 +1216,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git commands
@@ -1273,7 +1273,7 @@ repos = [
 
 def test_repo_sync_feature_branch_matches_upstream_branch(tmp_path, temp_repos_dir):
     """Test that a feature branch rebases to upstream/<branch> when upstream has a matching branch."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1292,8 +1292,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -1329,7 +1329,7 @@ repos = [
 
 def test_repo_sync_all_branches(tmp_path, temp_repos_dir):
     """--all-branches syncs each mapped branch to its upstream and restores the original."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1353,8 +1353,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
     # Track the checked-out branch so `--show-current` reflects `git switch`.
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -1402,7 +1402,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
 def test_repo_sync_branch_filter(tmp_path, temp_repos_dir):
     """--branch syncs only the named mapped branch(es) and restores the original."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1425,8 +1425,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -1466,7 +1466,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
 def test_repo_sync_branch_filter_unknown_branch(tmp_path, temp_repos_dir):
     """--branch with a name outside the upstream_branch mapping errors out."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1487,7 +1487,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
         result = runner.invoke(app, ["sync", "django", "-B", "nope"])
         assert result.exit_code == 1
@@ -1496,7 +1496,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
 def test_repo_sync_all_branches_aborts_failed_rebase(tmp_path, temp_repos_dir):
     """A failed rebase under --all-branches is aborted so remaining branches still run."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1519,8 +1519,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -1571,7 +1571,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
 def test_repo_sync_all_branches_reruns_downstream_ci(tmp_path, temp_repos_dir):
     """After a successful --all-branches sync, configured downstream CI is re-run."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1597,9 +1597,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("shutil.which", return_value="/usr/bin/gh"):
-            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
                 mock_get_path.return_value = config_path
 
                 def mock_run_side_effect(*args, **kwargs):
@@ -1664,7 +1664,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
 def test_repo_sync_all_branches_retries_evergreen(tmp_path, temp_repos_dir):
     """An ``{pr, evergreen = true}`` target re-runs Actions AND comments 'evergreen retry'."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1690,9 +1690,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("shutil.which", return_value="/usr/bin/gh"):
-            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
                 mock_get_path.return_value = config_path
 
                 def mock_run_side_effect(*args, **kwargs):
@@ -1751,7 +1751,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
 def test_repo_sync_all_branches_no_ci_skips_rerun(tmp_path, temp_repos_dir):
     """--no-ci suppresses the downstream CI re-run."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1777,8 +1777,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -1807,7 +1807,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
 def test_repo_sync_all_branches_dispatches_ci_without_pr(tmp_path, temp_repos_dir):
     """A string ref in ci_rerun dispatches workflows via workflow_dispatch (no PR)."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1833,9 +1833,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("shutil.which", return_value="/usr/bin/gh"):
-            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
                 mock_get_path.return_value = config_path
 
                 def mock_run_side_effect(*args, **kwargs):
@@ -1913,7 +1913,7 @@ def test_repo_sync_dispatch_skips_workflows_without_dispatch_trigger(
     tmp_path, temp_repos_dir
 ):
     """Workflows lacking a workflow_dispatch trigger are skipped, not dispatched."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -1939,9 +1939,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("shutil.which", return_value="/usr/bin/gh"):
-            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
                 mock_get_path.return_value = config_path
 
                 def mock_run_side_effect(*args, **kwargs):
@@ -2012,7 +2012,7 @@ def test_repo_sync_dispatch_skips_stale_workflow_missing_at_ref(
 ):
     """A workflow whose file 404s at the ref (stale registry entry) is skipped,
     not attempted and surfaced as a dispatch failure."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2038,9 +2038,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
     state = {"current": "main"}
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         with patch("shutil.which", return_value="/usr/bin/gh"):
-            with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+            with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
                 mock_get_path.return_value = config_path
 
                 def mock_run_side_effect(*args, **kwargs):
@@ -2110,7 +2110,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
 
 def test_repo_sync_all_branches_dry_run(tmp_path, temp_repos_dir):
     """--all-branches --dry-run previews every branch without switching or rebasing."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2131,8 +2131,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             def mock_run_side_effect(*args, **kwargs):
@@ -2164,7 +2164,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
 
 def test_repo_sync_all_branches_requires_dict_mapping(tmp_path, temp_repos_dir):
     """--all-branches errors when the repo has no dict-form upstream_branch mapping."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2182,7 +2182,7 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
         result = runner.invoke(app, ["sync", "mongo-python-driver", "--all-branches"])
         assert result.exit_code == 1
@@ -2194,7 +2194,7 @@ repos = [
 
 def test_get_upstream_branch_dict_form():
     """Test that upstream_branch dict config resolves correctly for the current branch."""
-    from dbx_python_cli.utils.repo import get_upstream_branch
+    from drivers_python_cli.utils.repo import get_upstream_branch
 
     config = {
         "repo": {
@@ -2231,7 +2231,7 @@ def test_get_upstream_branch_dict_form():
 
 def test_get_upstream_branch_string_form():
     """Test that upstream_branch string config is returned as-is regardless of current branch."""
-    from dbx_python_cli.utils.repo import get_upstream_branch
+    from drivers_python_cli.utils.repo import get_upstream_branch
 
     config = {
         "repo": {
@@ -2257,7 +2257,7 @@ def test_get_upstream_branch_string_form():
 
 def test_repo_sync_main_branch_to_upstream_main(tmp_path, temp_repos_dir):
     """Test syncing main branch still rebases to upstream/main (not changed)."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2277,8 +2277,8 @@ repos = [
     repo_dir.mkdir(parents=True)
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.sync.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.sync.subprocess.run") as mock_run:
             mock_get_path.return_value = config_path
 
             # Mock git commands
@@ -2322,7 +2322,7 @@ repos = [
 
 def test_repo_sync_single_repo_dry_run(tmp_path, temp_repos_dir):
     """Test syncing a single repository with --dry-run flag."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2341,7 +2341,7 @@ repos = ["git@github.com:mongodb/mongo-python-driver.git"]
     repo_dir.mkdir()
     (repo_dir / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         with patch("subprocess.run") as mock_run:
@@ -2382,7 +2382,7 @@ repos = ["git@github.com:mongodb/mongo-python-driver.git"]
 
 def test_repo_sync_single_repo_in_group(tmp_path, temp_repos_dir):
     """Test syncing a single repository within a specific group."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     repos_dir_str = str(temp_repos_dir).replace("\\", "/")
     config_content = f"""
@@ -2411,7 +2411,7 @@ repos = [
     specs_repo.mkdir()
     (specs_repo / ".git").mkdir()
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         with patch("subprocess.run") as mock_run:
@@ -2455,7 +2455,7 @@ repos = [
 
 def test_install_multiple_groups_csv(tmp_path):
     """Test installing group with dependency groups using multiple -g flags."""
-    config_path = tmp_path / ".config" / "dbx-python-cli" / "config.toml"
+    config_path = tmp_path / ".config" / "drivers-python-cli" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create base directory structure
@@ -2490,9 +2490,11 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
-        with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
-            with patch("dbx_python_cli.commands.install.subprocess.run") as mock_run:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
+        with patch("drivers_python_cli.commands.install.get_venv_info") as mock_venv:
+            with patch(
+                "drivers_python_cli.commands.install.subprocess.run"
+            ) as mock_run:
                 mock_get_path.return_value = config_path
                 mock_venv.return_value = ("python", "venv")
                 # Mock successful installation

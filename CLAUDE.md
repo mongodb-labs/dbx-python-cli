@@ -30,11 +30,11 @@ Pre-commit hooks (ruff lint + format, toml/yaml checks) run on every `git commit
 
 ### Entry point and command registration
 
-`src/dbx_python_cli/cli.py` creates the root Typer app and mounts every command module as a sub-app. Global flags (`--verbose`, `--pager`, `--backend`, `--edition`) are defined on `@app.callback()` and forwarded to subcommands via `ctx.obj`. The CLI is registered as `dbx = "dbx_python_cli.cli:app"` in `pyproject.toml`.
+`src/drivers_python_cli/cli.py` creates the root Typer app and mounts every command module as a sub-app. Global flags (`--verbose`, `--pager`, `--backend`, `--edition`) are defined on `@app.callback()` and forwarded to subcommands via `ctx.obj`. The CLI is registered as `dpy = "drivers_python_cli.cli:app"` in `pyproject.toml`.
 
 ### Command modules
 
-Each file in `src/dbx_python_cli/commands/` follows the same pattern:
+Each file in `src/drivers_python_cli/commands/` follows the same pattern:
 
 ```python
 app = typer.Typer(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
@@ -51,7 +51,7 @@ Commands with subcommands (e.g. `config`, `env`, `project`, `spec`) use `@app.co
 
 ### Configuration
 
-`utils/repo.py:get_config()` loads `~/.config/dbx-python-cli/config.toml`, falling back to the bundled `src/dbx_python_cli/config.toml`. Config is plain TOML read with `tomllib`.
+`utils/repo.py:get_config()` loads `~/.config/drivers-python-cli/config.toml`, falling back to the bundled `src/drivers_python_cli/config.toml`. Config is plain TOML read with `tomllib`.
 
 Key config sections:
 - `[repo]` — `base_dir`, `flat`, `fork_user`, `global_groups`, `group_priority`, `python_version`, `editor`
@@ -69,10 +69,10 @@ All path resolution goes through helpers in `utils/repo.py`: `get_group_dir()`, 
 
 ### Fork workflow
 
-`dbx clone` supports cloning from a personal fork (`--fork` / `--fork-user`). The global `fork_user` in `[repo]` is the default. Per-repo overrides:
+`dpy clone` supports cloning from a personal fork (`--fork` / `--fork-user`). The global `fork_user` in `[repo]` is the default. Per-repo overrides:
 - `no_fork = ["repo-name"]` — skip fork substitution for specific repos even when `--fork` is active (used for org forks like `mongodb-forks/django`)
 - `upstream = {repo = "url"}` — add an `upstream` remote automatically on clone
-- `upstream_branch = {repo = "branch"}` — override the rebase target in `dbx sync` when the local branch name differs from the upstream branch
+- `upstream_branch = {repo = "branch"}` — override the rebase target in `dpy sync` when the local branch name differs from the upstream branch
 
 ### Utilities
 
@@ -87,4 +87,4 @@ When adding or changing any user-facing behaviour (new config keys, new commands
 
 ### Testing
 
-Tests use `typer.testing.CliRunner`. Mock `get_config` at the command module level (e.g. `dbx_python_cli.commands.install.get_config`), not at the utils level. Shared fixtures are in `tests/conftest.py`.
+Tests use `typer.testing.CliRunner`. Mock `get_config` at the command module level (e.g. `drivers_python_cli.commands.install.get_config`), not at the utils level. Shared fixtures are in `tests/conftest.py`.

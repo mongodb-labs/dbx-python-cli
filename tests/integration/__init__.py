@@ -1,1 +1,1 @@
-"""Integration tests for dbx-python-cli."""
+"""Integration tests for drivers-python-cli."""

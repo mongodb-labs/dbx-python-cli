@@ -11,13 +11,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dbx-python-cli"
+name = "drivers-python-cli"
 version = "0.1.0"
-description = "A command line tool for DBX Python development tasks. AI first. De-siloing happens here."
+description = "A command line tool for Drivers Python development tasks. AI first. De-siloing happens here."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "django",  # Required for dbx project add (django-admin startproject)
+    "django",  # Required for dpy project add (django-admin startproject)
     "tomli-w>=1.2.0",
     "typer",
 ]
@@ -32,14 +32,14 @@ test = [
     "pytest-cov",
 ]
 dev = [
-    "dbx-python-cli[docs,test]",
+    "drivers-python-cli[docs,test]",
 ]
 
 [project.scripts]
-dbx = "dbx_python_cli.cli:app"
+dpy = "drivers_python_cli.cli:app"
 
 [tool.setuptools.package-data]
-dbx_python_cli = [
+drivers_python_cli = [
     "config.toml",
     "templates/**/*",
 ]
@@ -52,7 +52,7 @@ python_functions = ["test_*"]
 addopts = [
     "-v",
     "--strict-markers",
-    "--cov=dbx_python_cli",
+    "--cov=drivers_python_cli",
     "--cov-report=term-missing",
     "--cov-report=html",
 ]

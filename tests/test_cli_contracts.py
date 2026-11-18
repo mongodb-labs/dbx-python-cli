@@ -9,12 +9,12 @@ import pytest
 from typer.main import get_command
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
-def _walk_commands(command, path=("dbx",)):
+def _walk_commands(command, path=("dpy",)):
     """Yield (path, command) for the whole command tree.
 
     Group membership is duck-typed rather than checked against click.Group so
@@ -29,8 +29,8 @@ def _walk_commands(command, path=("dbx",)):
 def test_no_command_declares_a_flag_twice():
     """Two params sharing a flag string make one of them silently unreachable.
 
-    `dbx sync` declared --all twice (all-groups and all-commits); click bound
-    --all to the later one, so the documented `dbx sync --all` became a no-op.
+    `dpy sync` declared --all twice (all-groups and all-commits); click bound
+    --all to the later one, so the documented `dpy sync --all` became a no-op.
     Inspecting the declared options catches this without relying on click
     emitting a warning at parser-construction time.
     """
@@ -77,7 +77,7 @@ def test_sync_all_and_all_commits_are_separate_flags():
     wraps and colourises help output based on terminal width, so a substring
     check passes locally and fails in CI.
     """
-    sync = dict(_walk_commands(get_command(app)))[("dbx", "sync")]
+    sync = dict(_walk_commands(get_command(app)))[("dpy", "sync")]
     flags = {
         flag: param.name
         for param in sync.params
@@ -91,8 +91,8 @@ def test_sync_all_and_all_commits_are_separate_flags():
 @pytest.mark.parametrize(
     ("command", "module"),
     [
-        ("sync", "dbx_python_cli.commands.sync"),
-        ("clone", "dbx_python_cli.commands.clone"),
+        ("sync", "drivers_python_cli.commands.sync"),
+        ("clone", "drivers_python_cli.commands.clone"),
     ],
 )
 def test_deliberate_exit_is_not_reported_as_an_internal_error(
@@ -103,7 +103,7 @@ def test_deliberate_exit_is_not_reported_as_an_internal_error(
     import importlib
 
     mod = importlib.import_module(module)
-    config = {"repo": {"base_dir": "/nonexistent-dbx-test", "groups": {}}}
+    config = {"repo": {"base_dir": "/nonexistent-dpy-test", "groups": {}}}
     monkeypatch.setattr(mod.repo, "get_config", lambda: config)
 
     result = runner.invoke(app, [command, "-g", "nosuchgroup"])

@@ -1,16 +1,16 @@
-"""Tests for the `dbx config validate` command."""
+"""Tests for the `dpy config validate` command."""
 
 from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
 def _validate(config):
-    with patch("dbx_python_cli.commands.config.get_config", return_value=config):
+    with patch("drivers_python_cli.commands.config.get_config", return_value=config):
         return runner.invoke(app, ["config", "validate"])
 
 
@@ -91,18 +91,18 @@ def test_validate_flags_unknown_top_level_key():
 
 
 def test_validate_accepts_the_shipped_default_config():
-    """The config dbx itself ships (and `dbx config init` copies) must validate.
+    """The config dpy itself ships (and `dpy config init` copies) must validate.
 
     KNOWN_GROUP_KEYS drifted behind the keys the code actually reads, so
-    `dbx config validate` failed on the project's own config file, which made it
+    `dpy config validate` failed on the project's own config file, which made it
     useless as a pre-flight check.
     """
     import tomllib
     from pathlib import Path
 
-    import dbx_python_cli
+    import drivers_python_cli
 
-    shipped = Path(dbx_python_cli.__file__).parent / "config.toml"
+    shipped = Path(drivers_python_cli.__file__).parent / "config.toml"
     config = tomllib.loads(shipped.read_text(encoding="utf-8"))
 
     result = _validate(config)
@@ -119,10 +119,10 @@ def test_validate_known_group_keys_cover_every_key_the_code_reads():
     import re
     from pathlib import Path
 
-    import dbx_python_cli
-    from dbx_python_cli.commands.config import validate as validate_cmd
+    import drivers_python_cli
+    from drivers_python_cli.commands.config import validate as validate_cmd
 
-    src = Path(dbx_python_cli.__file__).parent
+    src = Path(drivers_python_cli.__file__).parent
     pattern = re.compile(
         r"""(?:groups\[[a-z_]+\]|group_name\]|gconfig|group_config)\.get\(\s*["']([a-z_]+)["']"""
     )

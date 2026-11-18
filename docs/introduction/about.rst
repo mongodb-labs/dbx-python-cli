@@ -1,17 +1,17 @@
 About
 =====
 
-What is dbx-python-cli?
------------------------
+What is drivers-python-cli?
+---------------------------
 
-**dbx-python-cli** is a command line tool designed for DBX Python development tasks. It provides a unified interface for managing repositories, virtual environments, dependencies, and testing workflows.
+**drivers-python-cli** is a command line tool designed for Drivers Python development tasks. It provides a unified interface for managing repositories, virtual environments, dependencies, and testing workflows.
 
 The tool is built with an **AI-first** philosophy, making it easy to work with AI assistants and modern development workflows. It emphasizes automation, consistency, and developer productivity.
 
-What is DBX Python?
--------------------
+What is Drivers Python?
+-----------------------
 
-**DBX Python** is the MongoDB Database Experience Team for the MongoDB Python driver. The team works on:
+**Drivers Python** is the MongoDB Database Experience Team for the MongoDB Python driver. The team works on:
 
 - `PyMongo <https://github.com/mongodb/mongo-python-driver>`_ - The official MongoDB driver for Python
 - MongoDB integrations with Python frameworks and tools
@@ -32,8 +32,8 @@ What is DBX Python?
    });
    </script>
 
-Why dbx-python-cli?
--------------------
+Why drivers-python-cli?
+-----------------------
 
 The tool was created to solve common pain points in managing multiple related repositories:
 
@@ -52,7 +52,7 @@ The tool was created to solve common pain points in managing multiple related re
 Inspiration
 -----------
 
-dbx-python-cli is inspired by `django-mongodb-cli <https://github.com/mongodb-labs/django-mongodb-cli>`_, which provides similar functionality for Django and MongoDB development.
+drivers-python-cli is inspired by `django-mongodb-cli <https://github.com/mongodb-labs/django-mongodb-cli>`_, which provides similar functionality for Django and MongoDB development.
 
 Key Principles
 --------------
@@ -78,4 +78,4 @@ Key Principles
 License
 -------
 
-dbx-python-cli is open source software. See the `GitHub repository <https://github.com/aclark4life/dbx-python-cli>`_ for license information.
+drivers-python-cli is open source software. See the `GitHub repository <https://github.com/aclark4life/drivers-python-cli>`_ for license information.

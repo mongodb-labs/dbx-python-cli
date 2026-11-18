@@ -1,7 +1,7 @@
 Spec Sync
 =========
 
-The ``dbx spec`` command streamlines syncing spec tests from the `MongoDB specifications repository <https://github.com/mongodb/specifications>`_ into a driver repo, and managing the patch files that exclude tests for not-yet-implemented features.
+The ``dpy spec`` command streamlines syncing spec tests from the `MongoDB specifications repository <https://github.com/mongodb/specifications>`_ into a driver repo, and managing the patch files that exclude tests for not-yet-implemented features.
 
 Background
 ----------
@@ -25,41 +25,41 @@ The manual process documented in ``CONTRIBUTING.md`` looks like this:
    # Apply patches manually
    git apply -R --allow-empty --whitespace=fix .evergreen/spec-patch/*.patch
 
-``dbx spec`` eliminates the manual steps by auto-detecting both repos from your existing dbx config and running the script for you, and ``dbx spec patch`` gives you full lifecycle management over the patch files.
+``dpy spec`` eliminates the manual steps by auto-detecting both repos from your existing dpy config and running the script for you, and ``dpy spec patch`` gives you full lifecycle management over the patch files.
 
 How It Improves on the Manual Workflow
 ---------------------------------------
 
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Task                           | Manual                                        | With ``dbx spec``                            |
+| Task                           | Manual                                        | With ``dpy spec``                            |
 +================================+===============================================+==============================================+
 | Locate the specs repo          | Remember/export ``MDB_SPECS`` path            | Auto-detected from config                    |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
 | Navigate to the script         | ``cd ~/mongo-python-driver/.evergreen``       | Not required                                 |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Sync all specs                 | ``./resync-specs.sh``                         | ``dbx spec sync``                            |
+| Sync all specs                 | ``./resync-specs.sh``                         | ``dpy spec sync``                            |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Sync specific specs            | ``./resync-specs.sh crud sessions``           | ``dbx spec sync crud sessions``              |
+| Sync specific specs            | ``./resync-specs.sh crud sessions``           | ``dpy spec sync crud sessions``              |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Block files by pattern         | ``./resync-specs.sh -b "unified" crud``       | ``dbx spec sync crud -b "unified"``          |
+| Block files by pattern         | ``./resync-specs.sh -b "unified" crud``       | ``dpy spec sync crud -b "unified"``          |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Sync and apply patches         | Run script, then ``git apply -R ...``         | ``dbx spec sync --apply-patches``            |
+| Sync and apply patches         | Run script, then ``git apply -R ...``         | ``dpy spec sync --apply-patches``            |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Target a different driver repo | Repeat the ``cd``/``export`` dance            | ``dbx spec sync -r django-mongodb-backend``  |
+| Target a different driver repo | Repeat the ``cd``/``export`` dance            | ``dpy spec sync -r django-mongodb-backend``  |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Preview without running        | No built-in option                            | ``dbx spec sync --dry-run``                  |
+| Preview without running        | No built-in option                            | ``dpy spec sync --dry-run``                  |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Discover available specs       | Browse the ``specifications`` repo on disk    | ``dbx spec list``                            |
+| Discover available specs       | Browse the ``specifications`` repo on disk    | ``dpy spec list``                            |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| See active patches             | ``ls .evergreen/spec-patch/``                 | ``dbx spec patch list``                      |
+| See active patches             | ``ls .evergreen/spec-patch/``                 | ``dpy spec patch list``                      |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Create a patch file            | Manually write/save a git diff                | ``dbx spec patch create PYTHON-XXXX``        |
+| Create a patch file            | Manually write/save a git diff                | ``dpy spec patch create PYTHON-XXXX``        |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Remove a resolved patch        | ``rm .evergreen/spec-patch/PYTHON-XXXX.patch``| ``dbx spec patch remove PYTHON-XXXX``        |
+| Remove a resolved patch        | ``rm .evergreen/spec-patch/PYTHON-XXXX.patch``| ``dpy spec patch remove PYTHON-XXXX``        |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Check which specs need syncing  | Manually diff repo directories               | ``dbx spec status``                          |
+| Check which specs need syncing  | Manually diff repo directories               | ``dpy spec status``                          |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
-| Apply all patches              | ``git apply -R --allow-empty ...``            | ``dbx spec patch apply``                     |
+| Apply all patches              | ``git apply -R --allow-empty ...``            | ``dpy spec patch apply``                     |
 +--------------------------------+-----------------------------------------------+----------------------------------------------+
 
 Prerequisites
@@ -70,12 +70,12 @@ Both repos must be cloned locally. If you use the default config, the ``specific
 .. code-block:: bash
 
    # Clone the pymongo group (includes specifications)
-   dbx clone -g pymongo
+   dpy clone -g pymongo
 
 Commands
 --------
 
-dbx spec sync
+dpy spec sync
 ~~~~~~~~~~~~~
 
 Runs ``.evergreen/resync-specs.sh`` in the driver repo with ``MDB_SPECS`` pointing at the specifications repo. After syncing, active patches are listed automatically so you know what will be excluded.
@@ -83,25 +83,25 @@ Runs ``.evergreen/resync-specs.sh`` in the driver repo with ``MDB_SPECS`` pointi
 .. code-block:: bash
 
    # Sync all specs
-   dbx spec sync
+   dpy spec sync
 
    # Sync specific specs by name
-   dbx spec sync crud sessions change-streams
+   dpy spec sync crud sessions change-streams
 
    # Exclude files matching a regex (passed as -b to resync-specs.sh)
-   dbx spec sync crud -b "unified"
+   dpy spec sync crud -b "unified"
 
    # Sync and immediately apply all patches in one shot
-   dbx spec sync crud --apply-patches
+   dpy spec sync crud --apply-patches
 
    # Target a different driver repo
-   dbx spec sync -r django-mongodb-backend
+   dpy spec sync -r django-mongodb-backend
 
    # Preview the exact command without running it
-   dbx spec sync crud --dry-run
+   dpy spec sync crud --dry-run
 
    # Use a custom path for the specifications repo
-   dbx spec sync --specs-dir ~/my-specs crud
+   dpy spec sync --specs-dir ~/my-specs crud
 
 **Options:**
 
@@ -114,7 +114,7 @@ Runs ``.evergreen/resync-specs.sh`` in the driver repo with ``MDB_SPECS`` pointi
    --apply-patches    Apply all .evergreen/spec-patch files after syncing
    --dry-run          Print the command that would be run without executing it
 
-dbx spec list
+dpy spec list
 ~~~~~~~~~~~~~
 
 Lists available spec directories from the local ``specifications`` repository.
@@ -122,10 +122,10 @@ Lists available spec directories from the local ``specifications`` repository.
 .. code-block:: bash
 
    # List all available specs
-   dbx spec list
+   dpy spec list
 
    # List specs from a custom path
-   dbx spec list --specs-dir ~/my-specs
+   dpy spec list --specs-dir ~/my-specs
 
 **Example output:**
 
@@ -149,23 +149,23 @@ Lists available spec directories from the local ``specifications`` repository.
    ├── transactions
    └── ...
 
-Use the spec names from this output as arguments to ``dbx spec sync``.
+Use the spec names from this output as arguments to ``dpy spec sync``.
 
-dbx spec status
+dpy spec status
 ~~~~~~~~~~~~~~~
 
-Compares JSON spec files in the driver repo against the local ``specifications`` repository and reports which specs are out of date, then suggests the exact ``dbx spec sync`` commands to run.  Also checks whether the current branch looks like a spec-resync branch and whether a recent resync commit exists.
+Compares JSON spec files in the driver repo against the local ``specifications`` repository and reports which specs are out of date, then suggests the exact ``dpy spec sync`` commands to run.  Also checks whether the current branch looks like a spec-resync branch and whether a recent resync commit exists.
 
 .. code-block:: bash
 
    # Check status for the default driver repo (mongo-python-driver)
-   dbx spec status
+   dpy spec status
 
    # Check a different driver repo
-   dbx spec status -r django-mongodb-backend
+   dpy spec status -r django-mongodb-backend
 
    # Use a custom path for the specifications repo
-   dbx spec status --specs-dir ~/my-specs
+   dpy spec status --specs-dir ~/my-specs
 
 **Example output:**
 
@@ -180,9 +180,9 @@ Compares JSON spec files in the driver repo against the local ``specifications``
 
      ❌ Stale (3) — suggest syncing:
 
-     ├── dbx spec sync crud
-     ├── dbx spec sync sessions
-     └── dbx spec sync transactions
+     ├── dpy spec sync crud
+     ├── dpy spec sync sessions
+     └── dpy spec sync transactions
 
      ✅ Up to date (32): auth, bson-binary-vector, bson-corpus, ...
 
@@ -190,10 +190,10 @@ Compares JSON spec files in the driver repo against the local ``specifications``
      • PYTHON-1234 (3 file(s))
      • PYTHON-5678 (1 file(s))
 
-     Run 'dbx spec patch apply' to apply them.
+     Run 'dpy spec patch apply' to apply them.
 
      💡 To sync all stale specs at once:
-        dbx spec sync crud sessions transactions
+        dpy spec sync crud sessions transactions
 
 **Notes:**
 
@@ -209,16 +209,16 @@ Compares JSON spec files in the driver repo against the local ``specifications``
    -r, --repo       Driver repository to inspect [default: mongo-python-driver]
    --specs-dir      Path to the MongoDB specifications repo (overrides auto-detection)
 
-dbx spec patch list
+dpy spec patch list
 ~~~~~~~~~~~~~~~~~~~
 
 Lists all active patch files and the test files each one affects. Add ``-v`` to see the individual filenames.
 
 .. code-block:: bash
 
-   dbx spec patch list
-   dbx spec patch list -r django-mongodb-backend
-   dbx -v spec patch list      # shows individual affected files
+   dpy spec patch list
+   dpy spec patch list -r django-mongodb-backend
+   dpy -v spec patch list      # shows individual affected files
 
 **Example output:**
 
@@ -230,7 +230,7 @@ Lists all active patch files and the test files each one affects. Add ``-v`` to 
    ├── PYTHON-4261  (1 file(s))
    └── PYTHON-5759  (4 file(s))
 
-dbx spec patch create
+dpy spec patch create
 ~~~~~~~~~~~~~~~~~~~~~
 
 Captures the current ``git diff`` into a new ``.evergreen/spec-patch/<ticket>.patch`` file. Run this after a spec sync brings in tests you don't want yet, then revert or edit those files so the diff captures only the unwanted changes.
@@ -238,44 +238,44 @@ Captures the current ``git diff`` into a new ``.evergreen/spec-patch/<ticket>.pa
 .. code-block:: bash
 
    # Capture all unstaged changes
-   dbx spec patch create PYTHON-1234
+   dpy spec patch create PYTHON-1234
 
    # Capture changes to specific files only
-   dbx spec patch create PYTHON-1234 test/crud/foo.json test/crud/bar.json
+   dpy spec patch create PYTHON-1234 test/crud/foo.json test/crud/bar.json
 
    # Preview the diff that would be saved without writing the file
-   dbx spec patch create PYTHON-1234 --dry-run
+   dpy spec patch create PYTHON-1234 --dry-run
 
-dbx spec patch remove
+dpy spec patch remove
 ~~~~~~~~~~~~~~~~~~~~~
 
 Deletes a patch file once the corresponding ticket has been implemented and the tests should be re-enabled.
 
 .. code-block:: bash
 
-   dbx spec patch remove PYTHON-1234
-   dbx spec patch remove PYTHON-1234 -r django-mongodb-backend
+   dpy spec patch remove PYTHON-1234
+   dpy spec patch remove PYTHON-1234 -r django-mongodb-backend
 
-dbx spec patch apply
+dpy spec patch apply
 ~~~~~~~~~~~~~~~~~~~~
 
 Runs ``git apply -R --allow-empty --whitespace=fix`` on all ``.evergreen/spec-patch/*.patch`` files, matching what ``resync-all-specs.py`` does in CI.
 
 .. code-block:: bash
 
-   dbx spec patch apply
-   dbx spec patch apply -r django-mongodb-backend
-   dbx spec patch apply --dry-run    # list what would be applied
+   dpy spec patch apply
+   dpy spec patch apply -r django-mongodb-backend
+   dpy spec patch apply --dry-run    # list what would be applied
 
-dbx spec patch verify
+dpy spec patch verify
 ~~~~~~~~~~~~~~~~~~~~~
 
 Checks each ``.evergreen/spec-patch/*.patch`` file to confirm it still applies cleanly against the current working tree. Runs ``git apply --check -R`` on every patch and reports whether each one is clean or stale. Exits non-zero if any patch is stale.
 
 .. code-block:: bash
 
-   dbx spec patch verify
-   dbx spec patch verify -r django-mongodb-backend
+   dpy spec patch verify
+   dpy spec patch verify -r django-mongodb-backend
 
 **Example output:**
 
@@ -288,14 +288,14 @@ Checks each ``.evergreen/spec-patch/*.patch`` file to confirm it still applies c
 
    1 stale patch(es) found.
 
-A patch becomes stale when the spec file it covers has been changed since the patch was created — for example, because a previous resync PR already incorporated part of those changes, or because the upstream file was renamed or removed. Stale patches should be removed (``dbx spec patch remove``) or recreated (``dbx spec patch remove`` + sync + ``dbx spec patch create``).
+A patch becomes stale when the spec file it covers has been changed since the patch was created — for example, because a previous resync PR already incorporated part of those changes, or because the upstream file was renamed or removed. Stale patches should be removed (``dpy spec patch remove``) or recreated (``dpy spec patch remove`` + sync + ``dpy spec patch create``).
 
 Reviewing Automated Spec Sync PRs
 ----------------------------------
 
 The ``mongodb-drivers-pr-bot`` opens a weekly pull request (e.g. *[Spec Resync] 04-13-2026*) that runs ``resync-all-specs.py`` against the latest ``specifications`` repo and submits the result.
 
-**Key point:** a spec resync is a pure file copy — ``resync-specs.sh`` copies JSON test files from ``specifications`` into ``test/`` with no logic or decisions. The diff in the PR is fully reproducible: check out ``main`` and run ``dbx spec sync`` to get identical output. Any CI failures on a resync PR are content-driven (the new spec tests exercise behaviour the driver hasn't implemented yet) and must be resolved before merging.
+**Key point:** a spec resync is a pure file copy — ``resync-specs.sh`` copies JSON test files from ``specifications`` into ``test/`` with no logic or decisions. The diff in the PR is fully reproducible: check out ``main`` and run ``dpy spec sync`` to get identical output. Any CI failures on a resync PR are content-driven (the new spec tests exercise behaviour the driver hasn't implemented yet) and must be resolved before merging.
 
 When tests fail on a resync PR, the options are:
 
@@ -325,7 +325,7 @@ The PR body summarises three things you need to triage:
     -client_backpressure
     -open_telemetry
 
-Triaging each section with ``dbx spec``
+Triaging each section with ``dpy spec``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **1. Reproduce the sync locally**
@@ -337,7 +337,7 @@ Check out the PR branch and replay the sync for the specs listed as changed:
    git fetch origin && git checkout <pr-branch>
 
    # Re-sync the changed spec(s) from the PR description
-   dbx spec sync change-streams
+   dpy spec sync change-streams
 
 **2. Investigate patch errors**
 
@@ -346,17 +346,17 @@ Patch errors mean a patch file references test content that no longer matches wh
 .. code-block:: bash
 
    # See which patches exist and what files they cover
-   dbx spec patch list
+   dpy spec patch list
 
    # Verbose mode shows the individual filenames — useful for spotting
    # stale paths that no longer exist after a rename/removal upstream
-   dbx -v spec patch list
+   dpy -v spec patch list
 
    # Check each patch individually — reports ✅ clean or ❌ stale
-   dbx spec patch verify
+   dpy spec patch verify
 
    # Try applying patches to see which ones fail
-   dbx spec patch apply
+   dpy spec patch apply
 
 Once you know which patch is stale, the fix is one of:
 
@@ -364,16 +364,16 @@ Once you know which patch is stale, the fix is one of:
 
   .. code-block:: bash
 
-     dbx spec patch remove PYTHON-XXXX
+     dpy spec patch remove PYTHON-XXXX
 
 * **File was renamed/modified** — re-sync, make the manual edits again, and recreate the patch:
 
   .. code-block:: bash
 
-     dbx spec patch remove PYTHON-XXXX
-     dbx spec sync <spec-name>
+     dpy spec patch remove PYTHON-XXXX
+     dpy spec sync <spec-name>
      # manually revert the unwanted lines
-     dbx spec patch create PYTHON-XXXX
+     dpy spec patch create PYTHON-XXXX
 
 **3. Evaluate new spec directories**
 
@@ -384,16 +384,16 @@ New directories in the spec repo (``client_backpressure``, ``open_telemetry`` in
   .. code-block:: bash
 
      # Pull in the new spec tests
-     dbx spec sync client-backpressure
+     dpy spec sync client-backpressure
 
      # Patch them all out until the feature is implemented
-     dbx spec patch create PYTHON-XXXX
+     dpy spec patch create PYTHON-XXXX
 
 * **Already implemented** — sync the spec and verify the tests pass without a patch:
 
   .. code-block:: bash
 
-     dbx spec sync client-backpressure
+     dpy spec sync client-backpressure
 
 **4. Full local repro in one shot**
 
@@ -401,7 +401,7 @@ Once you have the right patches in place, confirm the complete sync applies clea
 
 .. code-block:: bash
 
-   dbx spec sync --apply-patches
+   dpy spec sync --apply-patches
 
 A clean run with no patch errors means the PR is safe to merge.
 
@@ -412,38 +412,38 @@ Typical Workflows
 
 .. code-block:: bash
 
-   dbx sync specifications            # pull latest from upstream
-   dbx spec sync crud --apply-patches # sync and apply patches
+   dpy sync specifications            # pull latest from upstream
+   dpy spec sync crud --apply-patches # sync and apply patches
 
 **Sync, then handle new unimplemented tests**
 
 .. code-block:: bash
 
    # 1. Sync the spec you're working on
-   dbx spec sync crud
+   dpy spec sync crud
 
    # 2. Active patches are shown automatically — apply them
-   dbx spec patch apply
+   dpy spec patch apply
 
    # 3. If new unimplemented tests appeared, revert/edit them and create a patch
-   dbx spec patch create PYTHON-1234
+   dpy spec patch create PYTHON-1234
 
 **Implementing a ticket (removing a patch)**
 
 .. code-block:: bash
 
    # The feature is now implemented — remove its patch file
-   dbx spec patch remove PYTHON-1234
+   dpy spec patch remove PYTHON-1234
 
    # Re-sync to verify the tests now pass without the patch
-   dbx spec sync crud
+   dpy spec sync crud
 
 **See what's excluded before syncing**
 
 .. code-block:: bash
 
-   dbx spec patch list          # quick overview
-   dbx -v spec patch list       # with individual filenames
+   dpy spec patch list          # quick overview
+   dpy -v spec patch list       # with individual filenames
 
 Configuration
 -------------

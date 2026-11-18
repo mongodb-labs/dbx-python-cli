@@ -4,14 +4,14 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
 def test_project_add_with_frontend(tmp_path):
     """Test creating a project with frontend."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -23,7 +23,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["project", "add", "--no-install", "testproject"])
@@ -50,7 +50,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_add_without_frontend(tmp_path):
     """Test creating a project without frontend."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -62,7 +62,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(
@@ -86,7 +86,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_add_with_random_name(tmp_path):
     """Test creating a project with random name."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -98,7 +98,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # When no name is provided, a random name is automatically generated
@@ -134,7 +134,7 @@ def test_project_add_custom_directory(tmp_path):
 
 def test_project_add_with_base_dir_override(tmp_path):
     """Test creating a project with --base-dir override (uses it as project root)."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -150,7 +150,7 @@ base_dir = "{base_dir_str}"
     # Use --base-dir to specify the exact project location
     project_path = tmp_path / "custom_location" / "myproject"
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(
@@ -183,7 +183,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_add_default_settings(tmp_path):
     """Test creating a project uses project name as default settings module."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -195,7 +195,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["project", "add", "--no-install", "myproject"])
@@ -210,7 +210,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_remove(tmp_path):
     """Test removing a project."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -222,7 +222,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # First create a project
@@ -243,7 +243,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_remove_nonexistent(tmp_path):
     """Test removing a project that doesn't exist."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -255,7 +255,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["project", "remove", "nonexistent"])
@@ -265,7 +265,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_remove_last_project_removes_projects_dir(tmp_path):
     """Test that removing the last project also removes the projects/ directory."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -277,7 +277,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create a single project
@@ -302,7 +302,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_remove_one_of_many_keeps_projects_dir(tmp_path):
     """Test that removing one project when multiple exist keeps the projects/ directory."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -314,7 +314,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create two projects
@@ -342,9 +342,9 @@ base_dir = "{base_dir_str}"
         assert projects_dir.exists()
 
 
-def test_project_install_with_dbx_install(tmp_path):
-    """Test that projects can be installed with dbx install command."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+def test_project_install_with_dpy_install(tmp_path):
+    """Test that projects can be installed with dpy install command."""
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -356,7 +356,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path_1:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path_1:
         mock_get_path_1.return_value = config_path
 
         # Create a project
@@ -365,8 +365,8 @@ base_dir = "{base_dir_str}"
         )
         assert result.exit_code == 0
 
-    # Now test that it can be found by dbx install
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path_2:
+    # Now test that it can be found by dpy install
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path_2:
         mock_get_path_2.return_value = config_path
 
         # List should show the project
@@ -378,7 +378,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_with_frontend_structure(tmp_path):
     """Test that frontend has correct structure."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -390,7 +390,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["project", "add", "--no-install", "frontendtest"])
@@ -410,7 +410,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_list(tmp_path):
     """Test listing projects with 'project list' subcommand."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -422,7 +422,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Test with no projects directory
@@ -453,7 +453,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_run_settings_module(tmp_path):
     """Test that run command uses correct settings module."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -476,10 +476,12 @@ MONGODB_URI = "mongodb://localhost:27017"
     project_path.mkdir()
     (project_path / "manage.py").write_text("# manage.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         # Patch get_venv_info in project_utils (where get_django_python_path calls it)
-        with patch("dbx_python_cli.utils.project.get_venv_info") as mock_venv_info:
-            with patch("dbx_python_cli.commands.project.subprocess.run") as mock_run:
+        with patch("drivers_python_cli.utils.project.get_venv_info") as mock_venv_info:
+            with patch(
+                "drivers_python_cli.commands.project.subprocess.run"
+            ) as mock_run:
                 mock_get_path.return_value = config_path
                 mock_venv_info.return_value = ("/usr/bin/python", "venv")
                 mock_run.return_value = MagicMock(returncode=0)
@@ -503,7 +505,7 @@ MONGODB_URI = "mongodb://localhost:27017"
 
 def test_project_run_nonexistent(tmp_path):
     """Test running a nonexistent project."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -515,7 +517,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Try to run a nonexistent project
@@ -528,7 +530,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_edit_nonexistent(tmp_path):
     """Test editing a nonexistent project."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -540,7 +542,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Try to edit a nonexistent project
@@ -552,7 +554,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_edit_with_editor(tmp_path):
     """Test editing a project's settings file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -564,7 +566,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create a project
@@ -601,7 +603,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_edit_with_settings_option(tmp_path):
     """Test editing a specific settings file."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -613,7 +615,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create a project
@@ -650,7 +652,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_edit_newest_project(tmp_path):
     """Test editing the newest project without specifying name."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -662,7 +664,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create two projects
@@ -698,7 +700,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_settings_has_installed_apps(tmp_path):
     """Test that project-specific settings file has INSTALLED_APPS."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -710,7 +712,7 @@ base_dir = "{base_dir_str}"
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         # Create a project
@@ -734,7 +736,7 @@ base_dir = "{base_dir_str}"
 
 def test_project_add_qe_installs_pymongocrypt_and_medical_records(tmp_path):
     """--qe triggers libmongocrypt build, pymongocrypt install, and medical-records install."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -758,17 +760,17 @@ repos = ["git@github.com:aclark4life/medical-records.git"]
     artifact = base_dir / "libmongocrypt" / "cmake-build" / "libmongocrypt.dylib"
 
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path,
+        patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path,
         patch(
-            "dbx_python_cli.commands.project._ensure_libmongocrypt_built",
+            "drivers_python_cli.commands.project._ensure_libmongocrypt_built",
             return_value=artifact,
         ) as mock_build,
         patch(
-            "dbx_python_cli.commands.project._ensure_package_installed",
+            "drivers_python_cli.commands.project._ensure_package_installed",
             return_value="clone",
         ) as mock_install,
         patch(
-            "dbx_python_cli.utils.project.validate_qe_env",
+            "drivers_python_cli.utils.project.validate_qe_env",
             return_value=[],
         ),
     ):
@@ -803,7 +805,7 @@ repos = ["git@github.com:aclark4life/medical-records.git"]
 
 def test_project_add_qe_fails_when_medical_records_install_fails(tmp_path):
     """If medical-records cannot be installed, --qe aborts the project creation."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -823,17 +825,17 @@ base_dir = "{base_dir_str}"
         return "clone"
 
     with (
-        patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path,
+        patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path,
         patch(
-            "dbx_python_cli.commands.project._ensure_libmongocrypt_built",
+            "drivers_python_cli.commands.project._ensure_libmongocrypt_built",
             return_value=None,
         ),
         patch(
-            "dbx_python_cli.commands.project._ensure_package_installed",
+            "drivers_python_cli.commands.project._ensure_package_installed",
             side_effect=_install_side_effect,
         ),
         patch(
-            "dbx_python_cli.utils.project.validate_qe_env",
+            "drivers_python_cli.utils.project.validate_qe_env",
             return_value=[],
         ),
     ):

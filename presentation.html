@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DBX Python CLI — MongoDB Developer Tooling</title>
+  <title>Drivers Python CLI — MongoDB Developer Tooling</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reset.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
@@ -265,8 +265,8 @@
   <!-- large leaf watermark -->
   <div class="leaf-mark"></div>
 
-  <span class="eyebrow">MongoDB · DBX Team</span>
-  <h1 style="font-size:2.1em; line-height:1.05; margin-bottom:10px;">DBX Python CLI</h1>
+  <span class="eyebrow">MongoDB · Drivers Python Team</span>
+  <h1 style="font-size:2.1em; line-height:1.05; margin-bottom:10px;">Drivers Python CLI</h1>
 
   <!-- Spring Green rule (brand pattern: green bar under title) -->
   <div style="width:52px;height:4px;background:#00ED64;border-radius:2px;margin-bottom:18px;"></div>
@@ -321,15 +321,15 @@
       One CLI to rule the<br><span class="spring">entire Python ecosystem</span>
     </h2>
     <p style="font-size:0.57em; color:#889397; margin:0 auto 18px; max-width:520px;">
-      <strong style="color:#E8EDEB;">DBX Python CLI</strong> is installed globally via
+      <strong style="color:#E8EDEB;">Drivers Python CLI</strong> is installed globally via
       <code style="color:#00ED64; background:rgba(0,237,100,0.1); padding:1px 5px; border-radius:3px;">pipx</code>
       and gives a single, consistent interface across every MongoDB-related Python project.
     </p>
-    <pre style="text-align:left;"><code class="language-bash">pipx install git+https://github.com/aclark4life/dbx-python-cli.git
+    <pre style="text-align:left;"><code class="language-bash">pipx install git+https://github.com/aclark4life/drivers-python-cli.git
 
-dbx clone -g django          # clone the whole django group
-dbx install -g django                  # install all deps with uv
-dbx test -g django -k "test_find"      # run tests — MongoDB starts automatically</code></pre>
+dpy clone -g django          # clone the whole django group
+dpy install -g django                  # install all deps with uv
+dpy test -g django -k "test_find"      # run tests — MongoDB starts automatically</code></pre>
   </div>
   <div class="leaf-corner"></div>
 </section>
@@ -407,11 +407,11 @@ repos = [
     </div>
     <div>
       <ul class="steps">
-        <li><code>dbx clone -g django</code> — clone group &amp; run install</li>
-        <li><code>dbx sync -g pymongo</code> — rebase every repo to upstream</li>
-        <li><code>dbx list</code> — tree view: ✓ cloned / ○ available</li>
-        <li><code>dbx switch main -g django</code> — checkout across group</li>
-        <li><code>dbx status -g langchain</code> — git status for all repos</li>
+        <li><code>dpy clone -g django</code> — clone group &amp; run install</li>
+        <li><code>dpy sync -g pymongo</code> — rebase every repo to upstream</li>
+        <li><code>dpy list</code> — tree view: ✓ cloned / ○ available</li>
+        <li><code>dpy switch main -g django</code> — checkout across group</li>
+        <li><code>dpy status -g langchain</code> — git status for all repos</li>
       </ul>
       <p style="font-size:0.48em; color:#889397; margin-top:10px;">
         Global groups are auto-cloned into every other group.<br>
@@ -447,16 +447,16 @@ repos = [
     </div>
     <div>
       <pre><code class="language-bash"># Create venv for a group
-dbx env init -g django
+dpy env init -g django
 
 # Install with extras
-dbx install -e test,aws
+dpy install -e test,aws
 
 # PEP 735 dependency groups
-dbx install --groups dev,docs
+dpy install --groups dev,docs
 
 # Show all venvs
-dbx env list</code></pre>
+dpy env list</code></pre>
       <pre style="margin-top:9px;"><code class="language-toml">[repo.groups.django.install_extras]
 "django-mongodb-backend" = ["test"]
 
@@ -512,14 +512,14 @@ secondaries = 2</code></pre>
   <div class="cols">
     <div>
       <ul class="steps">
-        <li><code>dbx project add myapp</code> — scaffold with MongoDB config</li>
-        <li><code>dbx project install</code> — install project deps</li>
-        <li><code>dbx project migrate</code> — run Django migrations</li>
-        <li><code>dbx project su</code> — create superuser</li>
-        <li><code>dbx project run</code> — start dev server</li>
-        <li><code>dbx project manage &lt;cmd&gt;</code> — arbitrary commands</li>
-        <li><code>dbx project list</code> — list all projects</li>
-        <li><code>dbx project remove myapp</code> — clean up</li>
+        <li><code>dpy project add myapp</code> — scaffold with MongoDB config</li>
+        <li><code>dpy project install</code> — install project deps</li>
+        <li><code>dpy project migrate</code> — run Django migrations</li>
+        <li><code>dpy project su</code> — create superuser</li>
+        <li><code>dpy project run</code> — start dev server</li>
+        <li><code>dpy project manage &lt;cmd&gt;</code> — arbitrary commands</li>
+        <li><code>dpy project list</code> — list all projects</li>
+        <li><code>dpy project remove myapp</code> — clean up</li>
       </ul>
     </div>
     <div>
@@ -556,16 +556,16 @@ secondaries = 2</code></pre>
     <div>
       <pre><code class="language-bash"># 1. Install globally
 pipx install git+https://github.com/\
-  aclark4life/dbx-python-cli.git
+  aclark4life/drivers-python-cli.git
 
 # 2. Initialise config
-dbx config init
+dpy config init
 
 # 3. Clone a group + install deps
-dbx clone -g pymongo
+dpy clone -g pymongo
 
 # 4. Run tests (MongoDB auto-starts)
-dbx test -k "test_collection"</code></pre>
+dpy test -k "test_collection"</code></pre>
     </div>
     <div>
       <p style="font-size:0.58em; margin-bottom:10px;">Global flags on every command:</p>
@@ -603,7 +603,7 @@ dbx test -k "test_collection"</code></pre>
     </div>
     <div class="card">
       <h4>just</h4>
-      <p>Simple make-like command runner. Tight integration via <code>dbx just</code>.</p>
+      <p>Simple make-like command runner. Tight integration via <code>dpy just</code>.</p>
     </div>
     <div class="card">
       <h4>ruff</h4>
@@ -655,7 +655,7 @@ dbx test -k "test_collection"</code></pre>
     </div>
     <div class="card">
       <h4>Flat Command Surface</h4>
-      <p>16 top-level commands. Every feature is one <code>dbx &lt;verb&gt;</code> away.</p>
+      <p>16 top-level commands. Every feature is one <code>dpy &lt;verb&gt;</code> away.</p>
     </div>
     <div class="card">
       <h4>De-Siloing</h4>
@@ -677,12 +677,12 @@ dbx test -k "test_collection"</code></pre>
     <h2 style="font-size:1.4em; line-height:1.2; margin-bottom:16px;">
       Elevate your MongoDB<br>Python workflow today
     </h2>
-    <pre style="text-align:left; margin-bottom:18px;"><code class="language-bash">pipx install git+https://github.com/aclark4life/dbx-python-cli.git
-dbx --help</code></pre>
+    <pre style="text-align:left; margin-bottom:18px;"><code class="language-bash">pipx install git+https://github.com/aclark4life/drivers-python-cli.git
+dpy --help</code></pre>
     <div class="cards" style="text-align:left; gap:10px;">
       <div class="card">
         <h4>Source</h4>
-        <p>github.com/aclark4life/dbx-python-cli</p>
+        <p>github.com/aclark4life/drivers-python-cli</p>
       </div>
       <div class="card">
         <h4>Docs</h4>
@@ -698,7 +698,7 @@ dbx --help</code></pre>
       </div>
     </div>
     <p style="font-size:0.43em; color:#889397; margin-top:16px;">
-      Built by the MongoDB DBX Team &nbsp;·&nbsp; AI-First · De-siloing happens here
+      Built by the MongoDB Drivers Python Team &nbsp;·&nbsp; AI-First · De-siloing happens here
     </p>
   </div>
   <div class="leaf-corner"></div>

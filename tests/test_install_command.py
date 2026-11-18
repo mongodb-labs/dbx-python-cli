@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
@@ -28,8 +28,8 @@ def test_install_help():
 
 def test_install_no_args_shows_error():
     """Test install with no arguments shows help."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": "/tmp/test"}}
             result = runner.invoke(app, ["install"])
             # Typer exits with code 2 when showing help due to no_args_is_help=True
@@ -39,12 +39,12 @@ def test_install_no_args_shows_error():
 
 def test_install_nonexistent_repo(tmp_path):
     """Test install with nonexistent repository."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
             result = runner.invoke(app, ["install", "nonexistent-repo"])
             assert result.exit_code == 1
-            assert "not found" in result.stdout or "dbx install --list" in result.stdout
+            assert "not found" in result.stdout or "dpy install --list" in result.stdout
 
 
 def test_install_dot_from_repo_root(tmp_path, monkeypatch):
@@ -57,9 +57,11 @@ def test_install_dot_from_repo_root(tmp_path, monkeypatch):
 
     monkeypatch.chdir(repo_dir)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -86,8 +88,8 @@ def test_install_dot_not_in_managed_repo(tmp_path, monkeypatch):
     unrelated.mkdir()
     monkeypatch.chdir(unrelated)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
 
             result = runner.invoke(app, ["install", "."])
@@ -105,9 +107,11 @@ def test_install_basic_success(tmp_path):
     (repo_dir / ".git").mkdir()
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -143,9 +147,11 @@ def test_install_with_extras(tmp_path):
     (repo_dir / ".git").mkdir()
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -181,9 +187,11 @@ def test_install_with_multiple_extras(tmp_path):
     (repo_dir / ".git").mkdir()
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -206,9 +214,11 @@ def test_install_with_groups(tmp_path):
     (repo_dir / ".git").mkdir()
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -261,9 +271,11 @@ def test_install_with_extras_and_groups(tmp_path):
     (repo_dir / ".git").mkdir()
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -328,8 +340,8 @@ def test_install_failure(tmp_path):
     # Create setup.py so the install actually runs (and can fail)
     (repo_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             with patch("subprocess.run") as mock_run:
                 mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                 mock_result = MagicMock()
@@ -357,9 +369,11 @@ def test_install_group_all_repos(tmp_path):
     (repo1_dir / "setup.py").write_text("# setup.py")
     (repo2_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -396,9 +410,11 @@ def test_install_group_all_repos_with_extras(tmp_path):
     (repo1_dir / "setup.py").write_text("# setup.py")
     (repo2_dir / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -423,8 +439,8 @@ def test_install_group_all_repos_with_extras(tmp_path):
 
 def test_install_group_nonexistent(tmp_path):
     """Test install -g with nonexistent group."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
             result = runner.invoke(app, ["install", "-g", "nonexistent"])
             assert result.exit_code == 1
@@ -439,8 +455,8 @@ def test_install_group_no_repos(tmp_path):
     group_dir = tmp_path / "pymongo"
     group_dir.mkdir(parents=True)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
             result = runner.invoke(app, ["install", "-g", "pymongo"])
             assert result.exit_code == 1
@@ -466,9 +482,11 @@ def test_install_duplicate_repo_warning(tmp_path):
     (pymongo_repo / "setup.py").write_text("# setup.py")
     (langchain_repo / "setup.py").write_text("# setup.py")
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
-            with patch("dbx_python_cli.commands.install.get_venv_info") as mock_venv:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
+            with patch(
+                "drivers_python_cli.commands.install.get_venv_info"
+            ) as mock_venv:
                 with patch("subprocess.run") as mock_run:
                     mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                     mock_venv.return_value = ("python", "venv")
@@ -510,8 +528,8 @@ docs = ["sphinx"]
 """
     (repo_dir / "pyproject.toml").write_text(pyproject_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
 
             result = runner.invoke(
@@ -525,8 +543,8 @@ docs = ["sphinx"]
 
 def test_install_show_options_no_repo(tmp_path):
     """Test --show-options without repo name shows error."""
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
 
             result = runner.invoke(app, ["install", "--show-options"])
@@ -571,10 +589,10 @@ docs = ["sphinx"]
     (pkg1_dir / "pyproject.toml").write_text(pyproject1)
     (pkg2_dir / "pyproject.toml").write_text(pyproject2)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             with patch(
-                "dbx_python_cli.commands.install.get_install_dirs"
+                "drivers_python_cli.commands.install.get_install_dirs"
             ) as mock_install_dirs:
                 mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
                 mock_install_dirs.return_value = [
@@ -628,8 +646,8 @@ langchain = ["langchain"]
     (repo1_dir / "pyproject.toml").write_text(pyproject1)
     (repo2_dir / "pyproject.toml").write_text(pyproject2)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
 
             # Show options for pymongo group using -G flag
@@ -688,8 +706,8 @@ docs = ["sphinx"]
     (repo1_dir / "pyproject.toml").write_text(pyproject1)
     (repo2_dir / "pyproject.toml").write_text(pyproject2)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as _mock_path:
-        with patch("dbx_python_cli.commands.install.get_config") as mock_config:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as _mock_path:
+        with patch("drivers_python_cli.commands.install.get_config") as mock_config:
             mock_config.return_value = {"repo": {"base_dir": str(tmp_path)}}
 
             # Show options for all repos in pymongo group
@@ -710,7 +728,7 @@ def test_install_skip_install_repo_without_a_venv(tmp_path):
     """A repo configured to skip installation exits cleanly with no venv present.
 
     The skip check used to run *after* get_venv_info(), which exits the process
-    when no virtual environment is found, so `dbx install <repo>` on a
+    when no virtual environment is found, so `dpy install <repo>` on a
     skip_install repo failed with "No virtual environment found" instead of
     reporting that the repo is deliberately skipped.
     """
@@ -733,9 +751,11 @@ def test_install_skip_install_repo_without_a_venv(tmp_path):
 
     # Force "no venv anywhere": otherwise the interpreter running the tests is
     # itself in a venv and get_venv_info() succeeds, hiding the ordering bug.
-    with patch("dbx_python_cli.utils.repo.get_config_path"):
-        with patch("dbx_python_cli.commands.install.get_config", return_value=config):
-            with patch("dbx_python_cli.utils.venv._is_venv", return_value=False):
+    with patch("drivers_python_cli.utils.repo.get_config_path"):
+        with patch(
+            "drivers_python_cli.commands.install.get_config", return_value=config
+        ):
+            with patch("drivers_python_cli.utils.venv._is_venv", return_value=False):
                 result = runner.invoke(app, ["install", "django"])
 
     output = strip_ansi(result.stdout) + (result.stderr if result.stderr_bytes else "")

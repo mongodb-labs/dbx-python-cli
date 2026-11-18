@@ -11,7 +11,7 @@ uv pip install -e ".[test]"     # test extras
 python -m pytest                                                    # full suite
 python -m pytest tests/test_install_command.py -v                  # single file
 python -m pytest tests/test_install_command.py::test_install_basic_success -v  # single test
-python -m pytest --cov=dbx --cov-report=term-missing               # with coverage
+python -m pytest --cov=drivers_python_cli --cov-report=term-missing               # with coverage
 
 # Build
 python -m build
@@ -21,11 +21,11 @@ Pre-commit hooks (ruff lint + format, toml/yaml checks) run on `git commit`. To 
 
 ## Architecture
 
-`dbx` is a Typer CLI tool for managing a local workspace of multiple git repositories, grouped by project area. The entry point is `src/dbx_python_cli/cli.py`, which mounts each command module as a sub-`typer.Typer` app.
+`dpy` is a Typer CLI tool for managing a local workspace of multiple git repositories, grouped by project area. The entry point is `src/drivers_python_cli/cli.py`, which mounts each command module as a sub-`typer.Typer` app.
 
 ### Config system
 
-Config is loaded from `~/.config/dbx-python-cli/config.toml` (user) with fallback to the bundled `src/dbx_python_cli/config.toml`. The config drives almost all behavior — commands rarely have hardcoded paths or group names.
+Config is loaded from `~/.config/drivers-python-cli/config.toml` (user) with fallback to the bundled `src/drivers_python_cli/config.toml`. The config drives almost all behavior — commands rarely have hardcoded paths or group names.
 
 Key config sections:
 - `[repo]` — `base_dir`, `flat`, `global_groups`, `group_priority`, `fork_user`, `python_version`, `editor`
@@ -76,12 +76,12 @@ All config lookups go through helpers — never access `config["repo"]["groups"]
 ## Testing conventions
 
 - Tests use `pytest` with `typer.testing.CliRunner` to invoke commands end-to-end.
-- Common patches: `dbx_python_cli.commands.<module>.get_config`, `subprocess.run`, `subprocess.check_call`.
+- Common patches: `drivers_python_cli.commands.<module>.get_config`, `subprocess.run`, `subprocess.check_call`.
 - `tests/conftest.py` provides shared fixtures (`cli_runner`, temp directory helpers).
 - Integration tests live in `tests/integration/` and may require real filesystem state.
 - Mock the config dict directly rather than the TOML file:
   ```python
-  with patch("dbx_python_cli.commands.list.get_config", return_value={
+  with patch("drivers_python_cli.commands.list.get_config", return_value={
       "repo": {"base_dir": str(tmp_path), "flat": True, "groups": {...}}
   }):
   ```

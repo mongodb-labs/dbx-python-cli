@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from dbx_python_cli.cli import app
+from drivers_python_cli.cli import app
 
 runner = CliRunner()
 
 
 def test_repo_clone_real_git_repo(tmp_path, bare_git_repo):
     """Test cloning a real git repository."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -30,7 +30,7 @@ repos = [
 """
     config_path.write_text(config_content)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["clone", "-g", "test"])
@@ -47,7 +47,7 @@ repos = [
 
 def test_repo_clone_skip_existing(tmp_path, bare_git_repo):
     """Test that cloning skips already cloned repos."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -77,7 +77,7 @@ repos = [
         capture_output=True,
     )
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["clone", "-g", "test"])
@@ -87,7 +87,7 @@ repos = [
 
 def test_repo_sync_real_repo(tmp_path, bare_git_repo):
     """Test syncing a real repository."""
-    config_dir = tmp_path / ".config" / "dbx-python-cli"
+    config_dir = tmp_path / ".config" / "drivers-python-cli"
     config_dir.mkdir(parents=True)
     config_path = config_dir / "config.toml"
 
@@ -155,7 +155,7 @@ repos = [
     )
     subprocess.run(["git", "push"], cwd=temp_repo, check=True, capture_output=True)
 
-    with patch("dbx_python_cli.utils.repo.get_config_path") as mock_get_path:
+    with patch("drivers_python_cli.utils.repo.get_config_path") as mock_get_path:
         mock_get_path.return_value = config_path
 
         result = runner.invoke(app, ["sync", "bare_repo"])

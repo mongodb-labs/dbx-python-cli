@@ -31,7 +31,7 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m pytest --cov=dbx_python_cli --cov-report=xml --cov-report=term --junitxml=junit.xml -o junit_family=legacy
+        python -m pytest --cov=drivers_python_cli --cov-report=xml --cov-report=term --junitxml=junit.xml -o junit_family=legacy
 
     # Codecov uploads are disabled until CODECOV_TOKEN is set as a repository
     # secret. Without it every upload fails with "Token required because branch
