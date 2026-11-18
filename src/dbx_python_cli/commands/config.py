@@ -301,7 +301,7 @@ def show(ctx: typer.Context):
 @app.command()
 def validate(ctx: typer.Context):
     """Validate the configuration file for unknown or deprecated keys."""
-    KNOWN_TOP_LEVEL = {"project", "repo", "evergreen"}
+    KNOWN_TOP_LEVEL = {"project", "repo", "evergreen", "infra"}
 
     KNOWN_REPO_KEYS = {
         "base_dir",
@@ -400,6 +400,29 @@ def validate(ctx: typer.Context):
                 if key != "project_name":
                     issues.append(f"⚠️  [unknown] [evergreen.{section_name}] key: {key}")
                     has_errors = True
+
+    # Check [infra.<repo>.<suite>] keys
+    from dbx_python_cli.utils.infra import KNOWN_INFRA_SUITE_KEYS
+
+    infra_config = config.get("infra", {})
+    if isinstance(infra_config, dict):
+        for repo_name, repo_cfg in infra_config.items():
+            if not isinstance(repo_cfg, dict):
+                continue
+            for suite_name, suite_cfg in repo_cfg.items():
+                if not isinstance(suite_cfg, dict):
+                    issues.append(
+                        f"⚠️  [unknown] [infra.{repo_name}] key: {suite_name} "
+                        "(must be a [infra.<repo>.<suite>] table)"
+                    )
+                    has_errors = True
+                    continue
+                for key in suite_cfg:
+                    if key not in KNOWN_INFRA_SUITE_KEYS:
+                        issues.append(
+                            f"⚠️  [unknown] [infra.{repo_name}.{suite_name}] key: {key}"
+                        )
+                        has_errors = True
 
     # Report results
     if issues:

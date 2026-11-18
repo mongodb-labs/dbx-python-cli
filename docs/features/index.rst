@@ -15,3 +15,4 @@ Features
    documentation
    status
    spec-sync
+   infrastructure
