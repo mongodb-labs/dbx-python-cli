@@ -252,3 +252,124 @@ def test_infra_check_unknown_suite(tmp_path):
         result = runner.invoke(app, ["infra", "check", "mongo-python-driver", "nope"])
     assert result.exit_code == 1
     assert "unknown suite" in result.output + (result.stderr or "")
+
+
+ABX_WORKFLOW = """
+name: release
+on: workflow_dispatch
+jobs:
+  sign:
+    steps:
+      - uses: mongodb-labs/abx-release-tools/actions/setup@9d8e5070f37497b4d2d0239c80d65eacc096fdbc
+        with:
+          aws_role_arn: ${{ vars.AWS_SIGNING_ROLE_ARN }}
+          aws_region_name: ${{ vars.AWS_SIGNING_REGION }}
+          aws_secret_id: ${{ vars.AWS_SIGNING_SECRET_ID }}
+      - uses: mongodb-labs/abx-release-tools/actions/gpg-sign@main
+  publish:
+    steps:
+      - uses: mongodb-labs/abx-release-tools/actions/python/publish@9d8e5070f37497b4d2d0239c80d65eacc096fdbc
+"""
+
+ABX_WORKFLOW_CLEAN = """
+name: release
+on: workflow_dispatch
+jobs:
+  publish:
+    permissions:
+      id-token: write
+    steps:
+      - uses: mongodb-labs/abx-release-tools/actions/setup@9d8e5070f37497b4d2d0239c80d65eacc096fdbc
+      - uses: mongodb-labs/abx-release-tools/actions/python/publish@9d8e5070f37497b4d2d0239c80d65eacc096fdbc
+"""
+
+
+def make_abx_repo(tmp_path, workflow=ABX_WORKFLOW):
+    """Create a fake strands-mongodb checkout with an ABX release workflow."""
+    base_dir = tmp_path / "base"
+    repo_dir = base_dir / "abx" / "strands-mongodb"
+    (repo_dir / ".github" / "workflows").mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+    (repo_dir / ".github" / "workflows" / "release-python.yml").write_text(workflow)
+    config = {
+        "repo": {
+            "base_dir": str(base_dir),
+            "groups": {
+                "abx": {"repos": ["git@github.com:mongodb/strands-mongodb.git"]}
+            },
+        }
+    }
+    return config, base_dir
+
+
+def test_parse_abx_release(tmp_path):
+    """parse_abx_release extracts actions, pins, vars, and permissions."""
+    from dbx_python_cli.utils.infra import parse_abx_release
+
+    _config, base_dir = make_abx_repo(tmp_path)
+    abx = parse_abx_release(base_dir / "abx" / "strands-mongodb")
+    assert abx is not None
+    assert "setup" in abx["actions"]
+    assert abx["actions"]["setup"]["pinned"] is True
+    assert abx["unpinned"] == ["gpg-sign"]
+    assert "AWS_SIGNING_SECRET_ID" in abx["vars"]
+    assert abx["id_token_write"] is False
+
+
+def test_parse_abx_release_absent(tmp_path):
+    """parse_abx_release returns None without ABX workflow references."""
+    from pathlib import Path
+
+    from dbx_python_cli.utils.infra import parse_abx_release
+
+    config, _ = make_repo(tmp_path)
+    repo = Path(config["repo"]["base_dir"]) / "pymongo" / "mongo-python-driver"
+    assert parse_abx_release(repo) is None
+
+
+def test_infra_list_abx(tmp_path):
+    """infra list shows ABX release domains for repos without a suite registry."""
+    config, _ = make_abx_repo(tmp_path)
+    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+        mock_config.return_value = config
+        result = runner.invoke(app, ["infra", "list", "strands-mongodb"])
+    assert result.exit_code == 0
+    output = strip_ansi(result.stdout)
+    assert "Release domains for strands-mongodb" in output
+    assert "python/publish  [pinned" in output
+    assert "gpg-sign  [UNPINNED" in output
+    assert "AWS_SIGNING_SECRET_ID" in output
+
+
+def test_infra_check_abx_failures(tmp_path):
+    """infra check flags unpinned actions and missing id-token permission."""
+    config, _ = make_abx_repo(tmp_path)
+    with (
+        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch(
+            "dbx_python_cli.utils.infra.check_tool",
+            return_value=(True, "/usr/bin/just"),
+        ),
+    ):
+        mock_config.return_value = config
+        result = runner.invoke(app, ["infra", "check", "strands-mongodb"])
+    assert result.exit_code == 1
+    output = strip_ansi(result.stdout)
+    assert "not pinned to a commit SHA" in output
+    assert "no id-token: write" in output
+
+
+def test_infra_check_abx_clean(tmp_path):
+    """infra check passes for a pinned workflow with id-token permission."""
+    config, _ = make_abx_repo(tmp_path, workflow=ABX_WORKFLOW_CLEAN)
+    with (
+        patch("dbx_python_cli.commands.infra.get_config") as mock_config,
+        patch(
+            "dbx_python_cli.utils.infra.check_tool",
+            return_value=(True, "/usr/bin/just"),
+        ),
+    ):
+        mock_config.return_value = config
+        result = runner.invoke(app, ["infra", "check", "strands-mongodb"])
+    assert result.exit_code == 0
+    assert "All checks passed" in strip_ansi(result.stdout)

@@ -82,12 +82,19 @@ pre-flight gate or audit step.
 Extending to other repos
 ------------------------
 
-The pymongo-family adapter reads ``.evergreen/scripts/utils.py``. Repos
-without that file fall back to overlay-only listing. Planned adapters:
-ABX-style repos (parse ``.github/workflows`` for
-``mongodb-labs/abx-release-tools`` actions and their required secrets and
-permissions) and a ``dbx infra run`` orchestrator that chains
-``run-server``, ``setup-tests``, ``run-tests``, ``teardown-tests``.
+Two adapters exist. The pymongo-family adapter reads
+``.evergreen/scripts/utils.py``. The ABX adapter reads
+``.github/workflows/*.yml`` in repos that reference
+``mongodb-labs/abx-release-tools`` actions (``strands-mongodb`` and other
+ABX integrations): ``dbx infra list`` shows each action, whether it is
+pinned to a commit SHA, and the repo vars and secrets the workflow
+references, and ``dbx infra check`` flags unpinned actions and a publish
+action without ``id-token: write``. Release runs in CI, so local checks
+cover workflow hygiene only. Repos with neither adapter fall back to
+overlay-only listing.
+
+Planned: a ``dbx infra run`` orchestrator that chains ``run-server``,
+``setup-tests``, ``run-tests``, ``teardown-tests``.
 
 Reference links
 ---------------

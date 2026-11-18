@@ -52,7 +52,11 @@ def list_suites(
     list is always current. Extra facts (required tools, vaults, host
     constraints) come from the [infra.<repo>] overlay in config.
     """
-    from dbx_python_cli.utils.infra import get_infra_overlay, parse_suite_registry
+    from dbx_python_cli.utils.infra import (
+        get_infra_overlay,
+        parse_abx_release,
+        parse_suite_registry,
+    )
 
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
     config, _base_dir, _flat, repo_info = _resolve_repo(ctx, repo)
@@ -63,9 +67,10 @@ def list_suites(
 
     name = repo_info["name"]
     registry = parse_suite_registry(repo_info["path"])
+    abx = parse_abx_release(repo_info["path"])
     overlay = get_infra_overlay(config, name)
 
-    if not registry and not overlay:
+    if not registry and not overlay and not abx:
         typer.echo(f"No test suite registry or [infra.{name}] overlay found.")
         typer.echo(
             "Suites are discovered from .evergreen/scripts/utils.py (pymongo-family repos)."
@@ -85,7 +90,12 @@ def list_suites(
         typer.echo(f"Test suites for {name} ({len(suites)})")
         typer.echo("Run: just setup-tests <suite>\n")
     else:
-        typer.echo(f"No suite registry in {name}; overlay domains only:\n")
+        typer.echo(f"No suite registry in {name}")
+
+    if abx:
+        _print_abx_release(name, abx, overlay)
+    elif not registry:
+        typer.echo("Overlay domains only:\n")
 
     for suite_name in suites:
         facts = overlay.get(suite_name, {})
@@ -126,6 +136,29 @@ def _print_suite_line(suite_name, facts, registry, verbose):
             typer.echo(f"      {facts['notes']}")
         for label, url in (facts.get("links") or {}).items():
             typer.echo(f"      {label}: {url}")
+
+
+def _print_abx_release(name, abx, overlay):
+    """Print release domains parsed from abx-release-tools workflow references."""
+    typer.echo(
+        f"\nRelease domains for {name} (abx-release-tools, {len(abx['actions'])} action(s))"
+    )
+    typer.echo("Docs: https://abx-release-tools.readthedocs.io/en/latest/\n")
+    for action_name, info in sorted(abx["actions"].items()):
+        pin = "pinned" if info["pinned"] else "UNPINNED"
+        typer.echo(f"  {action_name}  [{pin} | {info['file']}]")
+    if abx["vars"]:
+        typer.echo(f"  repo vars: {', '.join(abx['vars'])}")
+    if abx["secrets"]:
+        typer.echo(f"  repo secrets: {', '.join(abx['secrets'])}")
+    if not abx["id_token_write"] and (
+        "python/publish" in abx["actions"] or "publish" in abx["actions"]
+    ):
+        typer.echo(
+            "  ⚠️  publish action present but no id-token: write permission found"
+        )
+    for label, url in ((overlay.get("release") or {}).get("links") or {}).items():
+        typer.echo(f"  {label}: {url}")
 
 
 def _print_suite_detail(suite_name, registry, overlay):
@@ -180,6 +213,7 @@ def check(
         check_tool,
         get_infra_overlay,
         is_evergreen_host,
+        parse_abx_release,
         parse_suite_registry,
         resolve_drivers_tools,
     )
@@ -214,19 +248,23 @@ def check(
     # Common checks.
     ok, detail = check_tool("just")
     _record(ok, "just", detail)
-    drivers_tools = resolve_drivers_tools(
-        config, group, name, base_dir, repo_info["path"]
-    )
-    ok, detail = check_drivers_tools(drivers_tools)
-    _record(ok, "DRIVERS_TOOLS", detail)
-    ok, detail = check_secrets_export(drivers_tools if facts.get("vaults") else None)
-    if facts.get("vaults"):
-        _record(ok, "secrets export", detail)
+    drivers_tools = None
+    if registry:
+        drivers_tools = resolve_drivers_tools(
+            config, group, name, base_dir, repo_info["path"]
+        )
+        ok, detail = check_drivers_tools(drivers_tools)
+        _record(ok, "DRIVERS_TOOLS", detail)
+        ok, detail = check_secrets_export(
+            drivers_tools if facts.get("vaults") else None
+        )
+        if facts.get("vaults"):
+            _record(ok, "secrets export", detail)
     needs_aws = (
         bool(facts.get("vaults"))
         or (facts.get("notes") or "").find("drivers-test-secrets-role") >= 0
     )
-    if needs_aws or not suite:
+    if registry and (needs_aws or not suite):
         ok, detail = check_aws_credentials()
         _record(ok, "AWS credentials", detail)
 
@@ -239,6 +277,31 @@ def check(
         _record(ok, f"env {var}", detail)
     if facts.get("evergreen_only") and not is_evergreen_host():
         _record(False, "host", "evergreen-only suite, not on an Evergreen host")
+
+    # ABX release-domain checks (repos without a suite registry).
+    if not registry:
+        abx = parse_abx_release(repo_info["path"])
+        if abx:
+            for action_name in abx["unpinned"]:
+                ref = abx["actions"][action_name]["ref"]
+                _record(
+                    False,
+                    f"action {action_name}",
+                    f"not pinned to a commit SHA (ref: {ref})",
+                )
+            publishes = (
+                "python/publish" in abx["actions"] or "publish" in abx["actions"]
+            )
+            if publishes and not abx["id_token_write"]:
+                _record(
+                    False,
+                    "id-token permission",
+                    "publish action present but no id-token: write in the workflow",
+                )
+            if abx["vars"]:
+                typer.echo(f"ℹ️  repo vars referenced: {', '.join(abx['vars'])}")
+            if abx["secrets"]:
+                typer.echo(f"ℹ️  repo secrets referenced: {', '.join(abx['secrets'])}")
 
     typer.echo()
     if failures:

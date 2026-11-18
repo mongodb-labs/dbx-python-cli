@@ -274,6 +274,9 @@ repos = [
 [repo.groups.abx]
 repos = [
     "git@github.com:mongodb-labs/abx-release-tools.git",
+    "git@github.com:mongodb/strands-mongodb.git",
+    "git@github.com:mongodb-developer/ms-agent-framework-mongodb.git",
+    "git@github.com:mongodb-developer/claude-agent-sdk-mongodb-session-store.git",
 ]
 # No Python package: the repo holds GitHub Actions, docs, and scripts.
 skip_install = ["abx-release-tools"]

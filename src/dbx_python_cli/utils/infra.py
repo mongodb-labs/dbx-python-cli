@@ -7,6 +7,7 @@ presence and shape, never values, so it is safe to paste into tickets.
 
 import ast
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -28,6 +29,77 @@ SECRETS_EXPORT_CANDIDATES = (
     ".evergreen/secrets-export.sh",
     ".evergreen/auth_aws/secrets-export.sh",
 )
+
+# ABX release tooling, consumed via GitHub Actions `uses:` references.
+ABX_TOOLS_REPO = "mongodb-labs/abx-release-tools"
+_ABX_USES_RE = re.compile(
+    rf"uses:\s*{re.escape(ABX_TOOLS_REPO)}/actions/([\w/-]+)@(\S+)"
+)
+_SECRETS_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}")
+_VARS_REF_RE = re.compile(r"\$\{\{\s*vars\.([A-Za-z0-9_]+)\s*\}\}")
+_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_ID_TOKEN_RE = re.compile(r"id-token:\s*write")
+
+
+def parse_abx_release(repo_path):
+    """Parse ABX release-tool usage from a repo's GitHub workflows.
+
+    Scans ``.github/workflows/*.yml`` for ``uses:`` references to
+    mongodb-labs/abx-release-tools actions, plus the repo variables, secrets,
+    and ``id-token: write`` permission they rely on. Regex-based: no YAML
+    dependency and no workflow execution semantics assumed.
+
+    Returns None when no abx-release-tools action is referenced, otherwise::
+
+        {
+            "actions": {name: {"file", "ref", "pinned"}},
+            "unpinned": [names],
+            "vars": sorted([var names]),
+            "secrets": sorted([secret names]),
+            "id_token_write": bool,
+        }
+    """
+    workflows_dir = Path(repo_path) / ".github" / "workflows"
+    if not workflows_dir.is_dir():
+        return None
+
+    actions = {}
+    var_names = set()
+    secret_names = set()
+    id_token_write = False
+    found = False
+
+    for workflow in sorted(workflows_dir.glob("*.y*ml")):
+        try:
+            text = workflow.read_text()
+        except OSError:
+            continue
+        uses = _ABX_USES_RE.findall(text)
+        if not uses:
+            continue
+        found = True
+        for action_name, ref in uses:
+            if action_name not in actions:
+                actions[action_name] = {
+                    "file": workflow.name,
+                    "ref": ref,
+                    "pinned": bool(_SHA_RE.match(ref)),
+                }
+        var_names.update(_VARS_REF_RE.findall(text))
+        secret_names.update(_SECRETS_REF_RE.findall(text))
+        if _ID_TOKEN_RE.search(text):
+            id_token_write = True
+
+    if not found:
+        return None
+
+    return {
+        "actions": actions,
+        "unpinned": sorted(n for n, a in actions.items() if not a["pinned"]),
+        "vars": sorted(var_names),
+        "secrets": sorted(secret_names),
+        "id_token_write": id_token_write,
+    }
 
 
 def parse_suite_registry(repo_path):
