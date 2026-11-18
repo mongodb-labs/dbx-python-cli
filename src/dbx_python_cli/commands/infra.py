@@ -92,21 +92,23 @@ def list_suites(
     else:
         typer.echo(f"No suite registry in {name}")
 
-    if release:
-        _print_release_workflows(name, release, overlay)
-    elif not registry:
-        typer.echo("Overlay domains only:\n")
-
     for suite_name in suites:
         facts = overlay.get(suite_name, {})
         _print_suite_line(suite_name, facts, registry, verbose)
 
-    # Overlay entries with no registry counterpart (release domains, etc.).
+    # Overlay entries with no registry counterpart (e.g. mod_wsgi).
+    # "release" holds links for the release workflows section, not a domain.
     for domain, facts in overlay.items():
-        if registry and domain in _all_suites(registry):
+        if domain == "release":
             continue
-        if not registry or domain not in suites:
-            _print_suite_line(domain, facts, registry, verbose)
+        if domain in suites:
+            continue
+        _print_suite_line(domain, facts, registry, verbose)
+
+    if release:
+        _print_release_workflows(name, release, overlay)
+    elif not registry:
+        typer.echo("\nOverlay domains only:")
 
 
 def _all_suites(registry):
@@ -141,7 +143,9 @@ def _print_suite_line(suite_name, facts, registry, verbose):
 def _print_release_workflows(name, release, overlay):
     """Print release workflows and the requirements each one carries."""
     typer.echo(f"\nRelease workflows for {name} ({len(release['files'])} file(s))")
-    typer.echo("Docs: https://abx-release-tools.readthedocs.io/en/latest/\n")
+    if release["actions"]:
+        typer.echo("Docs: https://abx-release-tools.readthedocs.io/en/latest/")
+    typer.echo()
     for info in release["files"]:
         typer.echo(f"  {info['file']}")
         if info["abx_actions"]:

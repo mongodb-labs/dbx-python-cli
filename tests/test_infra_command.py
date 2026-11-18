@@ -423,3 +423,27 @@ def test_infra_check_local_release_actions_pass(tmp_path):
         result = runner.invoke(app, ["infra", "check", "strands-mongodb"])
     assert result.exit_code == 0
     assert "All checks passed" in strip_ansi(result.stdout)
+
+
+def test_infra_list_release_section_after_suites_and_no_abx_docs(tmp_path):
+    """Release section follows the suite list and only cites ABX docs for ABX repos."""
+    config, base_dir = make_repo(tmp_path)
+    config["infra"]["mongo-python-driver"]["mod_wsgi"] = {"requires_tools": ["docker"]}
+    workflows = base_dir / "pymongo" / "mongo-python-driver" / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "release-python.yml").write_text(
+        "jobs:\n"
+        "  publish:\n"
+        "    permissions:\n"
+        "      id-token: write\n"
+        "    steps:\n"
+        "      - uses: pypa/gh-agent-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33\n"
+    )
+    with patch("dbx_python_cli.commands.infra.get_config") as mock_config:
+        mock_config.return_value = config
+        result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
+    assert result.exit_code == 0
+    output = strip_ansi(result.stdout)
+    assert "abx-release-tools.readthedocs.io" not in output
+    assert output.index("load_balancer") < output.index("Release workflows for")
+    assert output.index("mod_wsgi") < output.index("Release workflows for")
