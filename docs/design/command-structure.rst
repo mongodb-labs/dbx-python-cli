@@ -89,6 +89,10 @@ Related subcommands that share a common domain:
    dbx env remove
    dbx env status
 
+   # Infrastructure requirements per repo
+   dbx infra list mongo-python-driver
+   dbx infra check mongo-python-driver auth_oidc
+
    # Django project management
    dbx project add myproject
    dbx project edit

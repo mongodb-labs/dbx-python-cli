@@ -41,3 +41,11 @@ ENV/
 .coverage
 htmlcov/
 .tox/
+
+# Secrets and credentials (never commit)
+secrets-export.sh
+.env
+.env.*
+*.pem
+*.key
+*.keytab

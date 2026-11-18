@@ -274,6 +274,9 @@ repos = [
 [repo.groups.abx]
 repos = [
     "git@github.com:mongodb-labs/abx-release-tools.git",
+    "git@github.com:mongodb/strands-mongodb.git",
+    "git@github.com:mongodb-developer/ms-agent-framework-mongodb.git",
+    "git@github.com:mongodb-developer/claude-agent-sdk-mongodb-session-store.git",
 ]
 # No Python package: the repo holds GitHub Actions, docs, and scripts.
 skip_install = ["abx-release-tools"]
@@ -313,3 +316,48 @@ repos = [
     "git@github.com:jazzband/django-taggit.git",
     "git@github.com:jazzband/django-debug-toolbar.git",
 ]
+
+# Infrastructure requirements overlay. Public-safe facts only: tool names,
+# secret vault names, env var names, host constraints, links. Never secret
+# values. Consumed by `dbx infra list` and `dbx infra check`. Suite names
+# come from each repo's .evergreen/scripts/utils.py; this overlay adds the
+# facts that registry cannot express.
+[infra.mongo-python-driver]
+
+[infra.mongo-python-driver.load_balancer]
+requires_tools = ["haproxy"]
+
+[infra.mongo-python-driver.auth_oidc]
+notes = "Types: default, azure, gcp, eks, aks, gke. eks needs drivers-test-secrets-role access."
+links = { aws-secrets = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/239737385/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets" }
+
+[infra.mongo-python-driver.kms]
+notes = "Local variants are expected to fail (e.g. kms azure-fail); remote variants pass (e.g. kms gcp)."
+
+[infra.mongo-python-driver.enterprise_auth]
+evergreen_only = true
+
+[infra.mongo-python-driver.atlas_connect]
+vaults = ["drivers/atlas_connect"]
+
+[infra.mongo-python-driver.search_index]
+notes = "Runs against a Search Index cluster in the Atlas QA drivers-testing project."
+links = { atlas-qa-admin = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/473895025/Atlas+QA+Admin" }
+
+[infra.mongo-python-driver.ocsp]
+env_names = ["ORCHESTRATION_FILE"]
+notes = "setup-tests starts the server; omit run-server for no-responder tests. MacOS and Windows servers do not staple OCSP and only support RSA."
+
+[infra.mongo-python-driver.aws_lambda]
+notes = "Needs drivers-test-secrets-role access (EKS, Lambda SAM, Bedrock)."
+links = { aws-secrets = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/239737385/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets" }
+
+[infra.mongo-python-driver.mod_wsgi]
+requires_tools = ["docker"]
+notes = "Linux: install apache2 and mod_wsgi, then just setup-tests mod_wsgi <mode>. Non-Linux: runs in an ubuntu container (no run-server step)."
+
+[infra.mongo-python-driver.perf]
+notes = "Start a perf server first, e.g. just run-server --version=v8.0-perf --ssl. Setup with sync or async."
+
+[infra.mongo-python-driver.fuzz]
+notes = "Fuzz tests run only in Evergreen builds."
