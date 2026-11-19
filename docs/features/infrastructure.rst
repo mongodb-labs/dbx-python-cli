@@ -12,6 +12,25 @@ two questions: *what does this suite need* and *can I run it right now*.
    dpy infra check mongo-python-driver
    dpy infra check mongo-python-driver load_balancer
 
+Human output
+------------
+
+``dpy infra list`` prints one Rich panel per system, the same style as
+``dpy ci``. Evergreen suites and GitHub Actions release workflows stay
+separate. Each suite line shows its constraint markers:
+
+.. code-block:: text
+
+   ╭───────────── Evergreen test suites for mongo-python-driver (8) ─────────────╮
+   │ Run: just setup-tests <suite>                                               │
+   │                                                                             │
+   │ atlas_connect  [no-server | vaults: drivers/atlas_connect]                  │
+   │ load_balancer  [tools: haproxy]                                             │
+   ╰─────────────────────────────────────────────────────────────────────────────╯
+
+``dpy infra list <suite>`` prints a single suite panel with its marker, notes,
+and links. ``--verbose`` adds overlay notes and links to the suite list.
+
 Public-safe by design
 ---------------------
 

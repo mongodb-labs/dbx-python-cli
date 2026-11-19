@@ -3,6 +3,11 @@
 from pathlib import Path
 
 import typer
+from rich.console import Console, Group
+from rich.markup import escape
+from rich.padding import Padding
+from rich.panel import Panel
+from rich.text import Text
 
 from drivers_python_cli.utils.infra import action_docs_url
 from drivers_python_cli.utils.repo import (
@@ -20,6 +25,8 @@ app = typer.Typer(
     no_args_is_help=True,
     help="List and check infrastructure requirements (tools, secrets access, env) per repo.",
 )
+
+console = Console(highlight=False)
 
 
 def _resolve_repo(ctx, repo):
@@ -90,39 +97,18 @@ def list_suites(
         )
 
     suites = _all_suites(registry) if registry else []
-    if registry:
-        typer.echo(f"Evergreen test suites for {name} ({len(suites)})")
-        typer.echo("Run: just setup-tests <suite>\n")
-    else:
-        typer.echo(
-            f"No Evergreen suite registry in {name}: .evergreen/scripts/utils.py "
-            "is missing or has no TEST_SUITE_MAP."
-        )
-
-    for suite_name in suites:
-        facts = overlay.get(suite_name, {})
-        _print_suite_line(suite_name, facts, registry, verbose)
-
-    # Overlay entries with no registry counterpart (e.g. mod_wsgi).
-    # "release" holds links for the release workflows section, not a domain.
-    for domain, facts in overlay.items():
-        if domain == "release":
-            continue
-        if domain in suites:
-            continue
-        _print_suite_line(domain, facts, registry, verbose)
-
+    console.print()
+    console.print(_evergreen_panel(name, suites, overlay, registry, verbose))
     if release:
-        _print_release_workflows(name, release, overlay)
-    elif not registry:
-        typer.echo("\nOverlay domains only:")
+        console.print(_release_panel(name, release, overlay))
 
 
 def _all_suites(registry):
     return sorted(list(registry["suites"]) + registry["extra"])
 
 
-def _print_suite_line(suite_name, facts, registry, verbose):
+def _suite_markers(suite_name, facts, registry):
+    """Return the short constraint markers for one suite."""
     markers = []
     if (
         registry
@@ -138,78 +124,192 @@ def _print_suite_line(suite_name, facts, registry, verbose):
         markers.append("vaults: " + ", ".join(facts["vaults"]))
     if facts.get("env_names"):
         markers.append("env: " + ", ".join(facts["env_names"]))
+    return markers
+
+
+def _suite_line(suite_name, facts, registry):
+    markers = _suite_markers(suite_name, facts, registry)
     suffix = f"  [{' | '.join(markers)}]" if markers else ""
-    typer.echo(f"  {suite_name}{suffix}")
-    if verbose:
-        if facts.get("notes"):
-            typer.echo(f"      {facts['notes']}")
-        for label, url in (facts.get("links") or {}).items():
-            typer.echo(f"      {label}: {url}")
+    return Text.assemble((suite_name, "bold cyan"), (suffix, "dim"))
 
 
-def _print_release_workflows(name, release, overlay):
-    """Print release workflows and the requirements each one carries."""
-    typer.echo(
-        f"\nGitHub Actions release workflows for {name} "
-        f"({len(release['files'])} file(s))"
+def _evergreen_panel(name, suites, overlay, registry, verbose):
+    """Build the Evergreen suites panel."""
+    # Overlay entries with no registry counterpart (e.g. mod_wsgi).
+    # "release" holds links for the release workflows section, not a domain.
+    entries = [(suite_name, overlay.get(suite_name, {})) for suite_name in suites]
+    for domain, facts in overlay.items():
+        if domain != "release" and domain not in suites:
+            entries.append((domain, facts))
+
+    lines = []
+    if registry:
+        title = f"Evergreen test suites for {name} ({len(suites)})"
+        lines.append(Text("Run: just setup-tests <suite>", style="dim"))
+        border = "cyan"
+    elif entries:
+        title = f"Overlay domains for {name}"
+        lines.append(Text("Overlay domains only", style="dim"))
+        border = "cyan"
+    else:
+        title = f"Evergreen: {name}"
+        lines.append(
+            Text(
+                f"No Evergreen suite registry in {name}: .evergreen/scripts/utils.py "
+                "is missing or has no TEST_SUITE_MAP.",
+                style="yellow",
+            )
+        )
+        border = "yellow"
+
+    if entries:
+        lines.append(Text(""))
+        for suite_name, facts in entries:
+            lines.append(_suite_line(suite_name, facts, registry))
+            if verbose:
+                if facts.get("notes"):
+                    lines.append(
+                        Padding(Text(facts["notes"], style="dim"), (0, 0, 0, 2))
+                    )
+                for label, url in (facts.get("links") or {}).items():
+                    lines.append(
+                        Padding(
+                            Text.assemble(
+                                (f"{label}: ", "dim"), (url, "blue underline")
+                            ),
+                            (0, 0, 0, 2),
+                        )
+                    )
+
+    return Panel(
+        Group(*lines),
+        title=f"[bold cyan]{escape(title)}[/]",
+        border_style=border,
+        padding=(0, 1),
     )
+
+
+def _release_panel(name, release, overlay):
+    """Build the GitHub Actions release workflows panel."""
+    title = (
+        f"GitHub Actions release workflows for {name} ({len(release['files'])} file(s))"
+    )
+    lines = []
     if release["sources"]:
-        typer.echo("Action docs:")
+        lines.append(Text("Action docs:", style="bold"))
         for source in release["sources"]:
-            typer.echo(f"  {source}: {action_docs_url(source)}")
-    typer.echo()
+            lines.append(
+                Text.assemble(
+                    (f"{source}: ", "dim"),
+                    (action_docs_url(source), "blue underline"),
+                )
+            )
+        lines.append(Text(""))
     for info in release["files"]:
-        typer.echo(f"  {info['file']}")
+        lines.append(Text(info["file"], style="bold cyan"))
         if info["abx_actions"]:
             parts = []
             for action_name, action in sorted(info["abx_actions"].items()):
                 pin = "pinned" if action["pinned"] else "UNPINNED"
                 parts.append(f"{action_name} [{pin}]")
-            typer.echo(f"    abx actions: {', '.join(parts)}")
+            lines.append(
+                Padding(
+                    Text.assemble(
+                        ("abx actions: ", "dim"),
+                        (", ".join(parts), ""),
+                    ),
+                    (0, 0, 0, 2),
+                )
+            )
         if info["local_actions"]:
-            typer.echo(f"    local actions: {', '.join(info['local_actions'])}")
-        typer.echo(
-            "    id-token: write"
-            if info["id_token_write"]
-            else "    no id-token permission"
-        )
+            lines.append(
+                Padding(
+                    Text.assemble(
+                        ("local actions: ", "dim"),
+                        (", ".join(info["local_actions"]), ""),
+                    ),
+                    (0, 0, 0, 2),
+                )
+            )
+        if info["id_token_write"]:
+            lines.append(Padding(Text("id-token: write"), (0, 0, 0, 2)))
+        else:
+            lines.append(
+                Padding(Text("no id-token permission", style="dim"), (0, 0, 0, 2))
+            )
         if info["publishes"] and not info["id_token_write"]:
-            typer.echo("    ⚠️  publishes but no id-token: write")
+            lines.append(
+                Padding(
+                    Text("⚠️  publishes but no id-token: write", style="yellow"),
+                    (0, 0, 0, 2),
+                )
+            )
     if release["vars"]:
-        typer.echo(f"  repo vars: {', '.join(release['vars'])}")
+        lines.append(
+            Text.assemble(("repo vars: ", "dim"), (", ".join(release["vars"]), ""))
+        )
     if release["secrets"]:
-        typer.echo(f"  repo secrets: {', '.join(release['secrets'])}")
+        lines.append(
+            Text.assemble(
+                ("repo secrets: ", "dim"), (", ".join(release["secrets"]), "")
+            )
+        )
     for label, url in ((overlay.get("release") or {}).get("links") or {}).items():
-        typer.echo(f"  {label}: {url}")
+        lines.append(Text.assemble((f"{label}: ", "dim"), (url, "blue underline")))
+
+    return Panel(
+        Group(*lines),
+        title=f"[bold cyan]{escape(title)}[/]",
+        border_style="blue",
+        padding=(0, 1),
+    )
 
 
 def _print_suite_detail(suite_name, registry, overlay):
     facts = overlay.get(suite_name, {})
-    typer.echo(f"Suite: {suite_name}")
+    lines = []
     if registry:
         if suite_name in registry["suites"]:
             marker = registry["suites"][suite_name] or "(default)"
-            typer.echo(f"  pytest marker: {marker}")
+            lines.append(Text.assemble(("pytest marker: ", "dim"), (marker, "")))
         elif suite_name in registry["extra"]:
-            typer.echo("  extra test (not in TEST_SUITE_MAP)")
+            lines.append(Text("extra test (not in TEST_SUITE_MAP)", style="dim"))
         else:
-            typer.echo("  not found in repo registry")
+            lines.append(Text("not found in repo registry", style="red"))
             if not facts:
                 raise typer.Exit(1)
     if registry and suite_name in registry["no_orchestration"]:
-        typer.echo("  no run-server step (setup-tests starts the server)")
+        lines.append(Text("no run-server step (setup-tests starts the server)"))
     if facts.get("evergreen_only"):
-        typer.echo("  evergreen-only: can only run on an Evergreen host")
+        lines.append(Text("evergreen-only: can only run on an Evergreen host"))
     if facts.get("requires_tools"):
-        typer.echo(f"  required tools: {', '.join(facts['requires_tools'])}")
+        lines.append(
+            Text.assemble(
+                ("required tools: ", "dim"),
+                (", ".join(facts["requires_tools"]), ""),
+            )
+        )
     if facts.get("vaults"):
-        typer.echo(f"  secret vaults: {', '.join(facts['vaults'])}")
+        lines.append(
+            Text.assemble(("secret vaults: ", "dim"), (", ".join(facts["vaults"]), ""))
+        )
     if facts.get("env_names"):
-        typer.echo(f"  env vars: {', '.join(facts['env_names'])}")
+        lines.append(
+            Text.assemble(("env vars: ", "dim"), (", ".join(facts["env_names"]), ""))
+        )
     if facts.get("notes"):
-        typer.echo(f"  notes: {facts['notes']}")
+        lines.append(Text.assemble(("notes: ", "dim"), (facts["notes"], "")))
     for label, url in (facts.get("links") or {}).items():
-        typer.echo(f"  {label}: {url}")
+        lines.append(Text.assemble((f"{label}: ", "dim"), (url, "blue underline")))
+
+    console.print(
+        Panel(
+            Group(*lines),
+            title=f"[bold cyan]{escape(f'Suite: {suite_name}')}[/]",
+            border_style="cyan",
+            padding=(0, 1),
+        )
+    )
 
 
 @app.command()
