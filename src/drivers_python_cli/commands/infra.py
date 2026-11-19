@@ -90,7 +90,10 @@ def list_suites(
         typer.echo(f"Test suites for {name} ({len(suites)})")
         typer.echo("Run: just setup-tests <suite>\n")
     else:
-        typer.echo(f"No suite registry in {name}")
+        typer.echo(
+            f"No suite registry in {name}: .evergreen/scripts/utils.py "
+            "is missing or has no TEST_SUITE_MAP."
+        )
 
     for suite_name in suites:
         facts = overlay.get(suite_name, {})

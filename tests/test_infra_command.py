@@ -335,6 +335,8 @@ def test_infra_list_abx(tmp_path):
         result = runner.invoke(app, ["infra", "list", "strands-mongodb"])
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
+    assert "No suite registry in strands-mongodb" in output
+    assert "has no TEST_SUITE_MAP" in output
     assert "Release workflows for strands-mongodb" in output
     assert "python/publish [pinned]" in output
     assert "gpg-sign [UNPINNED]" in output
