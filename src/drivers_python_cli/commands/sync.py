@@ -9,6 +9,8 @@ from collections import Counter
 from pathlib import Path
 
 import typer
+from rich.console import Console
+from rich.text import Text
 
 from drivers_python_cli.utils import repo
 from drivers_python_cli.utils.output import paginate_output, should_use_pager
@@ -28,6 +30,16 @@ app = typer.Typer(
     },
 )
 
+console = Console(highlight=False, soft_wrap=True)
+err_console = Console(stderr=True, highlight=False, soft_wrap=True)
+
+
+def _echo(message, style=None, err=False):
+    """Print one line through Rich, with optional style and stderr routing."""
+    if not isinstance(message, Text):
+        message = Text(message, style=style)
+    (err_console if err else console).print(message)
+
 
 def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
     """Sync a list of repos, print a header and a summary, and honour the pager flag."""
@@ -41,14 +53,14 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
         sys.stderr = output_buffer
 
     try:
-        typer.echo(header)
+        _echo(header, style="bold")
 
         synced_count = 0
         skipped_count = 0
         failed_count = 0
         for i, repo_info in enumerate(repos):
             if i > 0:
-                typer.echo("─" * 60)
+                _echo("─" * 60, style="dim")
             status = _sync_repository(
                 repo_info["path"],
                 repo_info["name"],
@@ -72,7 +84,7 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
             summary += f", skipped {skipped_count}"
         if failed_count:
             summary += f", failed {failed_count}"
-        typer.echo(summary)
+        _echo(summary, style="bold yellow" if failed_count else "bold green")
     finally:
         if use_pager:
             sys.stdout = old_stdout
@@ -160,9 +172,16 @@ def _sync_all_branches(
         branches = list(mapping.keys())
     original_branch = _current_branch(path)
 
-    typer.echo(
-        f"{'[dry-run] ' if dry_run else ''}Syncing {len(branches)} branch(es) of {name}:\n"
+    _echo(
+        Text.assemble(
+            ("[dry-run] " if dry_run else "", "dim"),
+            (f"Syncing {len(branches)} branch(es) of ", "bold"),
+            (name, "bold cyan"),
+            (":", "bold"),
+        ),
+        style="bold",
     )
+    _echo("")
 
     synced_count = 0
     skipped_count = 0
@@ -177,7 +196,7 @@ def _sync_all_branches(
     if dry_run:
         try:
             if verbose:
-                typer.echo("[verbose] Fetching from upstream...")
+                _echo("[verbose] Fetching from upstream...", style="dim")
             subprocess.run(
                 ["git", "-C", str(path), "fetch", "upstream"],
                 check=True,
@@ -185,24 +204,25 @@ def _sync_all_branches(
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            typer.echo(
+            _echo(
                 f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
+                style="red",
                 err=True,
             )
             raise typer.Exit(1)
 
         for i, branch in enumerate(branches):
             if i > 0:
-                typer.echo("─" * 60)
-            typer.echo(f"🌿 {branch}")
-            typer.echo(f"🔍 Checking {name}")
+                _echo("─" * 60, style="dim")
+            _echo(Text.assemble(("🌿 ", ""), (branch, "bold cyan")))
+            _echo(Text.assemble(("🔍 Checking ", ""), (name, "bold cyan")))
             _show_commit_comparison(
                 path, name, branch, f"upstream/{mapping[branch]}", verbose
             )
             synced_count += 1
 
         summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
-        typer.echo(summary)
+        _echo(summary, style="bold green")
         if backport_report:
             _print_backport_report(
                 repo_info,
@@ -218,8 +238,8 @@ def _sync_all_branches(
     try:
         for i, branch in enumerate(branches):
             if i > 0:
-                typer.echo("─" * 60)
-            typer.echo(f"🌿 {branch}")
+                _echo("─" * 60, style="dim")
+            _echo(Text.assemble(("🌿 ", ""), (branch, "bold cyan")))
             try:
                 subprocess.run(
                     ["git", "-C", str(path), "switch", branch],
@@ -228,8 +248,9 @@ def _sync_all_branches(
                     text=True,
                 )
             except subprocess.CalledProcessError as e:
-                typer.echo(
+                _echo(
                     f"❌ Failed to switch to {branch}: {e.stderr if not verbose else ''}",
+                    style="red",
                     err=True,
                 )
                 failed_branches.append(branch)
@@ -273,17 +294,20 @@ def _sync_all_branches(
         summary += f", skipped {skipped_count}"
     if failed_branches:
         summary += f", failed {len(failed_branches)}"
-    typer.echo(summary)
+    _echo(summary, style="bold yellow" if failed_branches else "bold green")
 
     if failed_branches:
-        typer.echo(
+        _echo(
             f"⚠️  Rebase these branch(es) manually: {', '.join(failed_branches)}",
+            style="yellow",
             err=True,
         )
 
     if original_branch and not restored:
-        typer.echo(
-            f"⚠️  Could not switch back to original branch '{original_branch}'", err=True
+        _echo(
+            f"⚠️  Could not switch back to original branch '{original_branch}'",
+            style="yellow",
+            err=True,
         )
 
     # Re-run downstream CI for branches that actually rebased+pushed. The backend's
@@ -791,8 +815,8 @@ def sync_callback(
         groups = repo.get_repo_groups(config)
 
         if verbose:
-            typer.echo(f"[verbose] Using base directory: {base_dir}")
-            typer.echo(f"[verbose] Available groups: {list(groups.keys())}\n")
+            _echo(f"[verbose] Using base directory: {base_dir}", style="dim")
+            _echo(f"[verbose] Available groups: {list(groups.keys())}\n", style="dim")
 
         # Handle all groups option
         if all_groups:
@@ -992,16 +1016,16 @@ def sync_callback(
         )
 
         if dry_run:
-            typer.echo("\n✨ Dry run complete!")
+            _echo("\n✨ Dry run complete!", style="bold green")
         else:
-            typer.echo("\n✨ Done!")
+            _echo("\n✨ Done!", style="bold green")
 
     except typer.Exit:
         # typer.Exit subclasses RuntimeError, so the broad handler below would
         # otherwise swallow every deliberate exit and re-report it as "❌ Error: 1".
         raise
     except Exception as e:
-        typer.echo(f"❌ Error: {e}", err=True)
+        _echo(f"❌ Error: {e}", style="red", err=True)
         raise typer.Exit(1)
 
 
@@ -1035,20 +1059,24 @@ def _sync_repository(
     # push upstream's history into the fork, so sync never touches them; sync the
     # primary clone instead.
     if is_worktree(repo_path):
-        typer.echo(f"⏭️  Skipping {repo_name} (worktree)")
+        _echo(
+            Text.assemble(
+                ("⏭️  Skipping ", "dim"), (repo_name, "bold"), (" (worktree)", "dim")
+            )
+        )
         return "skipped"
 
     if dry_run:
-        typer.echo(f"🔍 Checking {repo_name}")
+        _echo(Text.assemble(("🔍 Checking ", ""), (repo_name, "bold cyan")))
     else:
-        typer.echo(f"🔄 Syncing {repo_name}")
+        _echo(Text.assemble(("🔄 Syncing ", ""), (repo_name, "bold cyan")))
 
     if verbose:
-        typer.echo(f"[verbose] Repository path: {repo_path}")
+        _echo(f"[verbose] Repository path: {repo_path}", style="dim")
         if force:
-            typer.echo("[verbose] Force push enabled")
+            _echo("[verbose] Force push enabled", style="dim")
         if dry_run:
-            typer.echo("[verbose] Dry run mode enabled")
+            _echo("[verbose] Dry run mode enabled", style="dim")
 
     # Check if upstream remote exists
     try:
@@ -1061,15 +1089,17 @@ def _sync_repository(
         remotes = result.stdout.strip().split("\n")
 
         if "upstream" not in remotes:
-            typer.echo(
+            _echo(
                 "⚠️  No 'upstream' remote found (skipping)",
+                style="yellow",
                 err=True,
             )
             return "skipped"
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"❌ Failed to check remotes: {e.stderr}",
+            style="red",
             err=True,
         )
         return "failed"
@@ -1085,18 +1115,20 @@ def _sync_repository(
         current_branch = result.stdout.strip()
 
         if not current_branch:
-            typer.echo(
+            _echo(
                 "⚠️  Not on a branch (detached HEAD), skipping",
+                style="yellow",
                 err=True,
             )
             return "skipped"
 
         if verbose:
-            typer.echo(f"[verbose] Current branch: {current_branch}")
+            _echo(f"[verbose] Current branch: {current_branch}", style="dim")
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"❌ Failed to get current branch: {e.stderr}",
+            style="red",
             err=True,
         )
         return "failed"
@@ -1104,7 +1136,7 @@ def _sync_repository(
     # Fetch from upstream
     try:
         if verbose:
-            typer.echo("[verbose] Fetching from upstream...")
+            _echo("[verbose] Fetching from upstream...", style="dim")
 
         subprocess.run(
             ["git", "-C", str(repo_path), "fetch", "upstream"],
@@ -1114,8 +1146,9 @@ def _sync_repository(
         )
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
+            style="red",
             err=True,
         )
         return "failed"
@@ -1188,8 +1221,9 @@ def _sync_repository(
                         continue
 
                 if not upstream_default:
-                    typer.echo(
+                    _echo(
                         "❌ Could not determine upstream default branch",
+                        style="red",
                         err=True,
                     )
                     return "failed"
@@ -1210,7 +1244,7 @@ def _sync_repository(
     # Rebase on target branch
     try:
         if verbose:
-            typer.echo(f"[verbose] Rebasing on {rebase_target}...")
+            _echo(f"[verbose] Rebasing on {rebase_target}...", style="dim")
 
         subprocess.run(
             ["git", "-C", str(repo_path), "rebase", rebase_target],
@@ -1220,12 +1254,13 @@ def _sync_repository(
         )
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"❌ Failed to rebase {current_branch} on {rebase_target}",
+            style="red",
             err=True,
         )
         if not verbose and e.stderr:
-            typer.echo(f"  {e.stderr.strip()}", err=True)
+            _echo(f"  {e.stderr.strip()}", style="dim", err=True)
 
         if abort_on_conflict:
             # Leave the repo in a clean state so callers that iterate over
@@ -1236,14 +1271,16 @@ def _sync_repository(
                 capture_output=True,
                 text=True,
             )
-            typer.echo(
+            _echo(
                 f"  Rebase aborted. Resolve manually: cd {repo_path} && "
                 f"git switch {current_branch} && git rebase {rebase_target}",
+                style="yellow",
                 err=True,
             )
         else:
-            typer.echo(
+            _echo(
                 f"  You may need to resolve conflicts manually in {repo_path}",
+                style="yellow",
                 err=True,
             )
         return "failed"
@@ -1252,8 +1289,9 @@ def _sync_repository(
     try:
         if verbose:
             push_type = "force pushing" if force else "pushing"
-            typer.echo(
-                f"[verbose] {push_type.capitalize()} to origin/{current_branch}..."
+            _echo(
+                f"[verbose] {push_type.capitalize()} to origin/{current_branch}...",
+                style="dim",
             )
 
         push_cmd = ["git", "-C", str(repo_path), "push"]
@@ -1268,18 +1306,20 @@ def _sync_repository(
             text=True,
         )
 
-        typer.echo("✅ Synced and pushed successfully")
+        _echo("✅ Synced and pushed successfully", style="green")
         return "synced"
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"⚠️  Synced but failed to push to origin/{current_branch}",
+            style="yellow",
             err=True,
         )
         if not verbose and e.stderr:
-            typer.echo(f"  {e.stderr.strip()}", err=True)
-        typer.echo(
+            _echo(f"  {e.stderr.strip()}", style="dim", err=True)
+        _echo(
             f"  Try running: dpy sync {repo_name} --force",
+            style="yellow",
             err=True,
         )
         return "failed"
@@ -1368,8 +1408,9 @@ def _show_commit_comparison(
                 text=True,
             )
         except subprocess.CalledProcessError:
-            typer.echo(
+            _echo(
                 f"⚠️  No origin/{current_branch} branch found",
+                style="yellow",
                 err=True,
             )
             return
@@ -1408,7 +1449,7 @@ def _show_commit_comparison(
 
         # Show status
         if commits_ahead == 0 and commits_behind == 0:
-            typer.echo(f"✅ Already up to date with {rebase_target}")
+            _echo(f"✅ Already up to date with {rebase_target}", style="green")
         else:
             status_parts = []
             if commits_behind > 0:
@@ -1419,20 +1460,22 @@ def _show_commit_comparison(
                 status_parts.append(f"{commits_ahead} commit(s) ahead")
 
             status = ", ".join(status_parts)
-            typer.echo(f"📊 {status}")
+            _echo(f"📊 {status}", style="cyan")
 
             # Show commit details if verbose or if there are commits
             if verbose or commits_behind > 0 or commits_ahead > 0:
                 # Show commits that would be applied from upstream
                 if commits_behind > 0:
                     if commits_behind > 10:
-                        typer.echo(
+                        _echo(
                             f"\nCommits from {rebase_target} that would be applied"
-                            f" (first 10 of {commits_behind}):"
+                            f" (first 10 of {commits_behind}):",
+                            style="bold",
                         )
                     else:
-                        typer.echo(
-                            f"\nCommits from {rebase_target} that would be applied:"
+                        _echo(
+                            f"\nCommits from {rebase_target} that would be applied:",
+                            style="bold",
                         )
                     result = subprocess.run(
                         [
@@ -1452,18 +1495,20 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            typer.echo(f"  + {line}")
+                            _echo(Text.assemble(("  + ", "green"), (line, "")))
 
                 # Show commits in origin that would be rebased
                 if commits_ahead > 0:
                     if commits_ahead > 10:
-                        typer.echo(
+                        _echo(
                             f"\nCommits in origin/{current_branch} that would be rebased"
-                            f" (first 10 of {commits_ahead}):"
+                            f" (first 10 of {commits_ahead}):",
+                            style="bold",
                         )
                     else:
-                        typer.echo(
-                            f"\nCommits in origin/{current_branch} that would be rebased:"
+                        _echo(
+                            f"\nCommits in origin/{current_branch} that would be rebased:",
+                            style="bold",
                         )
                     result = subprocess.run(
                         [
@@ -1483,13 +1528,14 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            typer.echo(f"  * {line}")
+                            _echo(Text.assemble(("  * ", "yellow"), (line, "")))
 
                 typer.echo("")  # Empty line for spacing
 
     except subprocess.CalledProcessError as e:
-        typer.echo(
+        _echo(
             f"❌ Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
+            style="red",
             err=True,
         )
 
