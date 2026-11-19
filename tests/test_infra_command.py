@@ -108,7 +108,7 @@ def test_infra_list_suites(tmp_path):
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
-    assert "Test suites for mongo-python-driver (8)" in output
+    assert "Evergreen test suites for mongo-python-driver (8)" in output
     assert "load_balancer" in output
     assert "haproxy" in output
     assert "evergreen-only" in output
@@ -148,7 +148,7 @@ def test_infra_list_no_registry_no_overlay(tmp_path):
         mock_config.return_value = config
         result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
     assert result.exit_code == 1
-    assert "No test suite registry" in result.stdout
+    assert "No Evergreen suite registry" in result.stdout
 
 
 def test_infra_check_pass(tmp_path):
@@ -335,9 +335,9 @@ def test_infra_list_abx(tmp_path):
         result = runner.invoke(app, ["infra", "list", "strands-mongodb"])
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
-    assert "No suite registry in strands-mongodb" in output
+    assert "No Evergreen suite registry in strands-mongodb" in output
     assert "has no TEST_SUITE_MAP" in output
-    assert "Release workflows for strands-mongodb" in output
+    assert "GitHub Actions release workflows for strands-mongodb" in output
     assert "Action docs:" in output
     assert "https://abx-release-tools.readthedocs.io/en/latest/" in output
     assert "python/publish [pinned]" in output
@@ -449,8 +449,12 @@ def test_infra_list_release_section_after_suites_and_no_abx_docs(tmp_path):
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
     assert "abx-release-tools.readthedocs.io" not in output
-    assert output.index("load_balancer") < output.index("Release workflows for")
-    assert output.index("mod_wsgi") < output.index("Release workflows for")
+    assert output.index("load_balancer") < output.index(
+        "GitHub Actions release workflows for"
+    )
+    assert output.index("mod_wsgi") < output.index(
+        "GitHub Actions release workflows for"
+    )
 
 
 def test_infra_list_release_action_docs_other_sources(tmp_path):

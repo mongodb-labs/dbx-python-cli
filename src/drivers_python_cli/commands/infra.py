@@ -72,7 +72,10 @@ def list_suites(
     overlay = get_infra_overlay(config, name)
 
     if not registry and not overlay and not release:
-        typer.echo(f"No test suite registry or [infra.{name}] overlay found.")
+        typer.echo(
+            f"No Evergreen suite registry, GitHub Actions release workflow, "
+            f"or [infra.{name}] overlay found."
+        )
         typer.echo(
             "Suites are discovered from .evergreen/scripts/utils.py (pymongo-family repos)."
         )
@@ -88,11 +91,11 @@ def list_suites(
 
     suites = _all_suites(registry) if registry else []
     if registry:
-        typer.echo(f"Test suites for {name} ({len(suites)})")
+        typer.echo(f"Evergreen test suites for {name} ({len(suites)})")
         typer.echo("Run: just setup-tests <suite>\n")
     else:
         typer.echo(
-            f"No suite registry in {name}: .evergreen/scripts/utils.py "
+            f"No Evergreen suite registry in {name}: .evergreen/scripts/utils.py "
             "is missing or has no TEST_SUITE_MAP."
         )
 
@@ -146,7 +149,10 @@ def _print_suite_line(suite_name, facts, registry, verbose):
 
 def _print_release_workflows(name, release, overlay):
     """Print release workflows and the requirements each one carries."""
-    typer.echo(f"\nRelease workflows for {name} ({len(release['files'])} file(s))")
+    typer.echo(
+        f"\nGitHub Actions release workflows for {name} "
+        f"({len(release['files'])} file(s))"
+    )
     if release["sources"]:
         typer.echo("Action docs:")
         for source in release["sources"]:
