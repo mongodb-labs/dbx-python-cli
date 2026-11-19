@@ -30,10 +30,18 @@ precedent in pymongo's ``CONTRIBUTING.md``, which links the same wiki pages.
 Where the data comes from
 -------------------------
 
-Suites are not hand-listed. ``dpy infra list`` parses the repo's own
-``.evergreen/scripts/utils.py`` (``TEST_SUITE_MAP``, ``EXTRA_TESTS``,
-``NO_RUN_ORCHESTRATION``) with ``ast``, so the suite list is always current
-and never drifts from the repo.
+The listing has two independent sources:
+
+- **Evergreen test suites.** These come from the suite registry. Suites are
+  not hand-listed: ``dpy infra list`` parses the repo's own
+  ``.evergreen/scripts/utils.py`` (``TEST_SUITE_MAP``, ``EXTRA_TESTS``,
+  ``NO_RUN_ORCHESTRATION``) with ``ast``, so the list is always current and
+  never drifts from the repo.
+- **GitHub Actions release workflows.** These come from
+  ``.github/workflows/*.yml``. See `Extending to other repos`_.
+
+A repo can have either source, both, or neither. Evergreen and GitHub
+Actions are separate systems, and the command keeps their output separate.
 
 The overlay
 -----------
@@ -82,10 +90,10 @@ pre-flight gate or audit step.
 Extending to other repos
 ------------------------
 
-Two adapters exist. The pymongo-family adapter reads
-``.evergreen/scripts/utils.py``. The release adapter reads
-``.github/workflows/*.yml`` and covers the three release styles seen
-across the repos:
+Two adapters exist. The pymongo-family adapter reads the Evergreen suite
+registry, ``.evergreen/scripts/utils.py``. The release adapter reads the
+GitHub Actions workflow files, ``.github/workflows/*.yml``, and covers the
+three release styles seen across the repos:
 
 - abx-release-tools composite actions (``strands-mongodb``)
 - repo-local composite actions under ``.github/actions``
