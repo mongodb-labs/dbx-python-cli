@@ -50,6 +50,7 @@ Single-action commands that are frequently used or domain-agnostic:
 .. code-block:: text
 
    dpy branch      Git branch operations across repositories
+   dpy ci          Check Evergreen and GitHub Actions status
    dpy clone       Clone a repository group
    dpy edit        Open a repository in an editor
    dpy install     Install package dependencies
