@@ -9,7 +9,9 @@ from collections import Counter
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from rich.console import Console, Group
+from rich.markup import escape
+from rich.panel import Panel
 from rich.text import Text
 
 from drivers_python_cli.utils import repo
@@ -41,6 +43,61 @@ def _echo(message, style=None, err=False):
     (err_console if err else console).print(message)
 
 
+STATUS_STYLES = {
+    "synced": "green",
+    "dry_run": "cyan",
+    "skipped": "yellow",
+    "failed": "red",
+}
+STATUS_ICONS = {
+    "synced": "✅",
+    "dry_run": "🔍",
+    "skipped": "⏭️ ",
+    "failed": "❌",
+}
+STATUS_LABELS = {
+    "synced": "synced",
+    "dry_run": "checked",
+    "skipped": "skipped",
+    "failed": "failed",
+}
+
+
+def _print_repo_panel(repo_name, status, lines):
+    """Print one repo's buffered steps in a panel."""
+    console.print(
+        Panel(
+            Group(*lines) if lines else Text("No output", style="dim"),
+            title=f"[bold cyan]{escape(repo_name)}[/]",
+            border_style=STATUS_STYLES.get(status, "dim"),
+            padding=(0, 1),
+        )
+    )
+
+
+def _print_overall_panel(title, counts):
+    """Print the final summary panel with one row per outcome."""
+    rows = []
+    for status in ("synced", "dry_run", "skipped", "failed"):
+        count = counts.get(status, 0)
+        if count:
+            rows.append(
+                Text(
+                    f"{STATUS_ICONS[status]} {count} {STATUS_LABELS[status]}",
+                    style=STATUS_STYLES[status],
+                )
+            )
+    border = "red" if counts.get("failed") else "green"
+    console.print(
+        Panel(
+            Group(*rows) if rows else Text("Nothing to do", style="dim"),
+            title=f"[bold]{escape(title)}[/]",
+            border_style=border,
+            padding=(0, 1),
+        )
+    )
+
+
 def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
     """Sync a list of repos, print a header and a summary, and honour the pager flag."""
     use_pager = should_use_pager(ctx, command_default=False)
@@ -53,14 +110,11 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
         sys.stderr = output_buffer
 
     try:
-        _echo(header, style="bold")
+        _echo(header.strip(), style="bold")
 
-        synced_count = 0
-        skipped_count = 0
-        failed_count = 0
-        for i, repo_info in enumerate(repos):
-            if i > 0:
-                _echo("─" * 60, style="dim")
+        counts = Counter()
+        for repo_info in repos:
+            lines = []
             status = _sync_repository(
                 repo_info["path"],
                 repo_info["name"],
@@ -68,23 +122,13 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
                 force,
                 dry_run,
                 upstream_branch=repo_info.get("upstream_branch"),
+                lines=lines,
             )
-            if status == "skipped":
-                skipped_count += 1
-            elif status in ("synced", "dry_run"):
-                synced_count += 1
-            elif status == "failed":
-                failed_count += 1
+            counts[status] += 1
+            _print_repo_panel(repo_info["name"], status, lines)
 
-        if dry_run:
-            summary = f"\n✨ Dry run complete! Checked {synced_count} repository(ies)"
-        else:
-            summary = f"\n✨ Done! Synced {synced_count} repository(ies)"
-        if skipped_count:
-            summary += f", skipped {skipped_count}"
-        if failed_count:
-            summary += f", failed {failed_count}"
-        _echo(summary, style="bold yellow" if failed_count else "bold green")
+        title = "✨ Dry run complete!" if dry_run else "✨ Done!"
+        _print_overall_panel(title, counts)
     finally:
         if use_pager:
             sys.stdout = old_stdout
@@ -177,11 +221,8 @@ def _sync_all_branches(
             ("[dry-run] " if dry_run else "", "dim"),
             (f"Syncing {len(branches)} branch(es) of ", "bold"),
             (name, "bold cyan"),
-            (":", "bold"),
-        ),
-        style="bold",
+        )
     )
-    _echo("")
 
     synced_count = 0
     skipped_count = 0
@@ -200,29 +241,32 @@ def _sync_all_branches(
             subprocess.run(
                 ["git", "-C", str(path), "fetch", "upstream"],
                 check=True,
-                capture_output=not verbose,
+                capture_output=True,
                 text=True,
             )
         except subprocess.CalledProcessError as e:
             _echo(
-                f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
-                style="red",
-                err=True,
+                f"❌ Failed to fetch from upstream: {e.stderr}", style="red", err=True
             )
             raise typer.Exit(1)
 
-        for i, branch in enumerate(branches):
-            if i > 0:
-                _echo("─" * 60, style="dim")
-            _echo(Text.assemble(("🌿 ", ""), (branch, "bold cyan")))
-            _echo(Text.assemble(("🔍 Checking ", ""), (name, "bold cyan")))
+        for branch in branches:
+            lines = []
+            lines.append(Text.assemble(("🌿 ", ""), (branch, "bold cyan")))
             _show_commit_comparison(
-                path, name, branch, f"upstream/{mapping[branch]}", verbose
+                path,
+                name,
+                branch,
+                f"upstream/{mapping[branch]}",
+                verbose,
+                emit=lambda message, style=None: lines.append(
+                    message if isinstance(message, Text) else Text(message, style=style)
+                ),
             )
             synced_count += 1
+            _print_repo_panel(f"{name} · {branch}", "dry_run", lines)
 
-        summary = f"\n✨ Dry run complete! Checked {synced_count} branch(es)"
-        _echo(summary, style="bold green")
+        _print_overall_panel("✨ Dry run complete!", {"dry_run": synced_count})
         if backport_report:
             _print_backport_report(
                 repo_info,
@@ -236,24 +280,21 @@ def _sync_all_branches(
         return
 
     try:
-        for i, branch in enumerate(branches):
-            if i > 0:
-                _echo("─" * 60, style="dim")
-            _echo(Text.assemble(("🌿 ", ""), (branch, "bold cyan")))
+        for branch in branches:
+            lines = [Text.assemble(("🌿 ", ""), (branch, "bold cyan"))]
             try:
                 subprocess.run(
                     ["git", "-C", str(path), "switch", branch],
                     check=True,
-                    capture_output=not verbose,
+                    capture_output=True,
                     text=True,
                 )
             except subprocess.CalledProcessError as e:
-                _echo(
-                    f"❌ Failed to switch to {branch}: {e.stderr if not verbose else ''}",
-                    style="red",
-                    err=True,
+                lines.append(
+                    Text(f"❌ Failed to switch to {branch}: {e.stderr}", style="red")
                 )
                 failed_branches.append(branch)
+                _print_repo_panel(f"{name} · {branch}", "failed", lines)
                 continue
 
             # abort_on_conflict keeps the working tree clean on a failed rebase
@@ -267,7 +308,9 @@ def _sync_all_branches(
                 dry_run,
                 upstream_branch=mapping,
                 abort_on_conflict=True,
+                lines=lines,
             )
+            _print_repo_panel(f"{name} · {branch}", status, lines)
             if status == "skipped":
                 skipped_count += 1
             elif status in ("synced", "dry_run"):
@@ -289,12 +332,14 @@ def _sync_all_branches(
                 restored = False
 
     # Dry-run returns early above; this path only handles the real sync.
-    summary = f"\n✨ Done! Synced {synced_count} branch(es)"
-    if skipped_count:
-        summary += f", skipped {skipped_count}"
-    if failed_branches:
-        summary += f", failed {len(failed_branches)}"
-    _echo(summary, style="bold yellow" if failed_branches else "bold green")
+    _print_overall_panel(
+        "✨ Done!",
+        {
+            "synced": synced_count,
+            "skipped": skipped_count,
+            "failed": len(failed_branches),
+        },
+    )
 
     if failed_branches:
         _echo(
@@ -932,19 +977,21 @@ def sync_callback(
                 typer.echo(f"\nClone the repository using: dpy clone -g {group}")
                 raise typer.Exit(1)
 
-            _sync_repository(
+            lines = []
+            status = _sync_repository(
                 repo_info["path"],
                 repo_info["name"],
                 verbose,
                 force,
                 dry_run,
                 upstream_branch=get_upstream_branch(config, group, repo_info["name"]),
+                lines=lines,
             )
-
-            if dry_run:
-                typer.echo("\n✨ Dry run complete!")
-            else:
-                typer.echo("\n✨ Done!")
+            _print_repo_panel(repo_info["name"], status, lines)
+            _print_overall_panel(
+                "✨ Dry run complete!" if dry_run else "✨ Done!",
+                {status: 1},
+            )
             return
 
         # Handle group sync (all repos in group)
@@ -1004,7 +1051,8 @@ def sync_callback(
                 typer.echo("\nUse 'dpy list' to see available repositories")
                 raise typer.Exit(1)
 
-        _sync_repository(
+        lines = []
+        status = _sync_repository(
             repo_info["path"],
             repo_info["name"],
             verbose,
@@ -1013,12 +1061,13 @@ def sync_callback(
             upstream_branch=get_upstream_branch(
                 config, repo_info.get("group", ""), repo_info["name"]
             ),
+            lines=lines,
         )
-
-        if dry_run:
-            _echo("\n✨ Dry run complete!", style="bold green")
-        else:
-            _echo("\n✨ Done!", style="bold green")
+        _print_repo_panel(repo_info["name"], status, lines)
+        _print_overall_panel(
+            "✨ Dry run complete!" if dry_run else "✨ Done!",
+            {status: 1},
+        )
 
     except typer.Exit:
         # typer.Exit subclasses RuntimeError, so the broad handler below would
@@ -1037,6 +1086,7 @@ def _sync_repository(
     dry_run: bool = False,
     upstream_branch: str | None = None,
     abort_on_conflict: bool = False,
+    lines: list | None = None,
 ) -> str:
     """Sync a single repository with upstream.
 
@@ -1053,30 +1103,52 @@ def _sync_repository(
 
     Returns:
         "synced", "skipped", "failed", or "dry_run"
+
+    When ``lines`` is given, steps are appended to it instead of printed, and
+    no panel is printed. The caller then renders the panel.
     """
+    own_lines = lines is None
+    if own_lines:
+        lines = []
+
+    def emit(message, style=None):
+        lines.append(
+            message if isinstance(message, Text) else Text(message, style=style)
+        )
+
+    def emit_output(text, style="dim"):
+        for line in (text or "").splitlines():
+            if line.strip():
+                emit(f"  {line}", style=style)
+
+    def finish(status):
+        if own_lines:
+            _print_repo_panel(repo_name, status, lines)
+        return status
+
     # Worktrees track a branch of the clone they belong to (typically an upstream
     # branch). Rebasing one onto upstream and force-pushing it to origin would
     # push upstream's history into the fork, so sync never touches them; sync the
     # primary clone instead.
     if is_worktree(repo_path):
-        _echo(
+        emit(
             Text.assemble(
                 ("⏭️  Skipping ", "dim"), (repo_name, "bold"), (" (worktree)", "dim")
             )
         )
-        return "skipped"
+        return finish("skipped")
 
     if dry_run:
-        _echo(Text.assemble(("🔍 Checking ", ""), (repo_name, "bold cyan")))
+        emit(Text.assemble(("🔍 Checking ", ""), (repo_name, "bold cyan")))
     else:
-        _echo(Text.assemble(("🔄 Syncing ", ""), (repo_name, "bold cyan")))
+        emit(Text.assemble(("🔄 Syncing ", ""), (repo_name, "bold cyan")))
 
     if verbose:
-        _echo(f"[verbose] Repository path: {repo_path}", style="dim")
+        emit(f"[verbose] Repository path: {repo_path}", style="dim")
         if force:
-            _echo("[verbose] Force push enabled", style="dim")
+            emit("[verbose] Force push enabled", style="dim")
         if dry_run:
-            _echo("[verbose] Dry run mode enabled", style="dim")
+            emit("[verbose] Dry run mode enabled", style="dim")
 
     # Check if upstream remote exists
     try:
@@ -1089,20 +1161,12 @@ def _sync_repository(
         remotes = result.stdout.strip().split("\n")
 
         if "upstream" not in remotes:
-            _echo(
-                "⚠️  No 'upstream' remote found (skipping)",
-                style="yellow",
-                err=True,
-            )
-            return "skipped"
+            emit("⚠️  No 'upstream' remote found (skipping)", style="yellow")
+            return finish("skipped")
 
     except subprocess.CalledProcessError as e:
-        _echo(
-            f"❌ Failed to check remotes: {e.stderr}",
-            style="red",
-            err=True,
-        )
-        return "failed"
+        emit(f"❌ Failed to check remotes: {e.stderr}", style="red")
+        return finish("failed")
 
     # Get current branch
     try:
@@ -1115,43 +1179,34 @@ def _sync_repository(
         current_branch = result.stdout.strip()
 
         if not current_branch:
-            _echo(
-                "⚠️  Not on a branch (detached HEAD), skipping",
-                style="yellow",
-                err=True,
-            )
-            return "skipped"
+            emit("⚠️  Not on a branch (detached HEAD), skipping", style="yellow")
+            return finish("skipped")
 
         if verbose:
-            _echo(f"[verbose] Current branch: {current_branch}", style="dim")
+            emit(f"[verbose] Current branch: {current_branch}", style="dim")
 
     except subprocess.CalledProcessError as e:
-        _echo(
-            f"❌ Failed to get current branch: {e.stderr}",
-            style="red",
-            err=True,
-        )
-        return "failed"
+        emit(f"❌ Failed to get current branch: {e.stderr}", style="red")
+        return finish("failed")
 
     # Fetch from upstream
     try:
         if verbose:
-            _echo("[verbose] Fetching from upstream...", style="dim")
+            emit("[verbose] Fetching from upstream...", style="dim")
 
-        subprocess.run(
+        result = subprocess.run(
             ["git", "-C", str(repo_path), "fetch", "upstream"],
             check=True,
-            capture_output=not verbose,
+            capture_output=True,
             text=True,
         )
+        if verbose:
+            emit_output(result.stdout)
+            emit_output(result.stderr)
 
     except subprocess.CalledProcessError as e:
-        _echo(
-            f"❌ Failed to fetch from upstream: {e.stderr if not verbose else ''}",
-            style="red",
-            err=True,
-        )
-        return "failed"
+        emit(f"❌ Failed to fetch from upstream: {e.stderr}", style="red")
+        return finish("failed")
 
     # Determine which branch to rebase onto
     # For main/master: rebase to upstream/<current_branch>
@@ -1162,12 +1217,16 @@ def _sync_repository(
     if current_branch in ["main", "master"]:
         rebase_target = f"upstream/{current_branch}"
         if verbose:
-            typer.echo(f"[verbose] Main branch detected, rebasing to {rebase_target}")
+            emit(
+                f"[verbose] Main branch detected, rebasing to {rebase_target}",
+                style="dim",
+            )
     elif upstream_branch:
         rebase_target = f"upstream/{upstream_branch}"
         if verbose:
-            typer.echo(
-                f"[verbose] Using configured upstream_branch, rebasing to {rebase_target}"
+            emit(
+                f"[verbose] Using configured upstream_branch, rebasing to {rebase_target}",
+                style="dim",
             )
     else:
         # Check if upstream has a branch with the same name as the current branch.
@@ -1188,17 +1247,19 @@ def _sync_repository(
             )
             rebase_target = f"upstream/{current_branch}"
             if verbose:
-                typer.echo(
-                    f"[verbose] Upstream has matching branch, rebasing to {rebase_target}"
+                emit(
+                    f"[verbose] Upstream has matching branch, rebasing to {rebase_target}",
+                    style="dim",
                 )
         except subprocess.CalledProcessError:
             # No matching upstream branch — fall back to upstream's default branch
-            upstream_default = _get_upstream_default_branch(repo_path, verbose)
+            upstream_default = _get_upstream_default_branch(repo_path, verbose, emit)
             if not upstream_default:
                 # Fallback to trying common default branches
                 if verbose:
-                    typer.echo(
-                        "[verbose] Could not detect upstream default, trying main/master..."
+                    emit(
+                        "[verbose] Could not detect upstream default, trying main/master...",
+                        style="dim",
                     )
                 # Try main first, then master
                 for branch in ["main", "master"]:
@@ -1221,46 +1282,42 @@ def _sync_repository(
                         continue
 
                 if not upstream_default:
-                    _echo(
-                        "❌ Could not determine upstream default branch",
-                        style="red",
-                        err=True,
-                    )
-                    return "failed"
+                    emit("❌ Could not determine upstream default branch", style="red")
+                    return finish("failed")
 
             rebase_target = f"upstream/{upstream_default}"
             if verbose:
-                typer.echo(
-                    f"[verbose] Feature branch detected, rebasing to {rebase_target}"
+                emit(
+                    f"[verbose] Feature branch detected, rebasing to {rebase_target}",
+                    style="dim",
                 )
 
     # If dry-run, compare commits and show what would happen
     if dry_run:
         _show_commit_comparison(
-            repo_path, repo_name, current_branch, rebase_target, verbose
+            repo_path, repo_name, current_branch, rebase_target, verbose, emit
         )
-        return "dry_run"
+        return finish("dry_run")
 
     # Rebase on target branch
     try:
         if verbose:
-            _echo(f"[verbose] Rebasing on {rebase_target}...", style="dim")
+            emit(f"[verbose] Rebasing on {rebase_target}...", style="dim")
 
-        subprocess.run(
+        result = subprocess.run(
             ["git", "-C", str(repo_path), "rebase", rebase_target],
             check=True,
-            capture_output=not verbose,
+            capture_output=True,
             text=True,
         )
+        if verbose:
+            emit_output(result.stdout)
+            emit_output(result.stderr)
 
     except subprocess.CalledProcessError as e:
-        _echo(
-            f"❌ Failed to rebase {current_branch} on {rebase_target}",
-            style="red",
-            err=True,
-        )
-        if not verbose and e.stderr:
-            _echo(f"  {e.stderr.strip()}", style="dim", err=True)
+        emit(f"❌ Failed to rebase {current_branch} on {rebase_target}", style="red")
+        if e.stderr:
+            emit_output(e.stderr, style="red")
 
         if abort_on_conflict:
             # Leave the repo in a clean state so callers that iterate over
@@ -1268,28 +1325,27 @@ def _sync_repository(
             # restore the original branch. Point the user at a manual rebase.
             subprocess.run(
                 ["git", "-C", str(repo_path), "rebase", "--abort"],
+                check=False,
                 capture_output=True,
                 text=True,
             )
-            _echo(
+            emit(
                 f"  Rebase aborted. Resolve manually: cd {repo_path} && "
                 f"git switch {current_branch} && git rebase {rebase_target}",
                 style="yellow",
-                err=True,
             )
         else:
-            _echo(
+            emit(
                 f"  You may need to resolve conflicts manually in {repo_path}",
                 style="yellow",
-                err=True,
             )
-        return "failed"
+        return finish("failed")
 
     # Push to origin
     try:
         if verbose:
             push_type = "force pushing" if force else "pushing"
-            _echo(
+            emit(
                 f"[verbose] {push_type.capitalize()} to origin/{current_branch}...",
                 style="dim",
             )
@@ -1299,42 +1355,45 @@ def _sync_repository(
             push_cmd.append("--force-with-lease")
         push_cmd.extend(["origin", current_branch])
 
-        subprocess.run(
+        result = subprocess.run(
             push_cmd,
             check=True,
-            capture_output=not verbose,
+            capture_output=True,
             text=True,
         )
+        if verbose:
+            emit_output(result.stdout)
+            emit_output(result.stderr)
 
-        _echo("✅ Synced and pushed successfully", style="green")
-        return "synced"
+        emit("✅ Synced and pushed successfully", style="green")
+        return finish("synced")
 
     except subprocess.CalledProcessError as e:
-        _echo(
+        emit(
             f"⚠️  Synced but failed to push to origin/{current_branch}",
             style="yellow",
-            err=True,
         )
-        if not verbose and e.stderr:
-            _echo(f"  {e.stderr.strip()}", style="dim", err=True)
-        _echo(
-            f"  Try running: dpy sync {repo_name} --force",
-            style="yellow",
-            err=True,
-        )
-        return "failed"
+        if e.stderr:
+            emit_output(e.stderr, style="red")
+        emit(f"  Try running: dpy sync {repo_name} --force", style="yellow")
+        return finish("failed")
 
 
-def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str | None:
+def _get_upstream_default_branch(
+    repo_path: Path, verbose: bool = False, emit=None
+) -> str | None:
     """Get the default branch of the upstream remote.
 
     Args:
         repo_path: Path to the repository
         verbose: Whether to print verbose output
+        emit: Optional callback for progress lines. Defaults to printing.
 
     Returns:
         str: The default branch name (e.g., 'main', 'master'), or None if not found
     """
+    if emit is None:
+        emit = _echo
     try:
         # Try to get the symbolic ref for upstream/HEAD
         result = subprocess.run(
@@ -1348,8 +1407,9 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
         if ref.startswith("refs/remotes/upstream/"):
             default_branch = ref.replace("refs/remotes/upstream/", "")
             if verbose:
-                typer.echo(
-                    f"[verbose] Detected upstream default branch: {default_branch}"
+                emit(
+                    f"[verbose] Detected upstream default branch: {default_branch}",
+                    style="dim",
                 )
             return default_branch
     except subprocess.CalledProcessError:
@@ -1357,7 +1417,10 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
         # Try to set it by running remote show
         try:
             if verbose:
-                typer.echo("[verbose] Attempting to detect upstream default branch...")
+                emit(
+                    "[verbose] Attempting to detect upstream default branch...",
+                    style="dim",
+                )
             result = subprocess.run(
                 ["git", "-C", str(repo_path), "remote", "show", "upstream"],
                 check=True,
@@ -1369,8 +1432,9 @@ def _get_upstream_default_branch(repo_path: Path, verbose: bool = False) -> str 
                 if "HEAD branch:" in line:
                     default_branch = line.split("HEAD branch:")[-1].strip()
                     if verbose:
-                        typer.echo(
-                            f"[verbose] Detected upstream default branch: {default_branch}"
+                        emit(
+                            f"[verbose] Detected upstream default branch: {default_branch}",
+                            style="dim",
                         )
                     return default_branch
         except subprocess.CalledProcessError:
@@ -1385,6 +1449,7 @@ def _show_commit_comparison(
     current_branch: str,
     rebase_target: str,
     verbose: bool = False,
+    emit=None,
 ):
     """Show comparison between upstream and origin commits.
 
@@ -1394,7 +1459,10 @@ def _show_commit_comparison(
         current_branch: Current branch name
         rebase_target: Target branch to rebase onto (e.g., 'upstream/main')
         verbose: Whether to print verbose output
+        emit: Optional callback for output lines. Defaults to printing.
     """
+    if emit is None:
+        emit = _echo
     try:
         # Get the origin branch reference
         origin_branch = f"origin/{current_branch}"
@@ -1408,11 +1476,7 @@ def _show_commit_comparison(
                 text=True,
             )
         except subprocess.CalledProcessError:
-            _echo(
-                f"⚠️  No origin/{current_branch} branch found",
-                style="yellow",
-                err=True,
-            )
+            emit(f"⚠️  No origin/{current_branch} branch found", style="yellow")
             return
 
         # Count commits ahead of upstream (commits in origin but not in upstream)
@@ -1449,7 +1513,7 @@ def _show_commit_comparison(
 
         # Show status
         if commits_ahead == 0 and commits_behind == 0:
-            _echo(f"✅ Already up to date with {rebase_target}", style="green")
+            emit(f"✅ Already up to date with {rebase_target}", style="green")
         else:
             status_parts = []
             if commits_behind > 0:
@@ -1460,21 +1524,21 @@ def _show_commit_comparison(
                 status_parts.append(f"{commits_ahead} commit(s) ahead")
 
             status = ", ".join(status_parts)
-            _echo(f"📊 {status}", style="cyan")
+            emit(f"📊 {status}", style="cyan")
 
             # Show commit details if verbose or if there are commits
             if verbose or commits_behind > 0 or commits_ahead > 0:
                 # Show commits that would be applied from upstream
                 if commits_behind > 0:
                     if commits_behind > 10:
-                        _echo(
-                            f"\nCommits from {rebase_target} that would be applied"
+                        emit(
+                            f"Commits from {rebase_target} that would be applied"
                             f" (first 10 of {commits_behind}):",
                             style="bold",
                         )
                     else:
-                        _echo(
-                            f"\nCommits from {rebase_target} that would be applied:",
+                        emit(
+                            f"Commits from {rebase_target} that would be applied:",
                             style="bold",
                         )
                     result = subprocess.run(
@@ -1495,19 +1559,19 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            _echo(Text.assemble(("  + ", "green"), (line, "")))
+                            emit(Text.assemble(("  + ", "green"), (line, "")))
 
                 # Show commits in origin that would be rebased
                 if commits_ahead > 0:
                     if commits_ahead > 10:
-                        _echo(
-                            f"\nCommits in origin/{current_branch} that would be rebased"
+                        emit(
+                            f"Commits in origin/{current_branch} that would be rebased"
                             f" (first 10 of {commits_ahead}):",
                             style="bold",
                         )
                     else:
-                        _echo(
-                            f"\nCommits in origin/{current_branch} that would be rebased:",
+                        emit(
+                            f"Commits in origin/{current_branch} that would be rebased:",
                             style="bold",
                         )
                     result = subprocess.run(
@@ -1528,15 +1592,12 @@ def _show_commit_comparison(
                     )
                     for line in result.stdout.strip().split("\n"):
                         if line:
-                            _echo(Text.assemble(("  * ", "yellow"), (line, "")))
-
-                typer.echo("")  # Empty line for spacing
+                            emit(Text.assemble(("  * ", "yellow"), (line, "")))
 
     except subprocess.CalledProcessError as e:
-        _echo(
+        emit(
             f"❌ Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
             style="red",
-            err=True,
         )
 
 
