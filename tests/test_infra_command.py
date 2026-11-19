@@ -109,6 +109,7 @@ def test_infra_list_suites(tmp_path):
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
     assert "Evergreen test suites for mongo-python-driver (8)" in output
+    assert "╭" in output
     assert "load_balancer" in output
     assert "haproxy" in output
     assert "evergreen-only" in output
@@ -125,6 +126,7 @@ def test_infra_list_suite_detail(tmp_path):
         )
     assert result.exit_code == 0
     output = strip_ansi(result.stdout)
+    assert "Suite: auth_oidc" in output
     assert "pytest marker: auth_oidc" in output
     assert "no run-server step" in output
     assert "eks needs drivers-test-secrets-role access" in output
