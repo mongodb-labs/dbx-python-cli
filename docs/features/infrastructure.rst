@@ -96,10 +96,15 @@ across the repos:
 A workflow counts as a release workflow when its filename contains
 ``release`` or ``publish``. ``dpy infra list`` shows each file, its ABX and
 local actions, SHA pin status, and the repo vars and secrets the workflow
-references. ``dpy infra check`` flags unpinned ABX actions and a workflow
-that publishes without ``id-token: write``. Release runs in CI, so local
-checks cover workflow hygiene only. Repos with neither adapter fall back to
-overlay-only listing.
+references. It also prints an ``Action docs:`` line for each external action
+source: a known tool links to its documentation site, every other action
+links to its GitHub repo. Standard ``actions/*`` steps are omitted. Add
+repo-specific links in the ``[infra.<repo>.release]`` overlay.
+
+``dpy infra check`` flags unpinned ABX actions and a workflow that publishes
+without ``id-token: write``. Release runs in CI, so local checks cover
+workflow hygiene only. Repos with neither adapter fall back to overlay-only
+listing.
 
 Planned: a ``dpy infra run`` orchestrator that chains ``run-server``,
 ``setup-tests``, ``run-tests``, ``teardown-tests``.
