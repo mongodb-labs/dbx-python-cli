@@ -14,5 +14,6 @@ Features
    just-commands
    documentation
    status
+   ci
    spec-sync
    infrastructure

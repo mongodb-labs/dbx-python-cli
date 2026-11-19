@@ -8,6 +8,7 @@ import typer
 from drivers_python_cli.commands import (
     backports,
     branch,
+    ci,
     clone,
     config,
     docs,
@@ -63,6 +64,7 @@ app = typer.Typer(
 # Add subcommands (alphabetically sorted)
 app.add_typer(backports.app, name="backports")
 app.add_typer(branch.app, name="branch")
+app.add_typer(ci.app, name="ci")
 app.add_typer(clone.app, name="clone")
 app.add_typer(config.app, name="config")
 app.add_typer(docs.app, name="docs")

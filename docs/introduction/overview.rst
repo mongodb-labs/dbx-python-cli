@@ -94,6 +94,7 @@ Commands
 Available commands:
 
 - ``branch`` - Show git branches in repositories
+- ``ci`` - Check Evergreen and GitHub Actions status
 - ``clone`` - Clone repositories by group
 - ``config`` - Manage configuration
 - ``docs`` - Build, list, and open documentation

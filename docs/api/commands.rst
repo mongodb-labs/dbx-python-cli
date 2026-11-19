@@ -11,6 +11,14 @@ drivers_python_cli.commands.branch module
    :undoc-members:
    :show-inheritance:
 
+drivers_python_cli.commands.ci module
+-------------------------------------
+
+.. automodule:: drivers_python_cli.commands.ci
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 drivers_python_cli.commands.clone module
 ----------------------------------------
 
