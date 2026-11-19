@@ -7,6 +7,12 @@ import subprocess
 from pathlib import Path
 
 import typer
+from rich.console import Console, Group
+from rich.markup import escape
+from rich.padding import Padding
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from drivers_python_cli.utils.repo import (
     find_repo_by_name,
@@ -27,9 +33,23 @@ app = typer.Typer(
     },
 )
 
+console = Console(highlight=False)
+
 EVERGREEN_UI_DEFAULT = "https://spruce.mongodb.com"
 FAILURE_STATES = {"failure", "failed", "failed_tests", "aborted", "cancelled"}
 SUCCESS_STATES = {"success", "passed"}
+STATUS_STYLES = {
+    "success": "green",
+    "failure": "red",
+    "pending": "yellow",
+    "unknown": "dim",
+}
+STATUS_ICONS = {
+    "success": "✅",
+    "failure": "❌",
+    "pending": "⏳",
+    "unknown": "❔",
+}
 
 
 class CIError(Exception):
@@ -317,64 +337,156 @@ def _resolve_repo(repo):
 
 
 def _icon(state):
-    return {
-        "success": "✅",
-        "failure": "❌",
-        "pending": "⏳",
-        "unknown": "❔",
-    }.get(state, "❔")
+    return STATUS_ICONS.get(state, STATUS_ICONS["unknown"])
+
+
+def _status_badge(state):
+    """Return a coloured status label for panels and tables."""
+    style = STATUS_STYLES.get(state, STATUS_STYLES["unknown"])
+    return Text(f"{_icon(state)} {state}", style=f"bold {style}")
+
+
+def _status_row(state, label):
+    """Return one aligned status row, used for checks, runs, and patches."""
+    row = Table.grid(padding=(0, 1))
+    row.add_column(width=2)
+    row.add_column()
+    row.add_row(_icon(state), Text(label))
+    return row
+
+
+def _overall_row(label, state):
+    row = Table.grid(padding=(0, 2))
+    row.add_column(style="dim")
+    row.add_column()
+    row.add_row(label, _status_badge(state))
+    return row
+
+
+def _github_body(github):
+    """Build the GitHub panel contents."""
+    lines = []
+    if github["error"]:
+        lines.append(Text(f"⚠️  {github['error']}", style="yellow"))
+    elif github["pr"]:
+        pr = github["pr"]
+        lines.append(
+            Text.assemble(
+                ("PR #", "bold"),
+                (str(pr["number"]), "bold cyan"),
+                (" · ", "dim"),
+                (pr["state"].lower(), "bold"),
+                (" · ", "dim"),
+                (pr["title"], ""),
+            )
+        )
+        lines.append(Padding(Text(pr["url"], style="underline blue"), (0, 0, 0, 2)))
+        if github["checks"]:
+            lines.append(Text(""))
+            for check in github["checks"]:
+                lines.append(_status_row(_check_state(check), check["name"]))
+        else:
+            lines.append(Text("No checks reported", style="dim"))
+    else:
+        if github["runs"]:
+            for run in github["runs"]:
+                lines.append(
+                    _status_row(
+                        _run_state(run),
+                        f"{run['workflowName']} · {run['event']}",
+                    )
+                )
+                lines.append(Padding(Text(run["url"], style="dim"), (0, 0, 0, 2)))
+        else:
+            lines.append(Text("No workflow runs for this branch", style="dim"))
+    lines.append(Text(""))
+    lines.append(_overall_row("Overall", github["overall"]))
+    return Group(*lines)
+
+
+def _evergreen_body(evergreen):
+    """Build the Evergreen panel contents."""
+    lines = []
+    if evergreen["error"]:
+        lines.append(Text(f"⚠️  {evergreen['error']}", style="yellow"))
+    else:
+        if evergreen["patches"]:
+            for patch in evergreen["patches"]:
+                state = _normalise_state(patch["status"])
+                lines.append(
+                    _status_row(
+                        state,
+                        f"Patch {patch['patch_number']} · {patch['status']}",
+                    )
+                )
+                lines.append(
+                    Padding(
+                        Text(patch["description"] or "no description", style="dim"),
+                        (0, 0, 0, 2),
+                    )
+                )
+                lines.append(Padding(Text(patch["url"], style="dim"), (0, 0, 0, 2)))
+                lines.append(Text(""))
+        else:
+            lines.append(Text("No patches for this branch", style="dim"))
+    lines.append(_overall_row("Overall", evergreen["overall"]))
+    return Group(*lines)
+
+
+def _github_title(github):
+    if github["target"]:
+        return f"GitHub Actions: {github['target']} ({github['remote']})"
+    return "GitHub Actions: not configured"
 
 
 def _print_human(report):
     """Print a readable summary of the combined report."""
     repo = report["repo"]
-    typer.echo(f"CI status: {repo['name']} (branch: {report['branch']})")
-
     github = report["github"]
-    typer.echo()
-    if github["target"]:
-        typer.echo(f"GitHub Actions: {github['target']} ({github['remote']})")
-    else:
-        typer.echo("GitHub Actions: not configured (no GitHub remote)")
-    if github["error"]:
-        typer.echo(f"  ⚠️  {github['error']}")
-    elif github["pr"]:
-        pr = github["pr"]
-        typer.echo(f"  PR #{pr['number']} ({pr['state'].lower()}): {pr['title']}")
-        typer.echo(f"  {pr['url']}")
-        for check in github["checks"]:
-            typer.echo(f"    {_icon(_check_state(check))} {check['name']}")
-        if not github["checks"]:
-            typer.echo("    (no checks reported)")
-    else:
-        for run in github["runs"]:
-            typer.echo(
-                f"  {_icon(_run_state(run))} {run['workflowName']} "
-                f"({run['event']}) {run['url']}"
-            )
-        if not github["runs"]:
-            typer.echo("  (no workflow runs for this branch)")
-    typer.echo(f"  Overall: {_icon(github['overall'])} {github['overall']}")
-
     evergreen = report["evergreen"]
-    typer.echo()
-    typer.echo(f"Evergreen: {evergreen['project'] or 'not configured'}")
-    if evergreen["error"]:
-        typer.echo(f"  ⚠️  {evergreen['error']}")
-    else:
-        for patch in evergreen["patches"]:
-            typer.echo(
-                f"  {_icon(_normalise_state(patch['status']))} "
-                f"Patch {patch['patch_number']} ({patch['status']})"
-            )
-            typer.echo(f"    {patch['description']}")
-            typer.echo(f"    {patch['url']}")
-        if not evergreen["patches"]:
-            typer.echo("  (no patches for this branch)")
-    typer.echo(f"  Overall: {_icon(evergreen['overall'])} {evergreen['overall']}")
 
-    typer.echo()
-    typer.echo(f"Overall: {_icon(report['overall'])} {report['overall']}")
+    console.print()
+    console.print(
+        Text.assemble(
+            ("CI status: ", "bold"),
+            (repo["name"], "bold cyan"),
+            (" (branch: ", "dim"),
+            (report["branch"], "bold cyan"),
+            (")", "dim"),
+        )
+    )
+    console.print(
+        Panel(
+            _github_body(github),
+            title=f"[bold cyan]{escape(_github_title(github))}[/]",
+            border_style=STATUS_STYLES.get(github["overall"], "dim"),
+            padding=(0, 1),
+        )
+    )
+
+    evergreen_title = (
+        f"Evergreen: {evergreen['project']}"
+        if evergreen["project"]
+        else "Evergreen: not configured"
+    )
+    console.print(
+        Panel(
+            _evergreen_body(evergreen),
+            title=f"[bold cyan]{escape(evergreen_title)}[/]",
+            border_style=STATUS_STYLES.get(evergreen["overall"], "dim"),
+            padding=(0, 1),
+        )
+    )
+
+    console.print(
+        Panel(
+            _overall_row("Combined", report["overall"]),
+            title="[bold]Overall[/]",
+            border_style=STATUS_STYLES.get(report["overall"], "dim"),
+            padding=(0, 1),
+        )
+    )
+    console.print()
 
 
 @app.callback()

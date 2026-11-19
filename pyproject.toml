@@ -18,6 +18,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "django",  # Required for dpy project add (django-admin startproject)
+    "rich>=10.11.0",  # Console output for dpy ci
     "tomli-w>=1.2.0",
     "typer",
 ]

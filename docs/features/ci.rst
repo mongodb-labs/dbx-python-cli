@@ -43,22 +43,28 @@ The two systems stay separate in the output. Each system prints its own
 .. code-block:: text
 
    CI status: mongo-python-driver (branch: feature-branch)
+   ╭──────── GitHub Actions: mongodb/mongo-python-driver (upstream) ────────╮
+   │ PR #3237 · open · PYTHON-6183 Reject non-string filename               │
+   │   https://github.com/mongodb/mongo-python-driver/pull/3237              │
+   │                                                                         │
+   │ ✅ test                                                                 │
+   │                                                                         │
+   │ Overall  ✅ success                                                     │
+   ╰─────────────────────────────────────────────────────────────────────────╯
+   ╭────────────────────── Evergreen: mongo-python-driver ───────────────────╮
+   │ ⏳ Patch 1625 · started                                                 │
+   │   'mongodb/mongo-python-driver' pull request #3237                      │
+   │   https://spruce.mongodb.com/patch/6afe556ff40207000769d8bd             │
+   │                                                                         │
+   │ Overall  ⏳ pending                                                     │
+   ╰─────────────────────────────────────────────────────────────────────────╯
+   ╭────────────────────────────── Overall ─────────────────────────────────╮
+   │ Combined  ⏳ pending                                                    │
+   ╰─────────────────────────────────────────────────────────────────────────╯
 
-   GitHub Actions: mongodb/mongo-python-driver (upstream)
-     PR #3237 (open): PYTHON-6183 Reject non-string filename
-     https://github.com/mongodb/mongo-python-driver/pull/3237
-       ✅ test
-     Overall: ✅ success
-
-   Evergreen: mongo-python-driver
-     ⏳ Patch 1625 (started)
-       'mongodb/mongo-python-driver' pull request #3237
-       https://spruce.mongodb.com/patch/6afe556ff40207000769d8bd
-     Overall: ⏳ pending
-
-   Overall: ⏳ pending
-
-Status values are ``success``, ``failure``, ``pending``, and ``unknown``.
+Each system is a panel. The border and status text use colour: green for
+success, red for failure, yellow for pending, and dim for unknown. Status
+values are ``success``, ``failure``, ``pending``, and ``unknown``.
 
 Options
 -------

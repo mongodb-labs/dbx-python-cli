@@ -289,6 +289,7 @@ source = { editable = "." }
 dependencies = [
     { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "rich" },
     { name = "tomli-w" },
     { name = "typer" },
 ]
@@ -318,6 +319,7 @@ requires-dist = [
     { name = "furo", marker = "extra == 'docs'" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
+    { name = "rich", specifier = ">=10.11.0" },
     { name = "sphinx", marker = "extra == 'docs'" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "typer" },
