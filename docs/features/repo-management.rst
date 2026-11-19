@@ -181,9 +181,23 @@ This command will:
 4. If ``--force`` is used, force push with ``--force-with-lease`` for safety
 5. If ``--dry-run`` is used, compare commits between upstream and origin without making changes
 
-``dpy sync`` prints detailed progress lines by default, such as the base
-directory, the current branch, and each fetch and rebase step. Pass
-``--quiet`` to show only the final result.
+``dpy sync`` prints one panel per repository by default, in the same style as
+``dpy ci`` and ``dpy infra``. Each panel holds the steps for that repo, such as
+the base directory, the current branch, and each fetch and rebase step. A
+final ``Overall`` panel gives the counts. Pass ``--quiet`` to hide the step
+lines.
+
+.. code-block:: text
+
+   ╭──────────────── mongo-python-driver ────────────────╮
+   │ 🔄 Syncing mongo-python-driver                      │
+   │ [verbose] Fetching from upstream...                 │
+   │ [verbose] Rebasing on upstream/main...              │
+   │ ✅ Synced and pushed successfully                   │
+   ╰─────────────────────────────────────────────────────╯
+   ╭────────────────────── ✨ Done! ─────────────────────╮
+   │ ✅ 1 synced                                         │
+   ╰─────────────────────────────────────────────────────╯
 
 **Rebase behavior:**
 
