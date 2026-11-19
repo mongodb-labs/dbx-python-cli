@@ -138,16 +138,7 @@ libmongocrypt = [
 repos = [
     "git@github.com:mongodb-labs/pymongo-search-utils.git",
     "git@github.com:langchain-ai/langchain-mongodb.git",
-    "git@github.com:WavEV/mlflow-mongodb.git",
 ]
-
-# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
-# mlflow-mongodb is pinned to the WavEV fork, so --fork must not rewrite its owner.
-no_fork = ["mlflow-mongodb"]
-
-# Upstream remote URL for fork repos (added as `upstream` remote on clone)
-[repo.groups.langchain.upstream]
-mlflow-mongodb = "git@github.com:mongodb-developer/mlflow-mongodb.git"
 
 # Sub-directory configuration: specify install directories for repos with multiple packages
 [repo.groups.langchain.install_dirs]
@@ -271,15 +262,25 @@ repos = [
     "git@github.com:mongodb/fastapi-pymongo.git",
 ]
 
+# ABX AI integration repos. These use ABX release tooling and drivers-github-tools.
 [repo.groups.abx]
 repos = [
     "git@github.com:mongodb-labs/abx-release-tools.git",
+    "git@github.com:WavEV/mlflow-mongodb.git",
     "git@github.com:mongodb/strands-mongodb.git",
     "git@github.com:mongodb-developer/ms-agent-framework-mongodb.git",
     "git@github.com:mongodb-developer/claude-agent-sdk-mongodb-session-store.git",
 ]
 # No Python package: the repo holds GitHub Actions, docs, and scripts.
 skip_install = ["abx-release-tools"]
+
+# Repos listed here are cloned directly (no fork_user substitution) even when --fork is active.
+# mlflow-mongodb is pinned to the WavEV fork, so --fork must not rewrite its owner.
+no_fork = ["mlflow-mongodb"]
+
+# Upstream remote URL for fork repos (added as `upstream` remote on clone)
+[repo.groups.abx.upstream]
+mlflow-mongodb = "git@github.com:mongodb-developer/mlflow-mongodb.git"
 
 [evergreen.mongo-python-driver]
 project_name = "mongo-python-driver"
