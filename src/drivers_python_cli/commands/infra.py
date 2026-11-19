@@ -4,6 +4,7 @@ from pathlib import Path
 
 import typer
 
+from drivers_python_cli.utils.infra import action_docs_url
 from drivers_python_cli.utils.repo import (
     find_repo_by_name,
     find_repo_by_path,
@@ -146,8 +147,10 @@ def _print_suite_line(suite_name, facts, registry, verbose):
 def _print_release_workflows(name, release, overlay):
     """Print release workflows and the requirements each one carries."""
     typer.echo(f"\nRelease workflows for {name} ({len(release['files'])} file(s))")
-    if release["actions"]:
-        typer.echo("Docs: https://abx-release-tools.readthedocs.io/en/latest/")
+    if release["sources"]:
+        typer.echo("Action docs:")
+        for source in release["sources"]:
+            typer.echo(f"  {source}: {action_docs_url(source)}")
     typer.echo()
     for info in release["files"]:
         typer.echo(f"  {info['file']}")

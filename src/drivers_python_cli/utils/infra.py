@@ -35,6 +35,25 @@ ABX_TOOLS_REPO = "mongodb-labs/abx-release-tools"
 _ABX_USES_RE = re.compile(
     rf"uses:\s*{re.escape(ABX_TOOLS_REPO)}/actions/([\w/-]+)@(\S+)"
 )
+# Any external action, as "owner/repo" or "owner/repo/path".
+_USES_RE = re.compile(
+    r"uses:\s*([A-Za-z0-9][\w.-]*/[A-Za-z0-9][\w.-]*)(?:/[\w./-]+)?@[^\s]+"
+)
+# Docs pages that are better than the GitHub repo. Everything else falls
+# back to the GitHub repo URL.
+_ACTION_DOCS = {
+    ABX_TOOLS_REPO: "https://abx-release-tools.readthedocs.io/en/latest/",
+}
+# Standard GitHub actions. Their docs are not repo-specific, so skip them to
+# keep the release listing focused on tools each repo chooses.
+_STD_ACTION_OWNERS = {"actions"}
+
+
+def action_docs_url(source):
+    """Return the docs URL for a GitHub Actions source such as owner/repo."""
+    return _ACTION_DOCS.get(source, f"https://github.com/{source}")
+
+
 # Match "./.github/actions/<name>" and the invalid "$/.github/actions/<name>"
 # form found in some repos, so the listing stays accurate either way.
 _LOCAL_ACTION_RE = re.compile(r"uses:\s*[$.]/\.github/actions/([\w/-]+)")
@@ -64,9 +83,10 @@ def parse_release_workflows(repo_path):
 
         {
             "files": [
-                {"file", "abx_actions", "local_actions", "vars",
+                {"file", "sources", "abx_actions", "local_actions", "vars",
                  "secrets", "id_token_write", "publishes"},
             ],
+            "sources": sorted([owner/repo]),
             "actions": {name: {"file", "ref", "pinned"}},
             "unpinned": [abx action names],
             "vars": sorted([names]),
@@ -89,6 +109,12 @@ def parse_release_workflows(repo_path):
         if not abx_uses and not _RELEASE_FILE_RE.search(workflow.name):
             continue
 
+        sources = {
+            source
+            for source in _USES_RE.findall(text)
+            if source.split("/", 1)[0] not in _STD_ACTION_OWNERS
+        }
+
         abx_actions = {}
         for action_name, ref in abx_uses:
             abx_actions[action_name] = {
@@ -106,6 +132,7 @@ def parse_release_workflows(repo_path):
         files.append(
             {
                 "file": workflow.name,
+                "sources": sorted(sources),
                 "abx_actions": abx_actions,
                 "local_actions": sorted(set(_LOCAL_ACTION_RE.findall(text))),
                 "vars": sorted(set(_VARS_REF_RE.findall(text))),
@@ -120,6 +147,7 @@ def parse_release_workflows(repo_path):
 
     return {
         "files": files,
+        "sources": sorted({s for f in files for s in f["sources"]}),
         "actions": actions,
         "unpinned": sorted(n for n, a in actions.items() if not a["pinned"]),
         "vars": sorted({v for f in files for v in f["vars"]}),

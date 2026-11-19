@@ -338,6 +338,8 @@ def test_infra_list_abx(tmp_path):
     assert "No suite registry in strands-mongodb" in output
     assert "has no TEST_SUITE_MAP" in output
     assert "Release workflows for strands-mongodb" in output
+    assert "Action docs:" in output
+    assert "https://abx-release-tools.readthedocs.io/en/latest/" in output
     assert "python/publish [pinned]" in output
     assert "gpg-sign [UNPINNED]" in output
     assert "AWS_SIGNING_SECRET_ID" in output
@@ -449,3 +451,29 @@ def test_infra_list_release_section_after_suites_and_no_abx_docs(tmp_path):
     assert "abx-release-tools.readthedocs.io" not in output
     assert output.index("load_balancer") < output.index("Release workflows for")
     assert output.index("mod_wsgi") < output.index("Release workflows for")
+
+
+def test_infra_list_release_action_docs_other_sources(tmp_path):
+    """infra list links the docs of every external action, not just ABX."""
+    config, base_dir = make_repo(tmp_path)
+    workflows = base_dir / "pymongo" / "mongo-python-driver" / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "release-python.yml").write_text(
+        "jobs:\n"
+        "  publish:\n"
+        "    permissions:\n"
+        "      id-token: write\n"
+        "    steps:\n"
+        "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n"
+        "      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086\n"
+    )
+    with patch("drivers_python_cli.commands.infra.get_config") as mock_config:
+        mock_config.return_value = config
+        result = runner.invoke(app, ["infra", "list", "mongo-python-driver"])
+    output = strip_ansi(result.stdout)
+    assert "Action docs:" in output
+    assert (
+        "pypa/gh-action-pypi-publish: https://github.com/pypa/gh-action-pypi-publish"
+        in output
+    )
+    assert "actions/checkout" not in output
