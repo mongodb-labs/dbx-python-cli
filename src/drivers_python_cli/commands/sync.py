@@ -698,6 +698,12 @@ def sync_callback(
         "--dry-run",
         help="Show what would be synced without making changes",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Hide detailed progress lines (verbose output is the default)",
+    ),
     backport_report: bool = typer.Option(
         False,
         "--backport-report",
@@ -756,6 +762,7 @@ def sync_callback(
         dpy sync -g pymongo mongo-python-driver         # Sync specific repo in pymongo group
         dpy sync my-repo --force                        # Force push after rebase
         dpy sync my-repo --dry-run                      # Preview changes without syncing
+        dpy sync my-repo --quiet                        # Hide detailed progress lines
         dpy sync -g pymongo --dry-run                   # Preview group sync
         dpy sync -a --dry-run                           # Preview all groups sync
         dpy sync -g pymongo mongo-python-driver --dry-run  # Preview specific repo
@@ -775,8 +782,8 @@ def sync_callback(
             r["upstream_branch"] = get_upstream_branch(config, r["group"], r["name"])
         return repo_list
 
-    # Get verbose flag from parent context
-    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    # Verbose output is the default for sync. Use --quiet to hide it.
+    verbose = not quiet
 
     try:
         config = repo.get_config()

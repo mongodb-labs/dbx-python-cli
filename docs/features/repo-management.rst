@@ -170,6 +170,9 @@ After cloning with the fork workflow, you can easily sync your local repository 
    # Force push after rebasing (use if previous sync failed to push)
    dpy sync mongo-python-driver --force
 
+   # Hide detailed progress lines (they are on by default)
+   dpy sync mongo-python-driver --quiet
+
 This command will:
 
 1. Fetch the latest changes from the ``upstream`` remote
@@ -177,6 +180,10 @@ This command will:
 3. Push the rebased branch to ``origin`` (your fork)
 4. If ``--force`` is used, force push with ``--force-with-lease`` for safety
 5. If ``--dry-run`` is used, compare commits between upstream and origin without making changes
+
+``dpy sync`` prints detailed progress lines by default, such as the base
+directory, the current branch, and each fetch and rebase step. Pass
+``--quiet`` to show only the final result.
 
 **Rebase behavior:**
 
