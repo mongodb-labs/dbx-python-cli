@@ -1871,7 +1871,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
                     "mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main"
                     in output
                 )
-                assert "test-python.yml ✓ queued" in output
+                assert "test-python.yml ✅ queued" in output
 
 
 def test_repo_sync_dispatch_skips_workflows_without_dispatch_trigger(
@@ -1965,9 +1965,9 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
                 assert "test-python.yml" in dispatches[0]
 
                 output = result.stdout + result.stderr
-                assert "test-python.yml ✓ queued" in output
+                assert "test-python.yml ✅ queued" in output
                 assert (
-                    "test-python-replica.yml — skipped (no workflow_dispatch trigger)"
+                    "test-python-replica.yml: skipped (no workflow_dispatch trigger)"
                     in output
                 )
 
@@ -2068,8 +2068,8 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x"}}
                 assert "test-python.yml" in dispatches[0]
 
                 output = result.stdout + result.stderr
-                assert "test-python.yml ✓ queued" in output
-                assert "test-python1.yml — skipped (not present on main)" in output
+                assert "test-python.yml ✅ queued" in output
+                assert "test-python1.yml: skipped (not present on main)" in output
                 assert "dispatch failed" not in output
 
 
@@ -2124,7 +2124,7 @@ django = {{"mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}}
             output = result.stdout + result.stderr
             assert "mongodb-6.0.x" in output
             assert "mongodb-5.2.x" in output
-            assert "Dry run complete" in output
+            assert "Overall" in output
 
 
 def test_repo_sync_all_branches_requires_dict_mapping(tmp_path, temp_repos_dir):
@@ -2335,7 +2335,7 @@ repos = ["git@github.com:mongodb/mongo-python-driver.git"]
             result = runner.invoke(app, ["sync", "mongo-python-driver", "--dry-run"])
             assert result.exit_code == 0
             assert "Checking mongo-python-driver" in result.stdout
-            assert "Dry run complete!" in result.stdout
+            assert "Overall" in result.stdout
 
             # Verify no rebase or push commands were executed
             calls = mock_run.call_args_list
@@ -2405,7 +2405,7 @@ repos = [
             )
             assert result.exit_code == 0
             assert "Checking mongo-python-driver" in result.stdout
-            assert "Dry run complete!" in result.stdout
+            assert "Overall" in result.stdout
 
             # Should NOT mention specifications
             assert "specifications" not in result.stdout.lower()

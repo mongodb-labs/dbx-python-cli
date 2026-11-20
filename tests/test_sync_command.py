@@ -86,7 +86,7 @@ def test_rerun_pr_ci_reports_success(capsys):
     )
     with mock.patch("subprocess.run"):
         _rerun_pr_ci("o/r", 562, "mongodb-5.2.x", False, _gh_json)
-    assert "✓ queued (2 workflow run(s))" in capsys.readouterr().out
+    assert "✅ queued (2 workflow run(s))" in capsys.readouterr().out
 
 
 def test_retry_evergreen_skips_closed_pr(capsys):
@@ -102,7 +102,7 @@ def test_retry_evergreen_comments_on_open_pr(capsys):
     with mock.patch("subprocess.run") as run:
         _retry_evergreen("o/r", 562, "mongodb-5.2.x", False, _gh_json)
     assert "evergreen retry" in run.call_args.args[0]
-    assert "✓ commented 'evergreen retry'" in capsys.readouterr().out
+    assert "✅ commented 'evergreen retry'" in capsys.readouterr().out
 
 
 def test_branch_series_derives_release_series():
@@ -272,7 +272,7 @@ def test_print_backport_report_groups_commits_and_hides_chores(capsys):
     assert "[5.2 cycle] deadbee 2026-08-25 [5.2.x] Fixed CVE-2026-1" in out
     # The chore is counted in the summary but not listed.
     assert "aaaabbb" not in out
-    assert "(1 more hidden — pass --all)" in out
+    assert "(1 more hidden; pass --all)" in out
 
 
 def test_print_backport_report_all_lists_chores(capsys):

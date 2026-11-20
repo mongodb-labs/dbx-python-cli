@@ -151,7 +151,7 @@ dpy just mongo-python-driver test -v
 
 **Sync Repositories:**
 
-Keep your repositories up to date:
+Keep your repositories up to date. `dpy sync` switches to the repo's default branch (`preferred_branch`, else `main`, else `master`), syncs it, and returns to your branch:
 
 ```bash
 # Sync a single repository
