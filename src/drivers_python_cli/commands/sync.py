@@ -52,7 +52,7 @@ STATUS_STYLES = {
 STATUS_ICONS = {
     "synced": "✅",
     "dry_run": "🔍",
-    "skipped": "⏭️ ",
+    "skipped": "⏭️",
     "failed": "❌",
 }
 STATUS_LABELS = {
@@ -98,7 +98,7 @@ def _print_overall_panel(title, counts):
     )
 
 
-def _sync_repo_list(repos, header, ctx, verbose, force, dry_run, config=None):
+def _sync_repo_list(repos, header, ctx, verbose, force, dry_run, config):
     """Sync a list of repos, print a header and a summary, and honour the pager flag."""
     use_pager = should_use_pager(ctx, command_default=False)
 
@@ -124,16 +124,13 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run, config=None):
                 upstream_branch=repo_info.get("upstream_branch"),
                 preferred_branch=repo.get_preferred_branch(
                     config, repo_info.get("group", ""), repo_info["name"]
-                )
-                if config
-                else None,
+                ),
                 lines=lines,
             )
             counts[status] += 1
             _print_repo_panel(repo_info["name"], status, lines)
 
-        title = "✨ Dry run complete!" if dry_run else "✨ Done!"
-        _print_overall_panel(title, counts)
+        _print_overall_panel("Overall", counts)
     finally:
         if use_pager:
             sys.stdout = old_stdout
@@ -203,11 +200,29 @@ def _has_local_changes(repo_path):
     return bool(result.stdout.strip())
 
 
+def _rebase_in_progress(repo_path):
+    """Return True if a rebase is paused with conflicts in ``repo_path``."""
+    for name in ("rebase-merge", "rebase-apply"):
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "--git-path", name],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if not result.stdout.strip():
+            continue
+        path = Path(result.stdout.strip())
+        if not path.is_absolute():
+            path = Path(repo_path) / path
+        if path.exists():
+            return True
+    return False
+
+
 def _sync_all_branches(
     repo_info,
     config,
     verbose,
-    force,
     dry_run,
     no_ci=False,
     branch_filter=None,
@@ -227,8 +242,7 @@ def _sync_all_branches(
 
     Each branch is rebased onto its upstream target, which rewrites history, so a
     plain push would always be rejected as non-fast-forward. Force-push (via the
-    safe ``--force-with-lease``) is therefore the default for this flow; ``--force``
-    is redundant here but harmless.
+    safe ``--force-with-lease``) is therefore always on for this flow.
     """
     from drivers_python_cli.utils.repo import get_upstream_branch
 
@@ -241,11 +255,11 @@ def _sync_all_branches(
 
     mapping = get_upstream_branch(config, group, name)
     if not isinstance(mapping, dict):
-        typer.echo(
+        _echo(
             f"❌ Error: --all-branches requires a dict-form upstream_branch mapping for '{name}'",
             err=True,
         )
-        typer.echo(
+        _echo(
             "Configure [repo.groups.<group>.upstream_branch] with a {local = upstream} map.",
             err=True,
         )
@@ -254,12 +268,12 @@ def _sync_all_branches(
     if branch_filter:
         unknown = [b for b in branch_filter if b not in mapping]
         if unknown:
-            typer.echo(
+            _echo(
                 f"❌ Error: branch(es) not in upstream_branch mapping for '{name}': "
                 f"{', '.join(unknown)}",
                 err=True,
             )
-            typer.echo(f"Available branches: {', '.join(mapping.keys())}", err=True)
+            _echo(f"Available branches: {', '.join(mapping.keys())}", err=True)
             raise typer.Exit(1)
         # Preserve the requested order, de-duplicated.
         seen = set()
@@ -298,7 +312,9 @@ def _sync_all_branches(
             )
         except subprocess.CalledProcessError as e:
             _echo(
-                f"❌ Failed to fetch from upstream: {e.stderr}", style="red", err=True
+                f"❌ Error: could not fetch from upstream: {e.stderr}",
+                style="red",
+                err=True,
             )
             raise typer.Exit(1)
 
@@ -318,7 +334,7 @@ def _sync_all_branches(
             synced_count += 1
             _print_repo_panel(f"{name} · {branch}", "dry_run", lines)
 
-        _print_overall_panel("✨ Dry run complete!", {"dry_run": synced_count})
+        _print_overall_panel("Overall", {"dry_run": synced_count})
         if backport_report:
             _print_backport_report(
                 repo_info,
@@ -343,7 +359,10 @@ def _sync_all_branches(
                 )
             except subprocess.CalledProcessError as e:
                 lines.append(
-                    Text(f"❌ Failed to switch to {branch}: {e.stderr}", style="red")
+                    Text(
+                        f"❌ Error: could not switch to {branch}: {e.stderr}",
+                        style="red",
+                    )
                 )
                 failed_branches.append(branch)
                 _print_repo_panel(f"{name} · {branch}", "failed", lines)
@@ -386,7 +405,7 @@ def _sync_all_branches(
 
     # Dry-run returns early above; this path only handles the real sync.
     _print_overall_panel(
-        "✨ Done!",
+        "Overall",
         {
             "synced": synced_count,
             "skipped": skipped_count,
@@ -396,14 +415,14 @@ def _sync_all_branches(
 
     if failed_branches:
         _echo(
-            f"⚠️  Rebase these branch(es) manually: {', '.join(failed_branches)}",
+            f"⚠️ Rebase these branch(es) manually: {', '.join(failed_branches)}",
             style="yellow",
             err=True,
         )
 
     if original_branch and not restored:
         _echo(
-            f"⚠️  Could not switch back to original branch '{original_branch}'",
+            f"⚠️ Could not switch back to original branch '{original_branch}'",
             style="yellow",
             err=True,
         )
@@ -435,7 +454,7 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
 
     Each fork branch maps to a downstream target that is either a **PR number**
     (re-run that PR's workflow runs), a **git ref** (dispatch the repo's
-    ``test-python*`` workflows on that backend branch via ``workflow_dispatch`` —
+    ``test-python*`` workflows on that backend branch via ``workflow_dispatch``,
     no PR needed), or a PR number flagged for **Evergreen** (additionally comment
     ``evergreen retry`` to re-trigger the PR's Evergreen patch, since a rebased
     fork branch pinned by the PR does not re-trigger Evergreen on its own). Only
@@ -479,8 +498,8 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
         return
 
     if not shutil.which("gh"):
-        typer.echo(
-            "⚠️  Skipping downstream CI re-run: 'gh' CLI not found "
+        _echo(
+            "⚠️ Skipping downstream CI re-run: 'gh' CLI not found "
             "(install GitHub CLI or pass --no-ci to silence)",
             err=True,
         )
@@ -493,7 +512,7 @@ def _rerun_downstream_ci(config, group_name, repo_name, synced_branches, verbose
         out = result.stdout.strip()
         return json.loads(out) if out else []
 
-    typer.echo("")
+    _echo("")
     for branch, target, kind, value in actions:
         if kind == "pr":
             _rerun_pr_ci(target, value, branch, verbose, _gh_json)
@@ -541,7 +560,7 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
     """
     import json
 
-    typer.echo(f"♻️  {branch} → re-running CI on {target}#{number}...")
+    _echo(f"♻️ {branch} → re-running CI on {target}#{number}...")
     try:
         pr = _gh_json(
             [
@@ -556,8 +575,8 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
         )
         state = pr.get("state") if isinstance(pr, dict) else None
         if state and state != "OPEN":
-            typer.echo(
-                f"   #{number} ⚠️  PR is {state.lower()} — skipping "
+            _echo(
+                f"   #{number} ⚠️ PR is {state.lower()}, skipping "
                 f"(update the ci_rerun mapping for '{branch}')",
                 err=True,
             )
@@ -575,11 +594,11 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
         )
     except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError) as e:
         stderr = getattr(e, "stderr", "") or str(e)
-        typer.echo(f"   #{number} ⚠️  could not resolve runs: {stderr}", err=True)
+        _echo(f"   #{number} ⚠️ could not resolve runs: {stderr}", err=True)
         return
 
     if not runs:
-        typer.echo(f"   #{number} — no workflow runs for head commit")
+        _echo(f"   #{number}: no workflow runs for head commit")
         return
 
     requeued = 0
@@ -604,13 +623,13 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
             if reason and reason not in reasons:
                 reasons.append(reason)
             if verbose:
-                typer.echo(
+                _echo(
                     f"   [verbose] rerun failed for run {run_id}: {e.stderr}",
                     err=True,
                 )
 
     if requeued:
-        typer.echo(f"   #{number} ✓ queued ({requeued} workflow run(s))")
+        _echo(f"   #{number} ✅ queued ({requeued} workflow run(s))")
         return
 
     # Report what GitHub actually said. The common refusals are meaningfully
@@ -618,17 +637,17 @@ def _rerun_pr_ci(target, number, branch, verbose, _gh_json):
     # re-run (the PR needs a fresh push instead), whereas a missing
     # `actions: write` scope is fixable by re-authenticating.
     if reasons:
-        typer.echo(f"   #{number} ⚠️  no runs re-queued: {reasons[0]}", err=True)
+        _echo(f"   #{number} ⚠️ no runs re-queued: {reasons[0]}", err=True)
         for extra in reasons[1:]:
-            typer.echo(f"      also: {extra}", err=True)
+            _echo(f"      also: {extra}", err=True)
         if any("over a month ago" in r for r in reasons):
-            typer.echo(
+            _echo(
                 "      → runs are past GitHub's 30-day retry window; push to the "
                 f"PR branch to get fresh Actions runs on #{number}",
                 err=True,
             )
     else:
-        typer.echo(f"   #{number} ⚠️  no runs re-queued", err=True)
+        _echo(f"   #{number} ⚠️ no runs re-queued", err=True)
 
 
 def _retry_evergreen(target, number, branch, verbose, _gh_json=None):
@@ -642,12 +661,12 @@ def _retry_evergreen(target, number, branch, verbose, _gh_json=None):
     A closed or merged PR is skipped: Evergreen does not run patches for it, so
     the comment would be noise on a PR nobody is watching.
     """
-    typer.echo(f"♻️  {branch} → retrying Evergreen on {target}#{number}...")
+    _echo(f"♻️ {branch} → retrying Evergreen on {target}#{number}...")
     if _gh_json is not None:
         state = _pr_state(target, number, _gh_json)
         if state and state != "OPEN":
-            typer.echo(
-                f"   #{number} ⚠️  PR is {state.lower()} — skipping "
+            _echo(
+                f"   #{number} ⚠️ PR is {state.lower()}, skipping "
                 f"(update the ci_rerun mapping for '{branch}')",
                 err=True,
             )
@@ -668,10 +687,10 @@ def _retry_evergreen(target, number, branch, verbose, _gh_json=None):
             capture_output=not verbose,
             text=True,
         )
-        typer.echo(f"   #{number} ✓ commented 'evergreen retry'")
+        _echo(f"   #{number} ✅ commented 'evergreen retry'")
     except subprocess.CalledProcessError as e:
-        typer.echo(
-            f"   #{number} ⚠️  could not comment 'evergreen retry': "
+        _echo(
+            f"   #{number} ⚠️ could not comment 'evergreen retry': "
             f"{e.stderr if not verbose else ''}",
             err=True,
         )
@@ -685,7 +704,7 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
     """
     import json
 
-    typer.echo(f"♻️  {branch} → dispatching CI on {target}@{ref}...")
+    _echo(f"♻️ {branch} → dispatching CI on {target}@{ref}...")
     try:
         workflows = _gh_json(
             [
@@ -698,11 +717,11 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
         )
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         stderr = getattr(e, "stderr", "") or str(e)
-        typer.echo(f"   @{ref} ⚠️  could not list workflows: {stderr}", err=True)
+        _echo(f"   @{ref} ⚠️ could not list workflows: {stderr}", err=True)
         return
 
     if not workflows:
-        typer.echo(f"   @{ref} — no test-python* workflows found")
+        _echo(f"   @{ref}: no test-python* workflows found")
         return
 
     # Only workflows that declare a `workflow_dispatch` trigger can be run on a
@@ -731,27 +750,28 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
             has_dispatch = "workflow_dispatch" in body
         except subprocess.CalledProcessError as e:
             stderr = e.stderr or ""
-            # A 404 means the workflow file no longer exists at `ref` — a stale
+            # A 404 means the workflow file no longer exists at `ref`: a stale
             # entry in the Actions registry (renamed/deleted workflow). It can
             # never be dispatched on this ref, so skip it quietly rather than
             # attempting a dispatch that is guaranteed to 422.
             if "404" in stderr or "Not Found" in stderr:
-                typer.echo(f"   {name} — skipped (not present on {ref})")
+                _echo(f"   {name}: skipped (not present on {ref})")
                 continue
             if verbose:
-                typer.echo(f"   [verbose] could not inspect {name}: {e}", err=True)
+                _echo(f"   [verbose] could not inspect {name}: {e}", err=True)
             has_dispatch = True  # transient/other error: fall back to attempting
-        except Exception as e:  # noqa: BLE001 — best-effort; still try to dispatch
+        except Exception as e:  # noqa: BLE001
+            # Best-effort: still try to dispatch on this error.
             if verbose:
-                typer.echo(f"   [verbose] could not inspect {name}: {e}", err=True)
+                _echo(f"   [verbose] could not inspect {name}: {e}", err=True)
             has_dispatch = True  # fall back to attempting the dispatch
         if has_dispatch:
             dispatchable.append(path)
         else:
-            typer.echo(f"   {name} — skipped (no workflow_dispatch trigger)")
+            _echo(f"   {name}: skipped (no workflow_dispatch trigger)")
 
     if not dispatchable:
-        typer.echo(f"   @{ref} — no dispatchable test-python* workflows")
+        _echo(f"   @{ref}: no dispatchable test-python* workflows")
         return
 
     dispatched = 0
@@ -765,17 +785,15 @@ def _dispatch_workflows(target, ref, branch, verbose, _gh_json):
                 text=True,
             )
             dispatched += 1
-            typer.echo(f"   {name} ✓ queued")
+            _echo(f"   {name} ✅ queued")
         except subprocess.CalledProcessError as e:
-            typer.echo(
-                f"   {name} ⚠️  dispatch failed: {e.stderr if not verbose else ''}",
+            _echo(
+                f"   {name} ⚠️ dispatch failed: {e.stderr if not verbose else ''}",
                 err=True,
             )
 
     if not dispatched:
-        typer.echo(
-            f"   @{ref} ⚠️  no workflows dispatched (check ref/permissions)", err=True
-        )
+        _echo(f"   @{ref} ⚠️ no workflows dispatched (check ref/permissions)", err=True)
 
 
 @app.callback()
@@ -928,7 +946,7 @@ def sync_callback(
             ]
 
             if not non_global_groups:
-                typer.echo("❌ Error: No groups found in configuration.", err=True)
+                _echo("❌ Error: No groups found in configuration.", err=True)
                 raise typer.Exit(1)
 
             # Find all repos across all non-global groups
@@ -938,8 +956,8 @@ def sync_callback(
             )
 
             if not target_repos:
-                typer.echo("❌ Error: No repositories found in any group.", err=True)
-                typer.echo("\nClone repositories using: dpy clone -a")
+                _echo("❌ Error: No repositories found in any group.", err=True)
+                _echo("\nClone repositories using: dpy clone -a")
                 raise typer.Exit(1)
 
             _sync_repo_list(
@@ -958,19 +976,17 @@ def sync_callback(
         if all_branches or branch:
             flag = "--all-branches" if all_branches else "--branch"
             if not repo_name:
-                typer.echo(f"❌ Error: {flag} requires a repository name", err=True)
-                typer.echo(f"\nUsage: dpy sync <repo-name> {flag}")
+                _echo(f"❌ Error: {flag} requires a repository name", err=True)
+                _echo(f"\nUsage: dpy sync <repo-name> {flag}")
                 raise typer.Exit(1)
 
             if group:
                 if group not in groups:
-                    typer.echo(
+                    _echo(
                         f"❌ Error: Group '{group}' not found in configuration.",
                         err=True,
                     )
-                    typer.echo(
-                        f"Available groups: {', '.join(groups.keys())}", err=True
-                    )
+                    _echo(f"Available groups: {', '.join(groups.keys())}", err=True)
                     raise typer.Exit(1)
                 from drivers_python_cli.utils.repo import find_all_repos_by_name
 
@@ -988,15 +1004,14 @@ def sync_callback(
                 repo_info = find_repo_by_name(repo_name, base_dir, config)
 
             if not repo_info:
-                typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
-                typer.echo("\nUse 'dpy list' to see available repositories")
+                _echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+                _echo("\nUse 'dpy list' to see available repositories")
                 raise typer.Exit(1)
 
             _sync_all_branches(
                 repo_info,
                 config,
                 verbose,
-                force,
                 dry_run,
                 no_ci,
                 branch_filter=branch or None,
@@ -1009,10 +1024,10 @@ def sync_callback(
         # Handle sync with both group and repo name specified
         if group and repo_name:
             if group not in groups:
-                typer.echo(
+                _echo(
                     f"❌ Error: Group '{group}' not found in configuration.", err=True
                 )
-                typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
+                _echo(f"Available groups: {', '.join(groups.keys())}", err=True)
                 raise typer.Exit(1)
 
             # Find the specific repo within the group
@@ -1026,11 +1041,11 @@ def sync_callback(
                     break
 
             if not repo_info:
-                typer.echo(
+                _echo(
                     f"❌ Error: Repository '{repo_name}' not found in group '{group}'",
                     err=True,
                 )
-                typer.echo(f"\nClone the repository using: dpy clone -g {group}")
+                _echo(f"\nClone the repository using: dpy clone -g {group}")
                 raise typer.Exit(1)
 
             lines = []
@@ -1048,7 +1063,7 @@ def sync_callback(
             )
             _print_repo_panel(repo_info["name"], status, lines)
             _print_overall_panel(
-                "✨ Dry run complete!" if dry_run else "✨ Done!",
+                "Overall",
                 {status: 1},
             )
             return
@@ -1056,10 +1071,10 @@ def sync_callback(
         # Handle group sync (all repos in group)
         if group:
             if group not in groups:
-                typer.echo(
+                _echo(
                     f"❌ Error: Group '{group}' not found in configuration.", err=True
                 )
-                typer.echo(f"Available groups: {', '.join(groups.keys())}", err=True)
+                _echo(f"Available groups: {', '.join(groups.keys())}", err=True)
                 raise typer.Exit(1)
 
             # Find all repos in the group
@@ -1067,10 +1082,8 @@ def sync_callback(
             group_repos = _enrich([r for r in all_repos if r["group"] == group])
 
             if not group_repos:
-                typer.echo(
-                    f"❌ Error: No repositories found for group '{group}'.", err=True
-                )
-                typer.echo(f"\nClone repositories using: dpy clone -g {group}")
+                _echo(f"❌ Error: No repositories found for group '{group}'.", err=True)
+                _echo(f"\nClone repositories using: dpy clone -g {group}")
                 raise typer.Exit(1)
 
             _sync_repo_list(
@@ -1086,10 +1099,10 @@ def sync_callback(
 
         # Handle single repo sync
         if not repo_name:
-            typer.echo("❌ Error: Repository name or group required", err=True)
-            typer.echo("\nUsage: dpy sync <repo-name>")
-            typer.echo("   or: dpy sync -g <group>")
-            typer.echo("   or: dpy sync -g <group> <repo-name>")
+            _echo("❌ Error: Repository name or group required", err=True)
+            _echo("\nUsage: dpy sync <repo-name>")
+            _echo("   or: dpy sync -g <group>")
+            _echo("   or: dpy sync -g <group> <repo-name>")
             raise typer.Exit(1)
 
         _is_path_like = is_path_like(repo_name)
@@ -1098,17 +1111,17 @@ def sync_callback(
         if _is_path_like:
             repo_info = find_repo_by_path(repo_name, base_dir, config)
             if not repo_info:
-                typer.echo(
+                _echo(
                     f"❌ Error: No managed repository found at '{Path(repo_name).resolve()}'",
                     err=True,
                 )
-                typer.echo("\nUse 'dpy list' to see available repositories")
+                _echo("\nUse 'dpy list' to see available repositories")
                 raise typer.Exit(1)
         else:
             repo_info = find_repo_by_name(repo_name, base_dir, config)
             if not repo_info:
-                typer.echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
-                typer.echo("\nUse 'dpy list' to see available repositories")
+                _echo(f"❌ Error: Repository '{repo_name}' not found", err=True)
+                _echo("\nUse 'dpy list' to see available repositories")
                 raise typer.Exit(1)
 
         lines = []
@@ -1128,7 +1141,7 @@ def sync_callback(
         )
         _print_repo_panel(repo_info["name"], status, lines)
         _print_overall_panel(
-            "✨ Dry run complete!" if dry_run else "✨ Done!",
+            "Overall",
             {status: 1},
         )
 
@@ -1147,7 +1160,7 @@ def _sync_repository(
     verbose: bool = False,
     force: bool = False,
     dry_run: bool = False,
-    upstream_branch: str | None = None,
+    upstream_branch: str | dict | None = None,
     abort_on_conflict: bool = False,
     lines: list | None = None,
     preferred_branch: str | None = None,
@@ -1162,9 +1175,11 @@ def _sync_repository(
     would fail. Pass ``checkout_default=False`` to sync whatever branch is
     checked out (used by ``--all-branches``, which drives the checkouts itself).
 
-    For main/master branches: rebases to upstream/<branch_name>
-    For feature branches: rebases to upstream's default branch (main/master),
-    or to upstream/<upstream_branch> if upstream_branch is explicitly provided.
+    Rebase target:
+
+    - main/master: ``upstream/<branch_name>``
+    - mapped branch: ``upstream/<upstream_branch>``
+    - anything else: upstream's default branch
 
     When ``abort_on_conflict`` is True, a rebase that fails (e.g. conflicts) is
     aborted so the working tree is left clean and the user is pointed at a
@@ -1205,7 +1220,7 @@ def _sync_repository(
     if is_worktree(repo_path):
         emit(
             Text.assemble(
-                ("⏭️  Skipping ", "dim"), (repo_name, "bold"), (" (worktree)", "dim")
+                ("⏭️ Skipping ", "dim"), (repo_name, "bold"), (" (worktree)", "dim")
             )
         )
         return finish("skipped")
@@ -1233,42 +1248,33 @@ def _sync_repository(
         remotes = result.stdout.strip().split("\n")
 
         if "upstream" not in remotes:
-            emit("⚠️  No 'upstream' remote found (skipping)", style="yellow")
+            emit("⚠️ No 'upstream' remote found (skipping)", style="yellow")
             return finish("skipped")
 
     except subprocess.CalledProcessError as e:
-        emit(f"❌ Failed to check remotes: {e.stderr}", style="red")
+        emit(f"❌ Error: could not check remotes: {e.stderr}", style="red")
         return finish("failed")
 
-    # Get current branch
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo_path), "branch", "--show-current"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        current_branch = result.stdout.strip()
-
-        if not current_branch:
-            emit("⚠️  Not on a branch (detached HEAD), skipping", style="yellow")
-            return finish("skipped")
-
-        if verbose:
-            emit(f"[verbose] Current branch: {current_branch}", style="dim")
-
-    except subprocess.CalledProcessError as e:
-        emit(f"❌ Failed to get current branch: {e.stderr}", style="red")
-        return finish("failed")
+    current_branch = _current_branch(repo_path)
+    if not current_branch:
+        emit("⚠️ Not on a branch (detached HEAD), skipping", style="yellow")
+        return finish("skipped")
+    if verbose:
+        emit(f"[verbose] Current branch: {current_branch}", style="dim")
 
     # Sync always operates on the default branch. Switch to it first, and
     # restore the original branch afterwards.
     original_branch = current_branch
     if checkout_default:
+        if preferred_branch and not _local_branch_exists(repo_path, preferred_branch):
+            emit(
+                f"⚠️ Preferred branch '{preferred_branch}' not found locally",
+                style="yellow",
+            )
         default_branch = _default_sync_branch(repo_path, preferred_branch)
         if not default_branch:
             emit(
-                "⚠️  No main, master, or preferred branch found, skipping",
+                "⚠️ No main, master, or preferred branch found, skipping",
                 style="yellow",
             )
             return finish("skipped")
@@ -1277,7 +1283,7 @@ def _sync_repository(
             # without touching the tree. Only a real sync must switch.
             if not dry_run and _has_local_changes(repo_path):
                 emit(
-                    f"⚠️  Skipping: uncommitted changes block switch from "
+                    f"⚠️ Skipping: uncommitted changes block switch from "
                     f"'{current_branch}' to '{default_branch}'",
                     style="yellow",
                 )
@@ -1298,7 +1304,7 @@ def _sync_repository(
                     )
                 except subprocess.CalledProcessError as e:
                     emit(
-                        f"❌ Failed to switch to {default_branch}: {e.stderr}",
+                        f"❌ Error: could not switch to {default_branch}: {e.stderr}",
                         style="red",
                     )
                     return finish("failed")
@@ -1318,12 +1324,19 @@ def _sync_repository(
             emit_output,
         )
     finally:
-        if (
+        switching_back = (
             checkout_default
             and original_branch != current_branch
             and not dry_run
             and _current_branch(repo_path) != original_branch
-        ):
+        )
+        if switching_back and _rebase_in_progress(repo_path):
+            emit(
+                f"⚠️ Rebase in progress on {current_branch}. Resolve it, then "
+                f"switch back to {original_branch}",
+                style="yellow",
+            )
+        elif switching_back:
             try:
                 subprocess.run(
                     ["git", "-C", str(repo_path), "switch", original_branch],
@@ -1333,7 +1346,7 @@ def _sync_repository(
                 )
             except subprocess.CalledProcessError:
                 emit(
-                    f"⚠️  Could not switch back to original branch '{original_branch}'",
+                    f"⚠️ Could not switch back to original branch '{original_branch}'",
                     style="yellow",
                 )
 
@@ -1370,7 +1383,7 @@ def _sync_current_branch(
             emit_output(result.stderr)
 
     except subprocess.CalledProcessError as e:
-        emit(f"❌ Failed to fetch from upstream: {e.stderr}", style="red")
+        emit(f"❌ Error: could not fetch from upstream: {e.stderr}", style="red")
         return "failed"
 
     # Determine which branch to rebase onto
@@ -1417,7 +1430,7 @@ def _sync_current_branch(
                     style="dim",
                 )
         except subprocess.CalledProcessError:
-            # No matching upstream branch — fall back to upstream's default branch
+            # No matching upstream branch; fall back to upstream's default branch
             upstream_default = _get_upstream_default_branch(repo_path, verbose, emit)
             if not upstream_default:
                 # Fallback to trying common default branches
@@ -1447,7 +1460,10 @@ def _sync_current_branch(
                         continue
 
                 if not upstream_default:
-                    emit("❌ Could not determine upstream default branch", style="red")
+                    emit(
+                        "❌ Error: could not determine upstream default branch",
+                        style="red",
+                    )
                     return "failed"
 
             rebase_target = f"upstream/{upstream_default}"
@@ -1480,7 +1496,10 @@ def _sync_current_branch(
             emit_output(result.stderr)
 
     except subprocess.CalledProcessError as e:
-        emit(f"❌ Failed to rebase {current_branch} on {rebase_target}", style="red")
+        emit(
+            f"❌ Error: could not rebase {current_branch} on {rebase_target}",
+            style="red",
+        )
         if e.stderr:
             emit_output(e.stderr, style="red")
 
@@ -1535,7 +1554,7 @@ def _sync_current_branch(
 
     except subprocess.CalledProcessError as e:
         emit(
-            f"⚠️  Synced but failed to push to origin/{current_branch}",
+            f"⚠️ Synced but failed to push to origin/{current_branch}",
             style="yellow",
         )
         if e.stderr:
@@ -1641,7 +1660,7 @@ def _show_commit_comparison(
                 text=True,
             )
         except subprocess.CalledProcessError:
-            emit(f"⚠️  No origin/{current_branch} branch found", style="yellow")
+            emit(f"⚠️ No origin/{current_branch} branch found", style="yellow")
             return
 
         # Count commits ahead of upstream (commits in origin but not in upstream)
@@ -1761,7 +1780,7 @@ def _show_commit_comparison(
 
     except subprocess.CalledProcessError as e:
         emit(
-            f"❌ Failed to compare commits: {e.stderr if e.stderr else 'Unknown error'}",
+            f"❌ Error: could not compare commits: {e.stderr if e.stderr else 'Unknown error'}",
             style="red",
         )
 
@@ -1916,8 +1935,8 @@ def _print_backport_report(
     release_name = get_release_repo(config, group, name)
     if not release_name:
         if verbose:
-            typer.echo(
-                f"[verbose] No release_repo configured for '{name}' — "
+            _echo(
+                f"[verbose] No release_repo configured for '{name}'; "
                 "skipping backport report"
             )
         return
@@ -1925,8 +1944,8 @@ def _print_backport_report(
     base_dir = repo.get_base_dir(config)
     release_info = find_repo_by_name(release_name, base_dir, config)
     if not release_info:
-        typer.echo(
-            f"⚠️  Skipping backport report: release repo '{release_name}' not found "
+        _echo(
+            f"⚠️ Skipping backport report: release repo '{release_name}' not found "
             f"locally (clone it or unset release_repo)",
             err=True,
         )
@@ -1944,51 +1963,51 @@ def _print_backport_report(
         )
     except subprocess.CalledProcessError as e:
         if verbose:
-            typer.echo(f"[verbose] Could not fetch tags for {release_name}: {e.stderr}")
+            _echo(f"[verbose] Could not fetch tags for {release_name}: {e.stderr}")
 
     try:
         cycles, dev_label = _upstream_cycles(path)
     except subprocess.CalledProcessError as e:
-        typer.echo(
-            f"⚠️  Skipping backport report: could not read upstream cycles "
+        _echo(
+            f"⚠️ Skipping backport report: could not read upstream cycles "
             f"({e.stderr.strip() if e.stderr else e})",
             err=True,
         )
         return
 
-    typer.echo(f"\n📋 Upstream commits since the latest {release_name} release:\n")
+    _echo(f"\n📋 Upstream commits since the latest {release_name} release:\n")
 
     cache = {}
     backport_re = re.compile(r"[Bb]ackport of ([0-9a-f]{7,40}) from main")
 
     for branch in branches:
         upstream_ref = mapping[branch]
-        typer.echo(f"🌿 {branch} → upstream/{upstream_ref}")
+        _echo(f"🌿 {branch} → upstream/{upstream_ref}")
 
         series = _branch_series(branch)
         if not series:
-            typer.echo(f"   ⚠️  Cannot derive a release series from '{branch}'")
+            _echo(f"   ⚠️ Cannot derive a release series from '{branch}'")
             continue
 
         release = _latest_release_tag(release_path, series)
         if not release:
-            typer.echo(f"   ⚠️  No {series}.* release tag in {release_name} yet")
+            _echo(f"   ⚠️ No {series}.* release tag in {release_name} yet")
             continue
 
         tag, since = release
         try:
             commits = _new_upstream_commits(path, upstream_ref, since)
         except subprocess.CalledProcessError as e:
-            typer.echo(
-                f"   ⚠️  Could not read upstream/{upstream_ref} "
+            _echo(
+                f"   ⚠️ Could not read upstream/{upstream_ref} "
                 f"({e.stderr.strip() if e.stderr else e})",
                 err=True,
             )
             continue
 
-        typer.echo(f"   {release_name} {tag} ({since[:10]}) … upstream tip")
+        _echo(f"   {release_name} {tag} ({since[:10]}) … upstream tip")
         if not commits:
-            typer.echo("   ✅ nothing new upstream")
+            _echo("   ✅ nothing new upstream")
             continue
 
         entries = []
@@ -2009,7 +2028,7 @@ def _print_backport_report(
             for bucket, name in _BUCKETS
             if counts[bucket]
         )
-        typer.echo(f"   {len(commits)} new commit(s): {summary}")
+        _echo(f"   {len(commits)} new commit(s): {summary}")
 
         hidden = 0
         for bucket, heading in _BUCKETS:
@@ -2021,8 +2040,8 @@ def _print_backport_report(
             ):
                 hidden += len(group)
                 continue
-            typer.echo(f"   {heading}")
+            _echo(f"   {heading}")
             for _bucket, label, short, date, subject in group:
-                typer.echo(f"     [{label}] {short} {date} {subject}")
+                _echo(f"     [{label}] {short} {date} {subject}")
         if hidden:
-            typer.echo(f"   ({hidden} more hidden — pass --all)")
+            _echo(f"   ({hidden} more hidden; pass --all)")

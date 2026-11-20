@@ -188,20 +188,20 @@ else ``master``. If modified tracked files block the switch, the repo is skipped
 with a warning and left untouched.
 
 ``dpy sync`` prints one panel per repository by default, in the same style as
-``dpy ci`` and ``dpy infra``. Each panel holds the steps for that repo, such as
-the base directory, the current branch, and each fetch and rebase step. A
-final ``Overall`` panel gives the counts. Pass ``--quiet`` to hide the step
-lines.
+``dpy ci`` and ``dpy infra``. Each panel holds the steps for that repo: the
+current branch, each fetch and rebase step, and the result. A final
+``Overall`` panel gives the counts. Pass ``--quiet`` to hide the step lines.
 
 .. code-block:: text
 
    ╭──────────────── mongo-python-driver ────────────────╮
    │ 🔄 Syncing mongo-python-driver                      │
+   │ [verbose] Current branch: main                      │
    │ [verbose] Fetching from upstream...                 │
    │ [verbose] Rebasing on upstream/main...              │
    │ ✅ Synced and pushed successfully                   │
    ╰─────────────────────────────────────────────────────╯
-   ╭────────────────────── ✨ Done! ─────────────────────╮
+   ╭────────────────────── Overall ──────────────────────╮
    │ ✅ 1 synced                                         │
    ╰─────────────────────────────────────────────────────╯
 
@@ -209,9 +209,9 @@ lines.
 
 A default sync touches only the default branch.
 
-- **main / master** — rebases to ``upstream/main`` or ``upstream/master``
-- **``--all-branches`` branches with** ``upstream_branch`` **configured** — rebases to ``upstream/<configured-branch>`` (useful for fork workflows where the local branch name differs from the upstream branch, e.g. ``mongodb-6.0.x`` → ``upstream/stable/6.0.x``)
-- **Other ``--all-branches`` branches** — detects the upstream remote's default branch (``main`` or ``master``) and rebases to that
+- **main / master**: rebases to ``upstream/main`` or ``upstream/master``
+- **Configured default branch**: rebases to the branch in ``upstream_branch`` that matches it, e.g. ``mongodb-6.0.x`` → ``upstream/stable/6.0.x``
+- **``-b`` / ``-B`` branches**: rebase each mapped branch to its ``upstream_branch`` target
 
 **Example workflow:**
 
@@ -378,14 +378,14 @@ instead declare the upstream URL and branch mapping directly in your config:
    Required when the local branch name differs from the upstream branch name.
    Accepts either a single string (one fixed upstream branch for all local branches) or a dict
    mapping each local branch name to its upstream branch. The dict form is useful for repos like
-   the Django fork where each local branch tracks a different upstream branch — ``dpy sync``
-   picks the correct target based on the branch currently checked out.
+   the Django fork where each local branch tracks a different upstream branch.
+   ``dpy sync -B <branch>`` uses the mapping to pick each branch's rebase target.
 
 **Example workflow (django fork):**
 
 .. code-block:: bash
 
-   # Clone mongodb-forks/django — upstream remote is added automatically
+   # Clone mongodb-forks/django; the upstream remote is added automatically
    dpy clone -g django
 
    # Verify the remotes
@@ -394,14 +394,13 @@ instead declare the upstream URL and branch mapping directly in your config:
    # origin    git@github.com:mongodb-forks/django.git (fetch)
    # upstream  git@github.com:django/django.git (fetch)
 
-   # Switch to a fork branch and sync it with upstream
-   git switch mongodb-6.0.x
+   # Sync the default branch (the group's preferred_branch, mongodb-6.0.x)
    dpy sync django
-   # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
+   # Rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
 
-   git switch mongodb-5.2.x
-   dpy sync django
-   # Fetches upstream, rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
+   # Sync another mapped branch
+   dpy sync django -B mongodb-5.2.x
+   # Rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
 
 Both keys are optional and independent — you can use ``upstream`` alone (to auto-add the remote
 on clone without changing sync behaviour) or ``upstream_branch`` alone (if you have already added
@@ -533,11 +532,11 @@ A minimal example:
 Per-group keys of note:
 
 - ``python_version`` — Python version for the group's virtual environment
-- ``preferred_branch`` — branch to ``git switch`` to automatically after cloning
+- ``preferred_branch`` — branch to switch to after cloning and the target of a default ``dpy sync``
 - ``no_fork`` — list of repo names that skip the fork workflow even when ``--fork`` is active (useful for repos that are already organisation forks rather than personal forks, e.g. ``no_fork = ["django"]``)
 - ``upstream`` — upstream remote URLs added automatically on clone (see :ref:`config-driven-upstream`)
 - ``upstream_branch`` — upstream branch override for ``dpy sync`` (see :ref:`config-driven-upstream`)
-- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dpy sync --all-branches`` reports the upstream commits each mapped branch gained after that release, bucketed into security fixes / ticket fixes / chores (see :doc:`django-fork`)
+- ``release_repo`` — sibling repo whose release tags gate the synced fork; ``dpy sync -b`` and ``dpy sync -B`` report the upstream commits each mapped branch gained after that release, bucketed into security fixes / ticket fixes / chores (see :doc:`django-fork`)
 - ``sync_after_clone`` — list of repo names to automatically ``dpy sync`` immediately after cloning (see :ref:`sync-after-clone`)
 - ``upstream_worktree`` — list of repo names that get an upstream git worktree created on clone (see :ref:`upstream-worktrees`)
 - ``install_extras``, ``install_groups`` — default extras / dependency groups installed by ``dpy install``
@@ -567,7 +566,7 @@ status when errors are found.
 - Skips repositories that already exist locally
 - Fork-based workflow support with automatic upstream remote configuration
 - Config-driven ``upstream`` remote setup without requiring ``--fork-user``
-- Sync command to fetch from upstream and rebase current branch
+- Sync command to fetch from upstream and rebase the default branch
 - ``dpy remove`` supports ``--dry-run`` to preview what would be deleted without removing anything
 - ``dpy remove -g <group>`` deletes the whole group directory; anything in it that
   is not a repository (notably the group-level ``.venv``) is listed before you confirm

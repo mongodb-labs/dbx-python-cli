@@ -38,7 +38,7 @@ organisation rather than a personal account:
    [repo.groups.django.upstream_branch]
    django = {"mongodb-6.2.x" = "main", "mongodb-6.1.x" = "stable/6.1.x", "mongodb-6.0.x" = "stable/6.0.x", "mongodb-5.2.x" = "stable/5.2.x"}
 
-   # Branch checked out automatically right after cloning
+   # Branch checked out right after cloning, and the default sync target
    [repo.groups.django.preferred_branch]
    django = "mongodb-6.0.x"
 
@@ -61,13 +61,14 @@ Each key plays a specific role in fork maintenance:
 ``upstream_branch``
    Maps each local fork branch to the upstream branch it rebases against. The
    MongoDB branch names (``mongodb-6.0.x``) differ from the upstream Django
-   branch names (``stable/6.0.x``), so this mapping tells ``dpy sync`` which
-   target to rebase onto based on the branch currently checked out. The dict
-   form is what makes multi-branch maintenance work — each branch resolves to
-   its own upstream target.
+   branch names (``stable/6.0.x``), so this mapping tells ``dpy sync -B`` which
+   target to rebase onto. The dict form is what makes multi-branch maintenance
+   work: each branch resolves to its own upstream target.
 
 ``preferred_branch``
-   The branch ``dpy clone`` switches to automatically after cloning.
+   The branch ``dpy clone`` switches to after cloning. It is also the branch a
+   default ``dpy sync`` syncs, so for this group ``dpy sync django`` always
+   syncs ``mongodb-6.0.x``.
 
 ``upstream_worktree``
    Lists repos that get a sibling git worktree checked out on the upstream
@@ -179,26 +180,24 @@ editing is never silently moved out from under you.
 Syncing a branch with upstream
 ------------------------------
 
-``dpy sync`` fetches from ``upstream``, rebases the current branch onto its
-mapped upstream branch, and pushes the result back to ``origin``. Because the
-upstream target is resolved from ``upstream_branch`` based on the branch that
-is checked out, maintenance is simply "check out a branch, sync it":
+``dpy sync`` fetches from ``upstream``, rebases a branch onto its mapped
+upstream branch, and pushes the result back to ``origin``. A default sync
+works on the group's ``preferred_branch`` (``mongodb-6.0.x``). Use ``-B`` to
+sync another mapped branch:
 
 .. code-block:: bash
 
    cd ~/Developer/mongodb/django/django
 
-   # Bring mongodb-6.0.x up to date with the latest Django stable/6.0.x
-   git switch mongodb-6.0.x
+   # Bring mongodb-6.0.x (the preferred branch) up to date with stable/6.0.x
    dpy sync django
    # Fetches upstream, rebases mongodb-6.0.x onto upstream/stable/6.0.x, pushes to origin
 
-   # Repeat for the next release branch
-   git switch mongodb-5.2.x
-   dpy sync django
+   # Sync the next release branch
+   dpy sync django -B mongodb-5.2.x
    # Rebases mongodb-5.2.x onto upstream/stable/5.2.x, pushes to origin
 
-Always preview first with ``--dry-run`` — it shows the commits that would be
+Always preview first with ``--dry-run``. It shows the commits that would be
 applied from upstream and the commits that would be rebased on top:
 
 .. code-block:: bash
@@ -233,11 +232,10 @@ to pass ``--force``:
    dpy sync django --all-branches
    dpy sync django -b              # short form
 
-This is equivalent to switching to ``mongodb-6.1.x``, ``mongodb-6.0.x``,
-``mongodb-5.2.x``, … in turn and running ``dpy sync django`` on each. The
-working tree must be clean for a real sync (each branch is checked out via
-``git switch``), and only branches present in the ``upstream_branch`` mapping
-are synced.
+This is equivalent to running ``dpy sync django -B`` on each mapped branch in
+turn. The working tree must be clean for a real sync (each branch is checked
+out via ``git switch``), and only branches present in the ``upstream_branch``
+mapping are synced.
 
 To sync only a subset of the mapped branches instead of all of them, use
 ``--branch`` (``-B``). It behaves exactly like ``--all-branches`` — same
@@ -332,19 +330,21 @@ different. See ``[repo.groups.django.ci_rerun.django]`` in the bundled
 
 .. code-block:: text
 
-   ✨ Done! Synced 3 branch(es)
+   ╭──────────── Overall ─────────────╮
+   │ ✅ 3 synced                      │
+   ╰──────────────────────────────────╯
 
-   ♻️  mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main...
-      test-python.yml ✓ queued
-      test-python-geo.yml ✓ queued
-      test-python-replica.yml — skipped (no workflow_dispatch trigger)
-      test-python1.yml — skipped (not present on main)
-   ♻️  mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#1111...
-      #1111 ✓ queued (4 workflow run(s))
-   ♻️  mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#3333...
-      #3333 ✓ queued (4 workflow run(s))
-   ♻️  mongodb-6.2.x → retrying Evergreen on mongodb/django-mongodb-backend#3333...
-      #3333 ✓ commented 'evergreen retry'
+   ♻️ mongodb-6.0.x → dispatching CI on mongodb/django-mongodb-backend@main...
+      test-python.yml ✅ queued
+      test-python-geo.yml ✅ queued
+      test-python-replica.yml: skipped (no workflow_dispatch trigger)
+      test-python1.yml: skipped (not present on main)
+   ♻️ mongodb-6.1.x → re-running CI on mongodb/django-mongodb-backend#1111...
+      #1111 ✅ queued (4 workflow run(s))
+   ♻️ mongodb-6.2.x → re-running CI on mongodb/django-mongodb-backend#3333...
+      #3333 ✅ queued (4 workflow run(s))
+   ♻️ mongodb-6.2.x → retrying Evergreen on mongodb/django-mongodb-backend#3333...
+      #3333 ✅ commented 'evergreen retry'
 
 This uses the ``gh`` CLI (GitHub CLI), so ``gh`` must be installed and
 authenticated. It is best-effort: a missing ``gh``, an unconfigured ``ci_rerun``
@@ -543,16 +543,14 @@ update the mapping to point at it:
    [repo.groups.django.upstream_branch]
    django = {"mongodb-6.2.x" = "stable/6.2.x", "mongodb-6.1.x" = "stable/6.1.x", ...}
 
-Until a mapping exists, ``dpy sync`` cannot determine the correct upstream
-target for that branch and falls back to upstream's default-branch detection,
-which is almost certainly not what you want for a release branch.
+An unmapped branch has no upstream target. ``dpy sync -B`` rejects it, and
+``--all-branches`` skips it, so add the mapping before you sync it.
 
 Only map branches whose upstream target actually exists. A branch pointing at a
 ``stable/<version>.x`` that has not been branched yet (a Django version still in
 development on ``main``) or one that has been deleted upstream (an end-of-life
-release) will fail to rebase under ``dpy sync``. When a Django release reaches
-end of life and its ``stable`` branch is removed, drop the corresponding entry
-from the mapping.
+release) will fail to rebase. When a Django release reaches end of life and its
+``stable`` branch is removed, drop the corresponding entry from the mapping.
 
 Running the Django test suite
 -----------------------------

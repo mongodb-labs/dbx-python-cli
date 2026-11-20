@@ -208,12 +208,13 @@ django = "tests/runtests.py"
 [repo.groups.django.test_runner_args]
 django = ["-v", "2"]
 
-# Preferred branch to switch to after cloning (runs `git switch <branch>` automatically)
+# Preferred branch to switch to after cloning (runs `git switch <branch>` automatically).
+# Also the branch a default `dpy sync` syncs.
 [repo.groups.django.preferred_branch]
 django = "mongodb-6.0.x"
 
 # Downstream repo (in this group) that is released from the synced fork. With
-# `dpy sync <repo> --all-branches --backport-report`, each mapped fork branch is
+# `dpy sync <repo> -b --backport-report` (or `-B`), each mapped fork branch is
 # compared against the matching release tag in this repo (mongodb-5.2.x -> the highest
 # 5.2.* tag), and any upstream commits that landed after that release are reported,
 # labelled with the upstream dev cycle they were backported from. Off by default.
