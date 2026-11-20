@@ -98,7 +98,7 @@ def _print_overall_panel(title, counts):
     )
 
 
-def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
+def _sync_repo_list(repos, header, ctx, verbose, force, dry_run, config=None):
     """Sync a list of repos, print a header and a summary, and honour the pager flag."""
     use_pager = should_use_pager(ctx, command_default=False)
 
@@ -122,6 +122,11 @@ def _sync_repo_list(repos, header, ctx, verbose, force, dry_run):
                 force,
                 dry_run,
                 upstream_branch=repo_info.get("upstream_branch"),
+                preferred_branch=repo.get_preferred_branch(
+                    config, repo_info.get("group", ""), repo_info["name"]
+                )
+                if config
+                else None,
                 lines=lines,
             )
             counts[status] += 1
@@ -149,6 +154,53 @@ def _current_branch(repo_path):
         ).stdout.strip()
     except subprocess.CalledProcessError:
         return ""
+
+
+def _local_branch_exists(repo_path, branch):
+    """Return True if ``branch`` exists locally in ``repo_path``."""
+    return (
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_path),
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"refs/heads/{branch}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
+    )
+
+
+def _default_sync_branch(repo_path, preferred_branch=None):
+    """Return the branch sync must operate on, or None if none exists locally.
+
+    The configured ``preferred_branch`` wins; otherwise ``main``, then ``master``.
+    """
+    for branch in [preferred_branch, "main", "master"]:
+        if branch and _local_branch_exists(repo_path, branch):
+            return branch
+    return None
+
+
+def _has_local_changes(repo_path):
+    """Return True if tracked files are modified or staged.
+
+    Untracked files are ignored: ``git switch`` does not move them, so they do
+    not block a branch change.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(repo_path), "status", "--porcelain", "--untracked-files=no"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return bool(result.stdout.strip())
 
 
 def _sync_all_branches(
@@ -309,6 +361,7 @@ def _sync_all_branches(
                 upstream_branch=mapping,
                 abort_on_conflict=True,
                 lines=lines,
+                checkout_default=False,
             )
             _print_repo_panel(f"{name} · {branch}", status, lines)
             if status == "skipped":
@@ -796,13 +849,15 @@ def sync_callback(
 ):
     """Sync repository with upstream by fetching, rebasing, and pushing.
 
+    Sync runs on the repo's default branch (the group's preferred_branch, else
+    main, else master). If another branch is checked out, sync switches to the
+    default branch, syncs it, and switches back. A repo with modified tracked
+    files is skipped, because the switch would fail.
+
     Rebase behavior:
 
-    - Main/master branches: Rebases to upstream/main or upstream/master
-    - Feature branches: Rebases to upstream's default branch (main/master)
-
-    This allows you to keep your main branch in sync with upstream/main,
-    while also keeping feature branches up-to-date with the latest upstream changes.
+    - Default branch: Rebases to upstream/main or upstream/master
+    - --all-branches: Rebases each mapped branch to its upstream target
 
     Usage::
 
@@ -894,6 +949,7 @@ def sync_callback(
                 verbose,
                 force,
                 dry_run,
+                config,
             )
             return
 
@@ -985,6 +1041,9 @@ def sync_callback(
                 force,
                 dry_run,
                 upstream_branch=get_upstream_branch(config, group, repo_info["name"]),
+                preferred_branch=repo.get_preferred_branch(
+                    config, group, repo_info["name"]
+                ),
                 lines=lines,
             )
             _print_repo_panel(repo_info["name"], status, lines)
@@ -1021,6 +1080,7 @@ def sync_callback(
                 verbose,
                 force,
                 dry_run,
+                config,
             )
             return
 
@@ -1061,6 +1121,9 @@ def sync_callback(
             upstream_branch=get_upstream_branch(
                 config, repo_info.get("group", ""), repo_info["name"]
             ),
+            preferred_branch=repo.get_preferred_branch(
+                config, repo_info.get("group", ""), repo_info["name"]
+            ),
             lines=lines,
         )
         _print_repo_panel(repo_info["name"], status, lines)
@@ -1087,8 +1150,17 @@ def _sync_repository(
     upstream_branch: str | None = None,
     abort_on_conflict: bool = False,
     lines: list | None = None,
+    preferred_branch: str | None = None,
+    checkout_default: bool = True,
 ) -> str:
     """Sync a single repository with upstream.
+
+    Sync always targets the repo's default branch: the configured
+    ``preferred_branch``, else ``main``, else ``master``. When another branch is
+    checked out, sync switches to the default branch and switches back when it
+    finishes. A repo with modified tracked files is skipped, because the switch
+    would fail. Pass ``checkout_default=False`` to sync whatever branch is
+    checked out (used by ``--all-branches``, which drives the checkouts itself).
 
     For main/master branches: rebases to upstream/<branch_name>
     For feature branches: rebases to upstream's default branch (main/master),
@@ -1189,6 +1261,99 @@ def _sync_repository(
         emit(f"❌ Failed to get current branch: {e.stderr}", style="red")
         return finish("failed")
 
+    # Sync always operates on the default branch. Switch to it first, and
+    # restore the original branch afterwards.
+    original_branch = current_branch
+    if checkout_default:
+        default_branch = _default_sync_branch(repo_path, preferred_branch)
+        if not default_branch:
+            emit(
+                "⚠️  No main, master, or preferred branch found, skipping",
+                style="yellow",
+            )
+            return finish("skipped")
+        if default_branch != current_branch:
+            # A dry run reads refs only, so it can preview the default branch
+            # without touching the tree. Only a real sync must switch.
+            if not dry_run and _has_local_changes(repo_path):
+                emit(
+                    f"⚠️  Skipping: uncommitted changes block switch from "
+                    f"'{current_branch}' to '{default_branch}'",
+                    style="yellow",
+                )
+                return finish("skipped")
+            if verbose:
+                action = "Would switch" if dry_run else "Switching"
+                emit(
+                    f"[verbose] {action} from {current_branch} to {default_branch}",
+                    style="dim",
+                )
+            if not dry_run:
+                try:
+                    subprocess.run(
+                        ["git", "-C", str(repo_path), "switch", default_branch],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    emit(
+                        f"❌ Failed to switch to {default_branch}: {e.stderr}",
+                        style="red",
+                    )
+                    return finish("failed")
+            current_branch = default_branch
+
+    try:
+        status = _sync_current_branch(
+            repo_path,
+            repo_name,
+            current_branch,
+            verbose,
+            force,
+            dry_run,
+            upstream_branch,
+            abort_on_conflict,
+            emit,
+            emit_output,
+        )
+    finally:
+        if (
+            checkout_default
+            and original_branch != current_branch
+            and not dry_run
+            and _current_branch(repo_path) != original_branch
+        ):
+            try:
+                subprocess.run(
+                    ["git", "-C", str(repo_path), "switch", original_branch],
+                    check=True,
+                    capture_output=not verbose,
+                    text=True,
+                )
+            except subprocess.CalledProcessError:
+                emit(
+                    f"⚠️  Could not switch back to original branch '{original_branch}'",
+                    style="yellow",
+                )
+
+    return finish(status)
+
+
+def _sync_current_branch(
+    repo_path,
+    repo_name,
+    current_branch,
+    verbose,
+    force,
+    dry_run,
+    upstream_branch,
+    abort_on_conflict,
+    emit,
+    emit_output,
+):
+    """Fetch, rebase, and push the checked-out branch. Returns a status string."""
+
     # Fetch from upstream
     try:
         if verbose:
@@ -1206,7 +1371,7 @@ def _sync_repository(
 
     except subprocess.CalledProcessError as e:
         emit(f"❌ Failed to fetch from upstream: {e.stderr}", style="red")
-        return finish("failed")
+        return "failed"
 
     # Determine which branch to rebase onto
     # For main/master: rebase to upstream/<current_branch>
@@ -1283,7 +1448,7 @@ def _sync_repository(
 
                 if not upstream_default:
                     emit("❌ Could not determine upstream default branch", style="red")
-                    return finish("failed")
+                    return "failed"
 
             rebase_target = f"upstream/{upstream_default}"
             if verbose:
@@ -1297,7 +1462,7 @@ def _sync_repository(
         _show_commit_comparison(
             repo_path, repo_name, current_branch, rebase_target, verbose, emit
         )
-        return finish("dry_run")
+        return "dry_run"
 
     # Rebase on target branch
     try:
@@ -1339,7 +1504,7 @@ def _sync_repository(
                 f"  You may need to resolve conflicts manually in {repo_path}",
                 style="yellow",
             )
-        return finish("failed")
+        return "failed"
 
     # Push to origin
     try:
@@ -1366,7 +1531,7 @@ def _sync_repository(
             emit_output(result.stderr)
 
         emit("✅ Synced and pushed successfully", style="green")
-        return finish("synced")
+        return "synced"
 
     except subprocess.CalledProcessError as e:
         emit(
@@ -1376,7 +1541,7 @@ def _sync_repository(
         if e.stderr:
             emit_output(e.stderr, style="red")
         emit(f"  Try running: dpy sync {repo_name} --force", style="yellow")
-        return finish("failed")
+        return "failed"
 
 
 def _get_upstream_default_branch(

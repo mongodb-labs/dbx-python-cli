@@ -175,11 +175,17 @@ After cloning with the fork workflow, you can easily sync your local repository 
 
 This command will:
 
-1. Fetch the latest changes from the ``upstream`` remote
-2. Rebase your current branch onto the appropriate upstream branch (see Rebase Behavior below)
-3. Push the rebased branch to ``origin`` (your fork)
-4. If ``--force`` is used, force push with ``--force-with-lease`` for safety
-5. If ``--dry-run`` is used, compare commits between upstream and origin without making changes
+1. Switch to the repo's default branch if another branch is checked out
+2. Fetch the latest changes from the ``upstream`` remote
+3. Rebase the default branch onto the appropriate upstream branch (see Rebase Behavior below)
+4. Push the rebased branch to ``origin`` (your fork)
+5. Switch back to the branch you started on
+6. If ``--force`` is used, force push with ``--force-with-lease`` for safety
+7. If ``--dry-run`` is used, compare commits between upstream and origin without making changes
+
+The default branch is the group's ``preferred_branch`` for the repo, else ``main``,
+else ``master``. If modified tracked files block the switch, the repo is skipped
+with a warning and left untouched.
 
 ``dpy sync`` prints one panel per repository by default, in the same style as
 ``dpy ci`` and ``dpy infra``. Each panel holds the steps for that repo, such as
@@ -201,9 +207,11 @@ lines.
 
 **Rebase behavior:**
 
-- **main / master** — always rebases to ``upstream/main`` or ``upstream/master``
-- **Feature branches with** ``upstream_branch`` **configured** — rebases to ``upstream/<configured-branch>`` (useful for fork workflows where the local branch name differs from the upstream branch, e.g. ``mongodb-6.0.x`` → ``upstream/stable/6.0.x``)
-- **Other feature branches** — detects the upstream remote's default branch (``main`` or ``master``) and rebases to that
+A default sync touches only the default branch.
+
+- **main / master** — rebases to ``upstream/main`` or ``upstream/master``
+- **``--all-branches`` branches with** ``upstream_branch`` **configured** — rebases to ``upstream/<configured-branch>`` (useful for fork workflows where the local branch name differs from the upstream branch, e.g. ``mongodb-6.0.x`` → ``upstream/stable/6.0.x``)
+- **Other ``--all-branches`` branches** — detects the upstream remote's default branch (``main`` or ``master``) and rebases to that
 
 **Example workflow:**
 
@@ -212,31 +220,30 @@ lines.
    # Clone your fork with upstream configured
    dpy clone -g pymongo --fork-user aclark4life
 
-   # Make some changes in your fork
+   # Make some changes on a feature branch
    cd ~/Developer/mongodb/pymongo/mongo-python-driver
-   git checkout -b my-feature
+   git switch -c my-feature
    # ... make changes ...
    git commit -am "Add new feature"
 
    # Preview what would be synced (dry run)
    dpy sync mongo-python-driver --dry-run
-   # Shows commits that would be applied from upstream and commits that would be rebased
+   # Shows upstream commits that would be applied to the default branch
 
-   # Sync with upstream to get latest changes and push
+   # Sync the default branch with upstream
    dpy sync mongo-python-driver
-   # Fetches from upstream, rebases your branch, and pushes to origin
-
-   # Your changes are now in your fork, ready for a pull request!
+   # Switches to the default branch, fetches, rebases, pushes to origin,
+   # and switches back to my-feature
 
 **Notes:**
 
 - The ``sync`` command requires an ``upstream`` remote to be configured
 - If you cloned with ``--fork``, the upstream remote is automatically set up
 - If you configured ``upstream`` in your group config, the remote is also set up automatically on clone (see :ref:`config-driven-upstream`)
-- After rebasing, it automatically pushes to ``origin/<current-branch>``
+- After rebasing, it automatically pushes the default branch to ``origin``
 - If the push fails (e.g., you've already pushed and rebased), use ``--force`` flag
 - The ``--force`` flag uses ``--force-with-lease`` for safety (won't overwrite others' changes)
-- If there are rebase conflicts, you'll need to resolve them manually
+- If there are rebase conflicts, you'll need to resolve them manually on the default branch
 - Works with any repository that has an ``upstream`` remote, not just forks
 
 .. _sync-after-clone:
