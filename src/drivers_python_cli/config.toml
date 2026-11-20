@@ -326,8 +326,19 @@ repos = [
 # facts that registry cannot express.
 [infra.mongo-python-driver]
 
-[infra.mongo-python-driver.release]
-links = { release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/285096294/Python+Driver+Release+Process" }
+[infra.mongo-python-driver.release.links]
+release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/285096294/Python+Driver+Release+Process"
+ssdlc-policy = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#heading=h.lsu5vzfweqcq"
+ssdlc-how-we-develop = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.ic9o2y62f82x"
+ssdlc-dependencies = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.l09k96qt24jm"
+ssdlc-static-analysis = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.dcfsu6hgth28"
+ssdlc-security-testing = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.xtn449dfjbkf"
+ssdlc-external-assessment = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.srolwhdzwb1m"
+ssdlc-signed-releases = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.rbsf1yqfgcik"
+ssdlc-distribution = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.5ed6jwn4f29f"
+ssdlc-container-images = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.ds4u1xkkbtaj"
+ssdlc-scanning = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.i18h7tsr8xz9"
+security-testing-summary = "https://docs.google.com/document/d/1y2K_RY4GZVXpQvv4JH_35mSzFRTawNJ3mibpvSBU8H0/edit"
 
 [infra.mongo-python-driver.load_balancer]
 requires_tools = ["haproxy"]
