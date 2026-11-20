@@ -377,15 +377,20 @@ notes = "Fuzz tests run only in Evergreen builds."
 
 [infra.abx-release-tools.release.links]
 release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+abx-release-tools = "https://abx-release-tools.readthedocs.io/en/latest/"
 
 [infra.mlflow-mongodb.release.links]
 release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+abx-release-tools = "https://abx-release-tools.readthedocs.io/en/latest/"
 
 [infra.strands-mongodb.release.links]
 release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+abx-release-tools = "https://abx-release-tools.readthedocs.io/en/latest/"
 
 [infra.ms-agent-framework-mongodb.release.links]
 release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+abx-release-tools = "https://abx-release-tools.readthedocs.io/en/latest/"
 
 [infra.claude-agent-sdk-mongodb-session-store.release.links]
 release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+abx-release-tools = "https://abx-release-tools.readthedocs.io/en/latest/"
