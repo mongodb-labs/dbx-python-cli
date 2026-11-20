@@ -328,17 +328,14 @@ repos = [
 
 [infra.mongo-python-driver.release.links]
 release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/285096294/Python+Driver+Release+Process"
-ssdlc-policy = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#heading=h.lsu5vzfweqcq"
-ssdlc-how-we-develop = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.ic9o2y62f82x"
-ssdlc-dependencies = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.l09k96qt24jm"
-ssdlc-static-analysis = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.dcfsu6hgth28"
-ssdlc-security-testing = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.xtn449dfjbkf"
-ssdlc-external-assessment = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.srolwhdzwb1m"
-ssdlc-signed-releases = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.rbsf1yqfgcik"
-ssdlc-distribution = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.5ed6jwn4f29f"
-ssdlc-container-images = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.ds4u1xkkbtaj"
-ssdlc-scanning = "https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit#bookmark=id.i18h7tsr8xz9"
+ssdlc-program = "https://wiki.corp.mongodb.com/spaces/SEC/pages/276636381/SSDLC+Program+What+to+Know+go+ssdlc-wiki"
+ssdlc-checklist = "https://wiki.corp.mongodb.com/spaces/SEC/pages/499650262/SSDLC+Checklist"
+repository-security-policy = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/276631785/DBX+Repository+and+Commit+Security+Policy"
+secure-release-process = "https://wiki.corp.mongodb.com/spaces/DRIVERS/pages/427464463/How+To+Set+up+Secure+Release+Process+using+GitHub+Actions"
+dbx-scope = "https://docs.google.com/document/d/1mXxDdY38nGVKWJhIbH83X6mcHsxllAiunH2hg-NdDsY/edit"
 security-testing-summary = "https://docs.google.com/document/d/1y2K_RY4GZVXpQvv4JH_35mSzFRTawNJ3mibpvSBU8H0/edit"
+snyk = "https://app.snyk.io/org/dev-prod"
+kondukto = "https://docs.devprod.prod.corp.mongodb.com/mms/python/src/sbom/silkbomb/docs/ONBOARDING#request-a-kondukto-project-for-github-repository"
 
 [infra.mongo-python-driver.load_balancer]
 requires_tools = ["haproxy"]
@@ -377,3 +374,18 @@ notes = "Start a perf server first, e.g. just run-server --version=v8.0-perf --s
 
 [infra.mongo-python-driver.fuzz]
 notes = "Fuzz tests run only in Evergreen builds."
+
+[infra.abx-release-tools.release.links]
+release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+
+[infra.mlflow-mongodb.release.links]
+release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+
+[infra.strands-mongodb.release.links]
+release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+
+[infra.ms-agent-framework-mongodb.release.links]
+release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
+
+[infra.claude-agent-sdk-mongodb-session-store.release.links]
+release-how-to = "https://docs.google.com/document/d/1rhYkWgbasperhG_9m5enMLamVkM0Nm5E7XuZ9lixxLI/edit"
